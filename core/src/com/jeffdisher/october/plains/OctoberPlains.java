@@ -19,7 +19,6 @@ import com.badlogic.gdx.graphics.GL20;
 public class OctoberPlains extends ApplicationAdapter
 {
 	public static final float TILE_EDGE_SIZE = 0.1f;
-	public static final float INCREMENT = 0.02f;
 
 	// We need to render 2 kinds of things:  (1) Cuboid layers, (2) entities.
 	// We will just use a single pair of shaders, at least for now, for both of these cases:
@@ -35,9 +34,7 @@ public class OctoberPlains extends ApplicationAdapter
 	private int _layerMeshBuffer;
 	private int _layerTextureBuffer;
 
-	// Active screen/view state.
-	private float _x = 0.5f;
-	private float _y = 0.5f;
+	private ClientLogic _client;
 
 	@Override
 	public void create ()
@@ -92,6 +89,10 @@ public class OctoberPlains extends ApplicationAdapter
 		
 		// Define the starting layer texture coordinates.
 		_layerTextureBuffer = _defineLayerTextureBuffer(_gl);
+		
+		// At this point, we can also create the basic OctoberProject client and testing environment.
+		_client = new ClientLogic();
+		_client.finishStartup();
 	}
 
 	@Override
@@ -103,29 +104,29 @@ public class OctoberPlains extends ApplicationAdapter
 		_gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 		_gl.glUseProgram(_program);
 		
-		// Handle inputs.
+		// Handle inputs - we will only allow a single direction at a time.
 		if (Gdx.input.isKeyPressed(Keys.DPAD_UP))
 		{
-			_y -= INCREMENT;
+			_client.stepNorth();
 		}
-		if (Gdx.input.isKeyPressed(Keys.DPAD_DOWN))
+		else if (Gdx.input.isKeyPressed(Keys.DPAD_DOWN))
 		{
-			_y += INCREMENT;
+			_client.stepSouth();
 		}
-		if (Gdx.input.isKeyPressed(Keys.DPAD_RIGHT))
+		else if (Gdx.input.isKeyPressed(Keys.DPAD_RIGHT))
 		{
-			_x -= INCREMENT;
+			_client.stepEast();
 		}
-		if (Gdx.input.isKeyPressed(Keys.DPAD_LEFT))
+		else if (Gdx.input.isKeyPressed(Keys.DPAD_LEFT))
 		{
-			_x += INCREMENT;
+			_client.stepWest();
 		}
 		
 		// Draw the background layer.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas);
 		_gl.glUniform1i(_uTexture, 0);
-		_gl.glUniform2f(_uOffset, _x, _y);
+		_gl.glUniform2f(_uOffset, -1.0f * _client.getXLocation(), -1.0f * _client.getYLocation());
 		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _layerMeshBuffer);
 		_gl.glEnableVertexAttribArray(0);
 		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 0, 0);
