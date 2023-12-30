@@ -1,6 +1,5 @@
 package com.jeffdisher.october.plains;
 
-import com.jeffdisher.october.changes.EntityChangeMove;
 import com.jeffdisher.october.changes.IEntityChange;
 import com.jeffdisher.october.client.ClientRunner;
 import com.jeffdisher.october.client.IClientAdapter;
@@ -27,6 +26,7 @@ public class ClientLogic
 	private final ClientRunner _client;
 	private long _nextFakeCommitNumber;
 	private Entity _thisEntity;
+	private long _latestLocalCommit;
 
 	public ClientLogic()
 	{
@@ -35,6 +35,7 @@ public class ClientLogic
 		_clientListener = new ClientListener();
 		_client = new ClientRunner(_network, _projectionListener, _clientListener);
 		_nextFakeCommitNumber = 0L;
+		_latestLocalCommit = 0L;
 	}
 
 	public void finishStartup()
@@ -54,39 +55,43 @@ public class ClientLogic
 		_network.listener.receivedCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)-1, (short)-1), ItemRegistry.STONE));
 		_network.listener.receivedCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)-1, (short)-1), ItemRegistry.STONE));
 		_network.listener.receivedCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)0, (short)-1), ItemRegistry.STONE));
-		_endTick();
+		_endTick(System.currentTimeMillis());
 	}
 
 	public void stepNorth()
 	{
 		EntityLocation oldLocation = _thisEntity.location();
 		EntityLocation newLocation = new EntityLocation(oldLocation.x(), oldLocation.y() + INCREMENT, oldLocation.z());
-		_network.listener.receivedChange(ENTITY_ID, new EntityChangeMove(oldLocation, newLocation));
-		_endTick();
+		long currentTimeMillis = System.currentTimeMillis();
+		_client.moveTo(newLocation, currentTimeMillis);
+		_endTick(currentTimeMillis);
 	}
 
 	public void stepSouth()
 	{
 		EntityLocation oldLocation = _thisEntity.location();
 		EntityLocation newLocation = new EntityLocation(oldLocation.x(), oldLocation.y() - INCREMENT, oldLocation.z());
-		_network.listener.receivedChange(ENTITY_ID, new EntityChangeMove(oldLocation, newLocation));
-		_endTick();
+		long currentTimeMillis = System.currentTimeMillis();
+		_client.moveTo(newLocation, currentTimeMillis);
+		_endTick(currentTimeMillis);
 	}
 
 	public void stepEast()
 	{
 		EntityLocation oldLocation = _thisEntity.location();
 		EntityLocation newLocation = new EntityLocation(oldLocation.x() + INCREMENT, oldLocation.y(), oldLocation.z());
-		_network.listener.receivedChange(ENTITY_ID, new EntityChangeMove(oldLocation, newLocation));
-		_endTick();
+		long currentTimeMillis = System.currentTimeMillis();
+		_client.moveTo(newLocation, currentTimeMillis);
+		_endTick(currentTimeMillis);
 	}
 
 	public void stepWest()
 	{
 		EntityLocation oldLocation = _thisEntity.location();
 		EntityLocation newLocation = new EntityLocation(oldLocation.x() - INCREMENT, oldLocation.y(), oldLocation.z());
-		_network.listener.receivedChange(ENTITY_ID, new EntityChangeMove(oldLocation, newLocation));
-		_endTick();
+		long currentTimeMillis = System.currentTimeMillis();
+		_client.moveTo(newLocation, currentTimeMillis);
+		_endTick(currentTimeMillis);
 	}
 
 	public float getXLocation()
@@ -100,10 +105,10 @@ public class ClientLogic
 	}
 
 
-	private void _endTick()
+	private void _endTick(long currentTimeMillis)
 	{
-		_network.listener.receivedEndOfTick(_nextFakeCommitNumber++, 0L);
-		_client.runPendingCalls(System.currentTimeMillis());
+		_network.listener.receivedEndOfTick(_nextFakeCommitNumber++, _latestLocalCommit);
+		_client.runPendingCalls(currentTimeMillis);
 	}
 
 
@@ -123,6 +128,9 @@ public class ClientLogic
 		@Override
 		public void sendChange(IEntityChange change, long commitLevel)
 		{
+			// We just stuff this back in.
+			_latestLocalCommit = commitLevel;
+			this.listener.receivedChange(ENTITY_ID, change);
 		}
 	}
 
