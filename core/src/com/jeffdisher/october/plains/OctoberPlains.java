@@ -1,18 +1,14 @@
 package com.jeffdisher.october.plains;
 
-import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
-import javax.imageio.ImageIO;
-
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
-import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.GL20;
 
 
@@ -29,7 +25,7 @@ public class OctoberPlains extends ApplicationAdapter
 	private int _program;
 	private int _uOffset;
 	private int _uTexture;
-	private int _textureAtlas;
+	private TextureAtlas _textureAtlas;
 	private int _entityBuffer;
 	private int _layerMeshBuffer;
 	private int _layerTextureBuffer;
@@ -73,7 +69,14 @@ public class OctoberPlains extends ApplicationAdapter
 		// Load the textures.
 		try
 		{
-			_textureAtlas = _loadTextureAtlas(_gl, "unknown.jpeg");
+			// These are resolved by index so they must be loaded in the same order as the item registry.
+			_textureAtlas = TextureAtlas.loadAtlas(_gl, new String[] {
+					"air.png",
+					"stone.png",
+					"log.png",
+					"plank.png",
+					"unknown.jpeg",
+			});
 		}
 		catch (IOException e)
 		{
@@ -88,7 +91,7 @@ public class OctoberPlains extends ApplicationAdapter
 		_layerMeshBuffer = _defineLayerMeshBuffer(_gl);
 		
 		// Define the starting layer texture coordinates.
-		_layerTextureBuffer = _defineLayerTextureBuffer(_gl);
+		_layerTextureBuffer = _defineLayerTextureBuffer(_gl, _textureAtlas);
 		
 		// At this point, we can also create the basic OctoberProject client and testing environment.
 		_client = new ClientLogic();
@@ -124,7 +127,7 @@ public class OctoberPlains extends ApplicationAdapter
 		
 		// Draw the background layer.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
 		_gl.glUniform1i(_uTexture, 0);
 		_gl.glUniform2f(_uOffset, -1.0f * _client.getXLocation(), -1.0f * _client.getYLocation());
 		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _layerMeshBuffer);
@@ -140,7 +143,7 @@ public class OctoberPlains extends ApplicationAdapter
 		
 		// Draw the entity.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
 		_gl.glUniform1i(_uTexture, 0);
 		_gl.glUniform2f(_uOffset, 0.0f, 0.0f);
 		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _entityBuffer);
@@ -187,44 +190,6 @@ public class OctoberPlains extends ApplicationAdapter
 		}
 		gl.glAttachShader(program, shader);
 		return shader;
-	}
-
-	private static int _loadTextureAtlas(GL20 gl, String name) throws IOException
-	{
-		// TODO:  Change this when we have more than one texture and need to actually build the atlas.
-		FileHandle unknownTextureFile = Gdx.files.internal(name);
-		BufferedImage loadedTexture = ImageIO.read(unknownTextureFile.read());
-		
-		// We want to use RGBA for the textures so figure out the total texture space.
-		int width = loadedTexture.getWidth();
-		int height = loadedTexture.getHeight();
-		int bytesToAllocate = width * height * 4;
-		ByteBuffer textureBufferData = ByteBuffer.allocateDirect(bytesToAllocate);
-		textureBufferData.order(ByteOrder.nativeOrder());
-		for (int y = 0; y < height; ++y)
-		{
-			for (int x = 0; x < width; ++x)
-			{
-				int pixel = loadedTexture.getRGB(x, y);
-				// This data is pulled out as ARGB but we need to upload it as RGBA.
-				byte a = (byte)((0xFF000000 & pixel) >> 24);
-				byte r = (byte)((0x00FF0000 & pixel) >> 16);
-				byte g = (byte)((0x0000FF00 & pixel) >> 8);
-				byte b = (byte) (0x000000FF & pixel);
-//				textureBufferData.put(new byte[] { (byte)255, (byte)0, (byte)0, (byte)255 });
-				textureBufferData.put(new byte[] { r, g, b, a });
-			}
-		}
-		((java.nio.Buffer) textureBufferData).flip();
-		
-		// Create the texture and upload.
-		int texture = gl.glGenTexture();
-		gl.glBindTexture(GL20.GL_TEXTURE_2D, texture);
-		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_RGBA, width, height, 0, GL20.GL_RGBA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
-		gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_WRAP_S, GL20.GL_CLAMP_TO_EDGE);
-		gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_WRAP_T, GL20.GL_CLAMP_TO_EDGE);
-		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
-		return texture;
 	}
 
 	private static int _defineEntityBuffer(GL20 gl)
@@ -307,7 +272,7 @@ public class OctoberPlains extends ApplicationAdapter
 		return commonMesh;
 	}
 
-	private static int _defineLayerTextureBuffer(GL20 gl)
+	private static int _defineLayerTextureBuffer(GL20 gl, TextureAtlas atlas)
 	{
 		int tilesPerEdge = 32;
 		// Build the single layer pointing at texture 0 - these are just texture coordinates.
@@ -325,13 +290,16 @@ public class OctoberPlains extends ApplicationAdapter
 		singleLayerData.order(ByteOrder.nativeOrder());
 		// Populate the common mesh.
 		FloatBuffer textureBuffer = singleLayerData.asFloatBuffer();
-		float textureSize = 1.0f;
+		float textureSize = atlas.coordinateSize;
 		for (int y = 0; y < tilesPerEdge; ++y)
 		{
 			for (int x = 0; x < tilesPerEdge; ++x)
 			{
-				float textureBaseU = 0.0f;
-				float textureBaseV = 0.0f;
+				short blockValue = (short)(x % 5);
+				
+				float[] uv = atlas.baseOfTexture(blockValue);
+				float textureBaseU = uv[0];
+				float textureBaseV = uv[1];
 				
 				// NOTE:  We invert the textures here (probably not ideal).
 				float[] tl = new float[]{textureBaseU, textureBaseV};
