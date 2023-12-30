@@ -60,38 +60,54 @@ public class ClientLogic
 
 	public void stepNorth()
 	{
-		EntityLocation oldLocation = _thisEntity.location();
-		EntityLocation newLocation = new EntityLocation(oldLocation.x(), oldLocation.y() + INCREMENT, oldLocation.z());
+		// Make sure that there is no in-progress action, first.
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.moveTo(newLocation, currentTimeMillis);
-		_endTick(currentTimeMillis);
+		if (!_client.isActivityInProgress(currentTimeMillis))
+		{
+			EntityLocation oldLocation = _thisEntity.location();
+			EntityLocation newLocation = new EntityLocation(oldLocation.x(), oldLocation.y() + INCREMENT, oldLocation.z());
+			_client.moveTo(newLocation, currentTimeMillis);
+			_endTick(currentTimeMillis);
+		}
 	}
 
 	public void stepSouth()
 	{
-		EntityLocation oldLocation = _thisEntity.location();
-		EntityLocation newLocation = new EntityLocation(oldLocation.x(), oldLocation.y() - INCREMENT, oldLocation.z());
+		// Make sure that there is no in-progress action, first.
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.moveTo(newLocation, currentTimeMillis);
-		_endTick(currentTimeMillis);
+		if (!_client.isActivityInProgress(currentTimeMillis))
+		{
+			EntityLocation oldLocation = _thisEntity.location();
+			EntityLocation newLocation = new EntityLocation(oldLocation.x(), oldLocation.y() - INCREMENT, oldLocation.z());
+			_client.moveTo(newLocation, currentTimeMillis);
+			_endTick(currentTimeMillis);
+		}
 	}
 
 	public void stepEast()
 	{
-		EntityLocation oldLocation = _thisEntity.location();
-		EntityLocation newLocation = new EntityLocation(oldLocation.x() + INCREMENT, oldLocation.y(), oldLocation.z());
+		// Make sure that there is no in-progress action, first.
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.moveTo(newLocation, currentTimeMillis);
-		_endTick(currentTimeMillis);
+		if (!_client.isActivityInProgress(currentTimeMillis))
+		{
+			EntityLocation oldLocation = _thisEntity.location();
+			EntityLocation newLocation = new EntityLocation(oldLocation.x() + INCREMENT, oldLocation.y(), oldLocation.z());
+			_client.moveTo(newLocation, currentTimeMillis);
+			_endTick(currentTimeMillis);
+		}
 	}
 
 	public void stepWest()
 	{
-		EntityLocation oldLocation = _thisEntity.location();
-		EntityLocation newLocation = new EntityLocation(oldLocation.x() - INCREMENT, oldLocation.y(), oldLocation.z());
+		// Make sure that there is no in-progress action, first.
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.moveTo(newLocation, currentTimeMillis);
-		_endTick(currentTimeMillis);
+		if (!_client.isActivityInProgress(currentTimeMillis))
+		{
+			EntityLocation oldLocation = _thisEntity.location();
+			EntityLocation newLocation = new EntityLocation(oldLocation.x() - INCREMENT, oldLocation.y(), oldLocation.z());
+			_client.moveTo(newLocation, currentTimeMillis);
+			_endTick(currentTimeMillis);
+		}
 	}
 
 	public float getXLocation()
