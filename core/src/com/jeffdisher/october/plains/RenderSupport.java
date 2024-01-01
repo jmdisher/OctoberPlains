@@ -7,6 +7,9 @@ import java.nio.IntBuffer;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
+import com.jeffdisher.october.data.IReadOnlyCuboidData;
+import com.jeffdisher.october.types.CuboidAddress;
+import com.jeffdisher.october.types.Entity;
 
 
 public class RenderSupport
@@ -18,14 +21,17 @@ public class RenderSupport
 	// -vertex shader will move the rendering location by x/y uniform and pass through the texture u/v coordinates attribute
 	// -fragment shader will sample the referenced texture coordinates and apply an alpha value
 	// These shaders will be used for both rendering the layers and also the entities, just using different uniforms.
-	private GL20 _gl;
+	private final GL20 _gl;
+	private final TextureAtlas _textureAtlas;
+	
 	private int _program;
 	private int _uOffset;
 	private int _uTexture;
-	private TextureAtlas _textureAtlas;
 	private int _entityBuffer;
 	private int _layerMeshBuffer;
 	private int _layerTextureBuffer;
+
+	private Entity _thisEntity;
 
 	public RenderSupport(GL20 gl, TextureAtlas textureAtlas)
 	{
@@ -70,7 +76,7 @@ public class RenderSupport
 		_layerTextureBuffer = _defineLayerTextureBuffer(_gl, _textureAtlas);
 	}
 
-	public void renderScene(ClientLogic client)
+	public void renderScene()
 	{
 		// Reset screen.
 		_gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
@@ -78,11 +84,15 @@ public class RenderSupport
 		_gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 		_gl.glUseProgram(_program);
 		
+		// We render this relative to the entity, so figure out where it is.
+		float x = _thisEntity.location().x();
+		float y = _thisEntity.location().y();
+		
 		// Draw the background layer.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
 		_gl.glUniform1i(_uTexture, 0);
-		_gl.glUniform2f(_uOffset, -1.0f * client.getXLocation(), -1.0f * client.getYLocation());
+		_gl.glUniform2f(_uOffset, -1.0f * x, -1.0f * y);
 		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _layerMeshBuffer);
 		_gl.glEnableVertexAttribArray(0);
 		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 0, 0);
@@ -105,6 +115,21 @@ public class RenderSupport
 		_gl.glEnableVertexAttribArray(1);
 		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+	}
+
+	public void setThisEntity(Entity thisEntity)
+	{
+		_thisEntity = thisEntity;
+	}
+
+	public void setOneCuboid(IReadOnlyCuboidData cuboid)
+	{
+		// TODO:  Implement once we are rendering the cuboids.
+	}
+
+	public void removeCuboid(CuboidAddress address)
+	{
+		// TODO:  Implement once we are rendering the cuboids.
 	}
 
 

@@ -6,6 +6,9 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.graphics.GL20;
+import com.jeffdisher.october.data.IReadOnlyCuboidData;
+import com.jeffdisher.october.types.CuboidAddress;
+import com.jeffdisher.october.types.Entity;
 
 
 public class OctoberPlains extends ApplicationAdapter
@@ -43,7 +46,10 @@ public class OctoberPlains extends ApplicationAdapter
 		_renderer = new RenderSupport(gl, _textureAtlas);
 		
 		// At this point, we can also create the basic OctoberProject client and testing environment.
-		_client = new ClientLogic();
+		_client = new ClientLogic((Entity entity) -> _renderer.setThisEntity(entity)
+				, (IReadOnlyCuboidData cuboid) -> _renderer.setOneCuboid(cuboid)
+				, (CuboidAddress address) -> _renderer.removeCuboid(address)
+		);
 		_client.finishStartup();
 	}
 
@@ -51,7 +57,7 @@ public class OctoberPlains extends ApplicationAdapter
 	public void render ()
 	{
 		// Draw the scene.
-		_renderer.renderScene(_client);
+		_renderer.renderScene();
 		
 		// Handle inputs - we will only allow a single direction at a time.
 		if (Gdx.input.isKeyPressed(Keys.DPAD_UP))

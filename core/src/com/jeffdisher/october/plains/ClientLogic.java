@@ -1,5 +1,7 @@
 package com.jeffdisher.october.plains;
 
+import java.util.function.Consumer;
+
 import com.jeffdisher.october.changes.IEntityChange;
 import com.jeffdisher.october.client.ClientRunner;
 import com.jeffdisher.october.client.IClientAdapter;
@@ -19,6 +21,10 @@ public class ClientLogic
 	public static final int ENTITY_ID = 1;
 	public static final float INCREMENT = 0.02f;
 
+	private final Consumer<Entity> _thisEntityConsumer;
+	private final Consumer<IReadOnlyCuboidData> _changedCuboidConsumer;
+	private final Consumer<CuboidAddress> _removedCuboidConsumer;
+
 	private final FakeNetwork _network;
 	private final ProjectionListener _projectionListener;
 	private final ClientListener _clientListener;
@@ -28,8 +34,15 @@ public class ClientLogic
 	private Entity _thisEntity;
 	private long _latestLocalCommit;
 
-	public ClientLogic()
+	public ClientLogic(Consumer<Entity> thisEntityConsumer
+			, Consumer<IReadOnlyCuboidData> changedCuboidConsumer
+			, Consumer<CuboidAddress> removedCuboidConsumer
+	)
 	{
+		_thisEntityConsumer = thisEntityConsumer;
+		_changedCuboidConsumer = changedCuboidConsumer;
+		_removedCuboidConsumer = removedCuboidConsumer;
+		
 		_network = new FakeNetwork();
 		_projectionListener = new ProjectionListener();
 		_clientListener = new ClientListener();
@@ -110,16 +123,6 @@ public class ClientLogic
 		}
 	}
 
-	public float getXLocation()
-	{
-		return _thisEntity.location().x();
-	}
-
-	public float getYLocation()
-	{
-		return _thisEntity.location().y();
-	}
-
 
 	private void _endTick(long currentTimeMillis)
 	{
@@ -156,24 +159,29 @@ public class ClientLogic
 		@Override
 		public void cuboidDidChange(IReadOnlyCuboidData cuboid)
 		{
+			_changedCuboidConsumer.accept(cuboid);
 		}
 		@Override
 		public void cuboidDidLoad(IReadOnlyCuboidData cuboid)
 		{
+			_changedCuboidConsumer.accept(cuboid);
 		}
 		@Override
 		public void cuboidDidUnload(CuboidAddress address)
 		{
+			_removedCuboidConsumer.accept(address);
 		}
 		@Override
 		public void entityDidChange(Entity entity)
 		{
 			_thisEntity = entity;
+			_thisEntityConsumer.accept(_thisEntity);
 		}
 		@Override
 		public void entityDidLoad(Entity entity)
 		{
 			_thisEntity = entity;
+			_thisEntityConsumer.accept(_thisEntity);
 		}
 		@Override
 		public void entityDidUnload(int id)
