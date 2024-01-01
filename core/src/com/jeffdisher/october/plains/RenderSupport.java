@@ -4,12 +4,18 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
+import com.jeffdisher.october.registries.AspectRegistry;
+import com.jeffdisher.october.types.AbsoluteLocation;
+import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
+import com.jeffdisher.october.utils.Assert;
 
 
 public class RenderSupport
@@ -29,14 +35,18 @@ public class RenderSupport
 	private int _uTexture;
 	private int _entityBuffer;
 	private int _layerMeshBuffer;
-	private int _layerTextureBuffer;
 
 	private Entity _thisEntity;
+	private final Map<CuboidAddress, int[]> _layerTextureMeshes;
 
 	public RenderSupport(GL20 gl, TextureAtlas textureAtlas)
 	{
 		_gl = gl;
 		_textureAtlas = textureAtlas;
+		
+		// We want to honour alpha channels.
+		_gl.glEnable(GL20.GL_BLEND);
+		_gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 		
 		// Create the shader program.
 		_program = _fullyLinkedProgram(_gl
@@ -72,8 +82,7 @@ public class RenderSupport
 		// Define the layer mesh.
 		_layerMeshBuffer = _defineLayerMeshBuffer(_gl);
 		
-		// Define the starting layer texture coordinates.
-		_layerTextureBuffer = _defineLayerTextureBuffer(_gl, _textureAtlas);
+		_layerTextureMeshes = new HashMap<>();
 	}
 
 	public void renderScene()
@@ -84,25 +93,52 @@ public class RenderSupport
 		_gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 		_gl.glUseProgram(_program);
 		
-		// We render this relative to the entity, so figure out where it is.
-		float x = _thisEntity.location().x();
-		float y = _thisEntity.location().y();
-		
 		// Draw the background layer.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
 		_gl.glUniform1i(_uTexture, 0);
-		_gl.glUniform2f(_uOffset, -1.0f * x, -1.0f * y);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _layerMeshBuffer);
-		_gl.glEnableVertexAttribArray(0);
-		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 0, 0);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _layerTextureBuffer);
-		_gl.glEnableVertexAttribArray(1);
-		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 0, 0);
 		
-		int squaresPerCuboidEdge = 32;
-		int verticesPerSquare = 6;
-		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, squaresPerCuboidEdge * squaresPerCuboidEdge * verticesPerSquare);
+		// We render this relative to the entity, so figure out where it is.
+		AbsoluteLocation entityLocation = _thisEntity.location().getBlockLocation();
+		float x = _thisEntity.location().x();
+		float y = _thisEntity.location().y();
+		
+		// We want to render 9 layers:  3x3x3, centred around the entity location.
+		int cuboidSize = 32;
+		for (int zOffset = -1; zOffset <= 1; ++zOffset)
+		{
+			for (int xOffset = -cuboidSize; xOffset <= cuboidSize; xOffset += cuboidSize)
+			{
+				for (int yOffset = -cuboidSize; yOffset <= cuboidSize; yOffset += cuboidSize)
+				{
+					AbsoluteLocation offsetLocation = entityLocation.getRelative(xOffset, yOffset, zOffset);
+					CuboidAddress address = offsetLocation.getCuboidAddress();
+					
+					int[] meshLayers = _layerTextureMeshes.get(address);
+					// This may not be here if the server hasn't sent it yet.
+					if (null != meshLayers)
+					{
+						byte zLayer = offsetLocation.getBlockAddress().z();
+						int buffer = meshLayers[zLayer];
+						
+						// Be sure to position the camera above the entity, so calculate the offset where we will draw this layer.
+						float xCamera = (TILE_EDGE_SIZE * (float)xOffset) - (1.0f * x);
+						float yCamera = (TILE_EDGE_SIZE * (float)yOffset) - (1.0f * y);
+						_gl.glUniform2f(_uOffset, xCamera, yCamera);
+						_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _layerMeshBuffer);
+						_gl.glEnableVertexAttribArray(0);
+						_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 0, 0);
+						_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, buffer);
+						_gl.glEnableVertexAttribArray(1);
+						_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 0, 0);
+						
+						int squaresPerCuboidEdge = 32;
+						int verticesPerSquare = 6;
+						_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, squaresPerCuboidEdge * squaresPerCuboidEdge * verticesPerSquare);
+					}
+				}
+			}
+		}
 		
 		// Draw the entity.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
@@ -124,12 +160,32 @@ public class RenderSupport
 
 	public void setOneCuboid(IReadOnlyCuboidData cuboid)
 	{
-		// TODO:  Implement once we are rendering the cuboids.
+		// Generate all 32 layers.
+		// See if they already exist.
+		int[] layers = _layerTextureMeshes.get(cuboid.getCuboidAddress());
+		if (null == layers)
+		{
+			layers = new int[32];
+			for (int i = 0; i < layers.length; ++i)
+			{
+				layers[i] = _gl.glGenBuffer();
+			}
+			_layerTextureMeshes.put(cuboid.getCuboidAddress(), layers);
+		}
+		for (byte zLayer = 0; zLayer < 32; ++zLayer)
+		{
+			layers[zLayer] = _defineLayerTextureBuffer(_gl, _textureAtlas, cuboid, zLayer);
+		}
 	}
 
 	public void removeCuboid(CuboidAddress address)
 	{
-		// TODO:  Implement once we are rendering the cuboids.
+		int[] layers = _layerTextureMeshes.remove(address);
+		Assert.assertTrue(null != layers);
+		for (int layer : layers)
+		{
+			_gl.glDeleteBuffer(layer);
+		}
 	}
 
 
@@ -245,7 +301,7 @@ public class RenderSupport
 		return commonMesh;
 	}
 
-	private static int _defineLayerTextureBuffer(GL20 gl, TextureAtlas atlas)
+	private static int _defineLayerTextureBuffer(GL20 gl, TextureAtlas atlas, IReadOnlyCuboidData cuboid, byte zLayer)
 	{
 		int tilesPerEdge = 32;
 		// Build the single layer pointing at texture 0 - these are just texture coordinates.
@@ -268,7 +324,7 @@ public class RenderSupport
 		{
 			for (int x = 0; x < tilesPerEdge; ++x)
 			{
-				short blockValue = (short)(x % 5);
+				short blockValue = cuboid.getData15(AspectRegistry.BLOCK, new BlockAddress((byte)x, (byte)y, zLayer));
 				
 				float[] uv = atlas.baseOfTexture(blockValue);
 				float textureBaseU = uv[0];
