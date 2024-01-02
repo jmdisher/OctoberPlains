@@ -15,12 +15,14 @@ import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
+import com.jeffdisher.october.types.EntityLocation;
 import com.jeffdisher.october.utils.Assert;
 
 
 public class RenderSupport
 {
-	public static final float TILE_EDGE_SIZE = 0.1f;
+	// The screen is 2.0/2.0 (-1.0 - 1.0) and we want roughly 40x40 tiles on screen, so use this tile edge size.
+	public static final float TILE_EDGE_SIZE = 0.05f;
 
 	// We need to render 2 kinds of things:  (1) Cuboid layers, (2) entities.
 	// We will just use a single pair of shaders, at least for now, for both of these cases:
@@ -33,6 +35,7 @@ public class RenderSupport
 	private int _program;
 	private int _uOffset;
 	private int _uTexture;
+	private int _uLayerBrightness;
 	private int _entityBuffer;
 	private int _layerMeshBuffer;
 
@@ -63,10 +66,12 @@ public class RenderSupport
 				, "#version 100\n"
 						+ "precision mediump float;\n"
 						+ "uniform sampler2D uTexture;\n"
+						+ "uniform float uLayerBrightness;\n"
 						+ "varying vec2 vTexture;\n"
 						+ "void main()\n"
 						+ "{\n"
-						+ "	gl_FragColor = texture2D(uTexture, vTexture);\n"
+						+ "	vec4 tex = texture2D(uTexture, vTexture);\n"
+						+ "	gl_FragColor = vec4(uLayerBrightness * tex.r, uLayerBrightness * tex.g, uLayerBrightness * tex.b, tex.a);\n"
 						+ "}\n"
 				, new String[] {
 						"aPosition",
@@ -75,9 +80,10 @@ public class RenderSupport
 		);
 		_uOffset = _gl.glGetUniformLocation(_program, "uOffset");
 		_uTexture = _gl.glGetUniformLocation(_program, "uTexture");
+		_uLayerBrightness = _gl.glGetUniformLocation(_program, "uLayerBrightness");
 		
 		// Define the entity mesh and texture.
-		_entityBuffer = _defineEntityBuffer(_gl);
+		_entityBuffer = _defineEntityBuffer(_gl, _textureAtlas);
 		
 		// Define the layer mesh.
 		_layerMeshBuffer = _defineLayerMeshBuffer(_gl);
@@ -89,7 +95,7 @@ public class RenderSupport
 	{
 		// Reset screen.
 		_gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-		_gl.glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+		_gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		_gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 		_gl.glUseProgram(_program);
 		
@@ -99,19 +105,24 @@ public class RenderSupport
 		_gl.glUniform1i(_uTexture, 0);
 		
 		// We render this relative to the entity, so figure out where it is.
-		AbsoluteLocation entityLocation = _thisEntity.location().getBlockLocation();
-		float x = _thisEntity.location().x();
-		float y = _thisEntity.location().y();
+		EntityLocation entityLocation = _thisEntity.location();
+		AbsoluteLocation entityBlockLocation = entityLocation.getBlockLocation();
+		float x = entityLocation.x();
+		float y = entityLocation.y();
 		
-		// We want to render 9 layers:  3x3x3, centred around the entity location.
+		// We want to render 9 tiles with 3 layers:  3x3x3, centred around the entity location.
+		// (technically 4 tiles with 3 layers would be enough but that would require some extra logic)
 		int cuboidSize = 32;
+		float layerBrightness = 0.50f;
 		for (int zOffset = -1; zOffset <= 1; ++zOffset)
 		{
+			_gl.glUniform1f(_uLayerBrightness, layerBrightness);
+			layerBrightness += 0.25f;
 			for (int xOffset = -cuboidSize; xOffset <= cuboidSize; xOffset += cuboidSize)
 			{
 				for (int yOffset = -cuboidSize; yOffset <= cuboidSize; yOffset += cuboidSize)
 				{
-					AbsoluteLocation offsetLocation = entityLocation.getRelative(xOffset, yOffset, zOffset);
+					AbsoluteLocation offsetLocation = entityBlockLocation.getRelative(xOffset, yOffset, zOffset);
 					CuboidAddress address = offsetLocation.getCuboidAddress();
 					
 					int[] meshLayers = _layerTextureMeshes.get(address);
@@ -122,8 +133,8 @@ public class RenderSupport
 						int buffer = meshLayers[zLayer];
 						
 						// Be sure to position the camera above the entity, so calculate the offset where we will draw this layer.
-						float xCamera = (TILE_EDGE_SIZE * (float)xOffset) - (1.0f * x);
-						float yCamera = (TILE_EDGE_SIZE * (float)yOffset) - (1.0f * y);
+						float xCamera = TILE_EDGE_SIZE * ((float)(address.x() * cuboidSize) - x);
+						float yCamera = TILE_EDGE_SIZE * ((float)(address.y() * cuboidSize) - y);
 						_gl.glUniform2f(_uOffset, xCamera, yCamera);
 						_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _layerMeshBuffer);
 						_gl.glEnableVertexAttribArray(0);
@@ -221,17 +232,21 @@ public class RenderSupport
 		return shader;
 	}
 
-	private static int _defineEntityBuffer(GL20 gl)
+	private static int _defineEntityBuffer(GL20 gl, TextureAtlas atlas)
 	{
-		float halfTile = TILE_EDGE_SIZE / 2.0f;
+		float textureSize = atlas.coordinateSize;
+		// (we use the unknown texture at index 4, for now).
+		float[] uv = atlas.baseOfTexture(4);
+		float textureBaseU = uv[0];
+		float textureBaseV = uv[1];
 		float[] vertices = new float[] {
-				-halfTile,  halfTile, 0.0f, 1.0f,
-				-halfTile, -halfTile, 0.0f, 0.0f,
-				 halfTile, -halfTile, 1.0f, 0.0f,
+				0.0f, TILE_EDGE_SIZE, textureBaseU, textureBaseV + textureSize,
+				0.0f, 0.0f, textureBaseU, textureBaseV,
+				TILE_EDGE_SIZE, 0.0f, textureBaseU + textureSize, textureBaseV,
 				
-				 halfTile, -halfTile, 1.0f, 0.0f,
-				 halfTile,  halfTile, 1.0f, 1.0f,
-				-halfTile,  halfTile, 0.0f, 1.0f,
+				TILE_EDGE_SIZE, 0.0f, textureBaseU + textureSize, textureBaseV,
+				TILE_EDGE_SIZE, TILE_EDGE_SIZE, textureBaseU + textureSize, textureBaseV + textureSize,
+				 0.0f, TILE_EDGE_SIZE, textureBaseU, textureBaseV + textureSize,
 		};
 		ByteBuffer direct = ByteBuffer.allocateDirect(vertices.length * Float.BYTES);
 		direct.order(ByteOrder.nativeOrder());
@@ -274,8 +289,8 @@ public class RenderSupport
 		{
 			for (int x = 0; x < tilesPerEdge; ++x)
 			{
-				float xCoord = (TILE_EDGE_SIZE * x) - (TILE_EDGE_SIZE * (float)tilesPerEdge / 2.0f);
-				float yCoord = (TILE_EDGE_SIZE * y) - (TILE_EDGE_SIZE * (float)tilesPerEdge / 2.0f);
+				float xCoord = (TILE_EDGE_SIZE * x);
+				float yCoord = (TILE_EDGE_SIZE * y);
 				
 				float[] bl = new float[]{xCoord, yCoord};
 				float[] br = new float[]{xCoord + TILE_EDGE_SIZE, yCoord};

@@ -6,9 +6,12 @@ import com.jeffdisher.october.changes.IEntityChange;
 import com.jeffdisher.october.client.ClientRunner;
 import com.jeffdisher.october.client.IClientAdapter;
 import com.jeffdisher.october.client.SpeculativeProjection;
+import com.jeffdisher.october.data.CuboidData;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.logic.EntityActionValidator;
+import com.jeffdisher.october.registries.AspectRegistry;
 import com.jeffdisher.october.registries.ItemRegistry;
+import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.EntityLocation;
@@ -19,7 +22,9 @@ import com.jeffdisher.october.worldgen.CuboidGenerator;
 public class ClientLogic
 {
 	public static final int ENTITY_ID = 1;
-	public static final float INCREMENT = 0.02f;
+	// We have a walking speed limit of 4 blocks/second so we will pick something to push against that.
+	// (too high and we will see jitter due to rejections, too low and it will feel too slow).
+	public static final float INCREMENT = 0.1f;
 
 	private final Consumer<Entity> _thisEntityConsumer;
 	private final Consumer<IReadOnlyCuboidData> _changedCuboidConsumer;
@@ -59,10 +64,10 @@ public class ClientLogic
 		
 		// Since the location is standing in 0.0, we need to load at least the 8 cuboids around the origin.
 		// Note that we want them to stand on the ground so we will fill the bottom 4 with stone and the top 4 with air.
-		_network.listener.receivedCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)0, (short)0), ItemRegistry.AIR));
-		_network.listener.receivedCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)-1, (short)0), ItemRegistry.AIR));
-		_network.listener.receivedCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)-1, (short)0), ItemRegistry.AIR));
-		_network.listener.receivedCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)0, (short)0), ItemRegistry.AIR));
+		_network.listener.receivedCuboid(_generateColumnCuboid(new CuboidAddress((short)0, (short)0, (short)0)));
+		_network.listener.receivedCuboid(_generateColumnCuboid(new CuboidAddress((short)0, (short)-1, (short)0)));
+		_network.listener.receivedCuboid(_generateColumnCuboid(new CuboidAddress((short)-1, (short)-1, (short)0)));
+		_network.listener.receivedCuboid(_generateColumnCuboid(new CuboidAddress((short)-1, (short)0, (short)0)));
 		
 		_network.listener.receivedCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)0, (short)-1), ItemRegistry.STONE));
 		_network.listener.receivedCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)-1, (short)-1), ItemRegistry.STONE));
@@ -128,6 +133,25 @@ public class ClientLogic
 	{
 		_network.listener.receivedEndOfTick(_nextFakeCommitNumber++, _latestLocalCommit);
 		_client.runPendingCalls(currentTimeMillis);
+	}
+
+	private CuboidData _generateColumnCuboid(CuboidAddress address)
+	{
+		CuboidData cuboid = CuboidGenerator.createFilledCuboid(address, ItemRegistry.AIR);
+		
+		// Set the outer-most blocks as stone columns.
+		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte) 0, (byte) 0, (byte)0), ItemRegistry.STONE.number());
+		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte) 0, (byte)31, (byte)0), ItemRegistry.STONE.number());
+		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte)31, (byte)31, (byte)0), ItemRegistry.STONE.number());
+		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte)31, (byte) 0, (byte)0), ItemRegistry.STONE.number());
+		
+		// And the inner-most one more block in.
+		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte) 1, (byte) 1, (byte)0), ItemRegistry.STONE.number());
+		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte) 1, (byte)30, (byte)0), ItemRegistry.STONE.number());
+		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte)30, (byte)30, (byte)0), ItemRegistry.STONE.number());
+		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte)30, (byte) 1, (byte)0), ItemRegistry.STONE.number());
+		
+		return cuboid;
 	}
 
 
