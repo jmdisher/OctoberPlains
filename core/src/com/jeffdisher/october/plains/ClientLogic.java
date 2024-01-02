@@ -60,7 +60,10 @@ public class ClientLogic
 	{
 		// At this point, we will just feed the test data into the client.
 		_network.listener.adapterConnected(ENTITY_ID);
-		_network.listener.receivedEntity(EntityActionValidator.buildDefaultEntity(ENTITY_ID));
+		// We get a default entity but move it out of the stone wall so it can move.
+		Entity startingEntity = EntityActionValidator.buildDefaultEntity(ENTITY_ID);
+		Entity movedEntity = new Entity(startingEntity.id(), new EntityLocation(2.0f, 2.0f, 0.0f), startingEntity.volume(), startingEntity.blocksPerTickSpeed(), startingEntity.inventory());
+		_network.listener.receivedEntity(movedEntity);
 		
 		// Since the location is standing in 0.0, we need to load at least the 8 cuboids around the origin.
 		// Note that we want them to stand on the ground so we will fill the bottom 4 with stone and the top 4 with air.
