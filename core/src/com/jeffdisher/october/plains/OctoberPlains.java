@@ -81,5 +81,6 @@ public class OctoberPlains extends ApplicationAdapter
 	@Override
 	public void dispose ()
 	{
+		_client.disconnect();
 	}
 }

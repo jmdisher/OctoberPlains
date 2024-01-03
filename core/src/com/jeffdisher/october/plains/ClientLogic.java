@@ -2,15 +2,14 @@ package com.jeffdisher.october.plains;
 
 import java.util.function.Consumer;
 
-import com.jeffdisher.october.changes.IEntityChange;
 import com.jeffdisher.october.client.ClientRunner;
-import com.jeffdisher.october.client.IClientAdapter;
 import com.jeffdisher.october.client.SpeculativeProjection;
 import com.jeffdisher.october.data.CuboidData;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
-import com.jeffdisher.october.logic.EntityActionValidator;
+import com.jeffdisher.october.integration.LocalServerShim;
 import com.jeffdisher.october.registries.AspectRegistry;
 import com.jeffdisher.october.registries.ItemRegistry;
+import com.jeffdisher.october.server.ServerRunner;
 import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
@@ -30,14 +29,12 @@ public class ClientLogic
 	private final Consumer<IReadOnlyCuboidData> _changedCuboidConsumer;
 	private final Consumer<CuboidAddress> _removedCuboidConsumer;
 
-	private final FakeNetwork _network;
+	private final LocalServerShim _shim;
 	private final ProjectionListener _projectionListener;
 	private final ClientListener _clientListener;
 
 	private final ClientRunner _client;
-	private long _nextFakeCommitNumber;
 	private Entity _thisEntity;
-	private long _latestLocalCommit;
 
 	public ClientLogic(Consumer<Entity> thisEntityConsumer
 			, Consumer<IReadOnlyCuboidData> changedCuboidConsumer
@@ -48,35 +45,57 @@ public class ClientLogic
 		_changedCuboidConsumer = changedCuboidConsumer;
 		_removedCuboidConsumer = removedCuboidConsumer;
 		
-		_network = new FakeNetwork();
+		try
+		{
+			_shim = LocalServerShim.startedServerShim(ServerRunner.DEFAULT_MILLIS_PER_TICK, () -> System.currentTimeMillis());
+		}
+		catch (InterruptedException e)
+		{
+			// We don't use interruption.
+			throw Assert.unexpected(e);
+		}
 		_projectionListener = new ProjectionListener();
 		_clientListener = new ClientListener();
-		_client = new ClientRunner(_network, _projectionListener, _clientListener);
-		_nextFakeCommitNumber = 0L;
-		_latestLocalCommit = 0L;
+		_client = new ClientRunner(_shim.getClientAdapter(), _projectionListener, _clientListener);
 	}
 
 	public void finishStartup()
 	{
-		// At this point, we will just feed the test data into the client.
-		_network.listener.adapterConnected(ENTITY_ID);
-		// We get a default entity but move it out of the stone wall so it can move.
-		Entity startingEntity = EntityActionValidator.buildDefaultEntity(ENTITY_ID);
-		Entity movedEntity = new Entity(startingEntity.id(), new EntityLocation(2.0f, 2.0f, 0.0f), startingEntity.volume(), startingEntity.blocksPerTickSpeed(), startingEntity.inventory());
-		_network.listener.receivedEntity(movedEntity);
+		// Wait for the initial entity data to appear.
+		try
+		{
+			_shim.waitForClient();
+		}
+		catch (InterruptedException e)
+		{
+			// We don't use interruption.
+			throw Assert.unexpected(e);
+		}
 		
 		// Since the location is standing in 0.0, we need to load at least the 8 cuboids around the origin.
 		// Note that we want them to stand on the ground so we will fill the bottom 4 with stone and the top 4 with air.
-		_network.listener.receivedCuboid(_generateColumnCuboid(new CuboidAddress((short)0, (short)0, (short)0)));
-		_network.listener.receivedCuboid(_generateColumnCuboid(new CuboidAddress((short)0, (short)-1, (short)0)));
-		_network.listener.receivedCuboid(_generateColumnCuboid(new CuboidAddress((short)-1, (short)-1, (short)0)));
-		_network.listener.receivedCuboid(_generateColumnCuboid(new CuboidAddress((short)-1, (short)0, (short)0)));
+		_shim.injectCuboidToServer(_generateColumnCuboid(new CuboidAddress((short)0, (short)0, (short)0)));
+		_shim.injectCuboidToServer(_generateColumnCuboid(new CuboidAddress((short)0, (short)-1, (short)0)));
+		_shim.injectCuboidToServer(_generateColumnCuboid(new CuboidAddress((short)-1, (short)-1, (short)0)));
+		_shim.injectCuboidToServer(_generateColumnCuboid(new CuboidAddress((short)-1, (short)0, (short)0)));
 		
-		_network.listener.receivedCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)0, (short)-1), ItemRegistry.STONE));
-		_network.listener.receivedCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)-1, (short)-1), ItemRegistry.STONE));
-		_network.listener.receivedCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)-1, (short)-1), ItemRegistry.STONE));
-		_network.listener.receivedCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)0, (short)-1), ItemRegistry.STONE));
-		_endTick(System.currentTimeMillis());
+		_shim.injectCuboidToServer(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)0, (short)-1), ItemRegistry.STONE));
+		_shim.injectCuboidToServer(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)-1, (short)-1), ItemRegistry.STONE));
+		_shim.injectCuboidToServer(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)-1, (short)-1), ItemRegistry.STONE));
+		_shim.injectCuboidToServer(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)0, (short)-1), ItemRegistry.STONE));
+		
+		// We need to wait for a few ticks for everything to go through on the server and then be pushed through here.
+		// TODO:  Better handle asynchronous start-up.
+		try
+		{
+			_shim.waitForTickAdvance(3L);
+		}
+		catch (InterruptedException e)
+		{
+			// We don't use interruption.
+			throw Assert.unexpected(e);
+		}
+		_client.runPendingCalls(System.currentTimeMillis());
 	}
 
 	public void stepNorth()
@@ -88,7 +107,7 @@ public class ClientLogic
 			EntityLocation oldLocation = _thisEntity.location();
 			EntityLocation newLocation = new EntityLocation(oldLocation.x(), oldLocation.y() + INCREMENT, oldLocation.z());
 			_client.moveTo(newLocation, currentTimeMillis);
-			_endTick(currentTimeMillis);
+			_client.runPendingCalls(currentTimeMillis);
 		}
 	}
 
@@ -101,7 +120,7 @@ public class ClientLogic
 			EntityLocation oldLocation = _thisEntity.location();
 			EntityLocation newLocation = new EntityLocation(oldLocation.x(), oldLocation.y() - INCREMENT, oldLocation.z());
 			_client.moveTo(newLocation, currentTimeMillis);
-			_endTick(currentTimeMillis);
+			_client.runPendingCalls(currentTimeMillis);
 		}
 	}
 
@@ -114,7 +133,7 @@ public class ClientLogic
 			EntityLocation oldLocation = _thisEntity.location();
 			EntityLocation newLocation = new EntityLocation(oldLocation.x() + INCREMENT, oldLocation.y(), oldLocation.z());
 			_client.moveTo(newLocation, currentTimeMillis);
-			_endTick(currentTimeMillis);
+			_client.runPendingCalls(currentTimeMillis);
 		}
 	}
 
@@ -127,28 +146,30 @@ public class ClientLogic
 			EntityLocation oldLocation = _thisEntity.location();
 			EntityLocation newLocation = new EntityLocation(oldLocation.x() - INCREMENT, oldLocation.y(), oldLocation.z());
 			_client.moveTo(newLocation, currentTimeMillis);
-			_endTick(currentTimeMillis);
+			_client.runPendingCalls(currentTimeMillis);
 		}
 	}
 
-
-	private void _endTick(long currentTimeMillis)
+	public void disconnect()
 	{
-		_network.listener.receivedEndOfTick(_nextFakeCommitNumber++, _latestLocalCommit);
-		_client.runPendingCalls(currentTimeMillis);
+		_client.disconnect();
+		try
+		{
+			_shim.waitForServerShutdown();
+		}
+		catch (InterruptedException e)
+		{
+			// We don't use interruption.
+			throw Assert.unexpected(e);
+		}
 	}
+
 
 	private CuboidData _generateColumnCuboid(CuboidAddress address)
 	{
 		CuboidData cuboid = CuboidGenerator.createFilledCuboid(address, ItemRegistry.AIR);
 		
-		// Set the outer-most blocks as stone columns.
-		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte) 0, (byte) 0, (byte)0), ItemRegistry.STONE.number());
-		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte) 0, (byte)31, (byte)0), ItemRegistry.STONE.number());
-		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte)31, (byte)31, (byte)0), ItemRegistry.STONE.number());
-		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte)31, (byte) 0, (byte)0), ItemRegistry.STONE.number());
-		
-		// And the inner-most one more block in.
+		// Create some columns.
 		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte) 1, (byte) 1, (byte)0), ItemRegistry.STONE.number());
 		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte) 1, (byte)30, (byte)0), ItemRegistry.STONE.number());
 		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte)30, (byte)30, (byte)0), ItemRegistry.STONE.number());
@@ -156,30 +177,6 @@ public class ClientLogic
 		
 		return cuboid;
 	}
-
-
-	private class FakeNetwork implements IClientAdapter
-	{
-		public IClientAdapter.IListener listener;
-		@Override
-		public void connectAndStartListening(IClientAdapter.IListener listener)
-		{
-			Assert.assertTrue(null == this.listener);
-			this.listener = listener;
-		}
-		@Override
-		public void disconnect()
-		{
-		}
-		@Override
-		public void sendChange(IEntityChange change, long commitLevel)
-		{
-			// We just stuff this back in.
-			_latestLocalCommit = commitLevel;
-			this.listener.receivedChange(ENTITY_ID, change);
-		}
-	}
-
 
 	private class ProjectionListener implements SpeculativeProjection.IProjectionListener
 	{
