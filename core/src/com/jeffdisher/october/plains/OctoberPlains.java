@@ -76,6 +76,10 @@ public class OctoberPlains extends ApplicationAdapter
 		{
 			_client.stepWest();
 		}
+		else
+		{
+			_client.doNothing();
+		}
 	}
 
 	@Override

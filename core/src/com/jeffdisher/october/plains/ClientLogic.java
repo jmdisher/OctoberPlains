@@ -22,7 +22,7 @@ public class ClientLogic
 	public static final int ENTITY_ID = 1;
 	// We have a walking speed limit of 4 blocks/second so we will pick something to push against that.
 	// (too high and we will see jitter due to rejections, too low and it will feel too slow).
-	public static final float INCREMENT = 0.1f;
+	public static final float INCREMENT = 0.05f;
 
 	private final Consumer<Entity> _thisEntityConsumer;
 	private final Consumer<IReadOnlyCuboidData> _changedCuboidConsumer;
@@ -138,6 +138,15 @@ public class ClientLogic
 		{
 			_client.moveHorizontal(-INCREMENT, 0.0f, currentTimeMillis);
 			_client.runPendingCalls(currentTimeMillis);
+		}
+	}
+
+	public void doNothing()
+	{
+		long currentTimeMillis = System.currentTimeMillis();
+		if (!_client.isActivityInProgress(currentTimeMillis))
+		{
+			_client.doNothing(currentTimeMillis);
 		}
 	}
 
