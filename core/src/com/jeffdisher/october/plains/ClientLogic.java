@@ -13,7 +13,6 @@ import com.jeffdisher.october.server.ServerRunner;
 import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
-import com.jeffdisher.october.types.EntityLocation;
 import com.jeffdisher.october.utils.Assert;
 import com.jeffdisher.october.worldgen.CuboidGenerator;
 
@@ -104,9 +103,7 @@ public class ClientLogic
 		long currentTimeMillis = System.currentTimeMillis();
 		if (!_client.isActivityInProgress(currentTimeMillis))
 		{
-			EntityLocation oldLocation = _thisEntity.location();
-			EntityLocation newLocation = new EntityLocation(oldLocation.x(), oldLocation.y() + INCREMENT, oldLocation.z());
-			_client.moveTo(newLocation, currentTimeMillis);
+			_client.moveHorizontal(0.0f, +INCREMENT, currentTimeMillis);
 			_client.runPendingCalls(currentTimeMillis);
 		}
 	}
@@ -117,9 +114,7 @@ public class ClientLogic
 		long currentTimeMillis = System.currentTimeMillis();
 		if (!_client.isActivityInProgress(currentTimeMillis))
 		{
-			EntityLocation oldLocation = _thisEntity.location();
-			EntityLocation newLocation = new EntityLocation(oldLocation.x(), oldLocation.y() - INCREMENT, oldLocation.z());
-			_client.moveTo(newLocation, currentTimeMillis);
+			_client.moveHorizontal(0.0f, -INCREMENT, currentTimeMillis);
 			_client.runPendingCalls(currentTimeMillis);
 		}
 	}
@@ -130,9 +125,7 @@ public class ClientLogic
 		long currentTimeMillis = System.currentTimeMillis();
 		if (!_client.isActivityInProgress(currentTimeMillis))
 		{
-			EntityLocation oldLocation = _thisEntity.location();
-			EntityLocation newLocation = new EntityLocation(oldLocation.x() + INCREMENT, oldLocation.y(), oldLocation.z());
-			_client.moveTo(newLocation, currentTimeMillis);
+			_client.moveHorizontal(+INCREMENT, 0.0f, currentTimeMillis);
 			_client.runPendingCalls(currentTimeMillis);
 		}
 	}
@@ -143,9 +136,7 @@ public class ClientLogic
 		long currentTimeMillis = System.currentTimeMillis();
 		if (!_client.isActivityInProgress(currentTimeMillis))
 		{
-			EntityLocation oldLocation = _thisEntity.location();
-			EntityLocation newLocation = new EntityLocation(oldLocation.x() - INCREMENT, oldLocation.y(), oldLocation.z());
-			_client.moveTo(newLocation, currentTimeMillis);
+			_client.moveHorizontal(-INCREMENT, 0.0f, currentTimeMillis);
 			_client.runPendingCalls(currentTimeMillis);
 		}
 	}
