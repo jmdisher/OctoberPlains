@@ -60,6 +60,10 @@ public class OctoberPlains extends ApplicationAdapter
 		_renderer.renderScene();
 		
 		// Handle inputs - we will only allow a single direction at a time.
+		if (Gdx.input.isKeyJustPressed(Keys.SPACE))
+		{
+			_client.jump();
+		}
 		if (Gdx.input.isKeyPressed(Keys.DPAD_UP))
 		{
 			_client.stepNorth();

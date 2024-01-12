@@ -141,6 +141,16 @@ public class ClientLogic
 		}
 	}
 
+	public void jump()
+	{
+		long currentTimeMillis = System.currentTimeMillis();
+		if (!_client.isActivityInProgress(currentTimeMillis))
+		{
+			_client.jump(currentTimeMillis);
+			_client.runPendingCalls(currentTimeMillis);
+		}
+	}
+
 	public void doNothing()
 	{
 		long currentTimeMillis = System.currentTimeMillis();
