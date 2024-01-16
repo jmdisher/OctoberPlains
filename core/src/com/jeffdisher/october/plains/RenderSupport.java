@@ -38,6 +38,7 @@ public class RenderSupport
 	private int _uLayerBrightness;
 	private int _entityBuffer;
 	private int _layerMeshBuffer;
+	private int _textVertexBuffer;
 
 	private Entity _thisEntity;
 	private final Map<CuboidAddress, int[]> _layerTextureMeshes;
@@ -88,10 +89,13 @@ public class RenderSupport
 		// Define the layer mesh.
 		_layerMeshBuffer = _defineLayerMeshBuffer(_gl);
 		
+		// Create the one-off text overlay vertex buffer.
+		_textVertexBuffer = _defineTextVertexBuffer(_gl);
+		
 		_layerTextureMeshes = new HashMap<>();
 	}
 
-	public void renderScene()
+	public void renderScene(String text, float xTextOffset, float yTextOffset)
 	{
 		// Reset screen.
 		_gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
@@ -162,6 +166,22 @@ public class RenderSupport
 		_gl.glEnableVertexAttribArray(1);
 		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+		
+		if (null != text)
+		{
+			// For now, we will just draw the text on top of the entity (just a test).
+			_gl.glActiveTexture(GL20.GL_TEXTURE0);
+			_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.smallTextTexture);
+			TextureAtlas.renderTextToImage(_gl, _textureAtlas.smallTextTexture, text);
+			_gl.glUniform1i(_uTexture, 0);
+			_gl.glUniform2f(_uOffset, xTextOffset, yTextOffset);
+			_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _textVertexBuffer);
+			_gl.glEnableVertexAttribArray(0);
+			_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
+			_gl.glEnableVertexAttribArray(1);
+			_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
+			_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+		}
 	}
 
 	public void setThisEntity(Entity thisEntity)
@@ -368,5 +388,37 @@ public class RenderSupport
 		gl.glEnableVertexAttribArray(1);
 		gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 0, 0);
 		return commonTextures;
+	}
+
+	private static int _defineTextVertexBuffer(GL20 gl)
+	{
+		float textureSize = 1.0f;
+		float textureBaseU = 0.0f;
+		float textureBaseV = 0.0f;
+		float[] vertices = new float[] {
+				0.0f, TILE_EDGE_SIZE, textureBaseU, textureBaseV + textureSize,
+				0.0f, 0.0f, textureBaseU, textureBaseV,
+				TILE_EDGE_SIZE, 0.0f, textureBaseU + textureSize, textureBaseV,
+				
+				TILE_EDGE_SIZE, 0.0f, textureBaseU + textureSize, textureBaseV,
+				TILE_EDGE_SIZE, TILE_EDGE_SIZE, textureBaseU + textureSize, textureBaseV + textureSize,
+				 0.0f, TILE_EDGE_SIZE, textureBaseU, textureBaseV + textureSize,
+		};
+		ByteBuffer direct = ByteBuffer.allocateDirect(vertices.length * Float.BYTES);
+		direct.order(ByteOrder.nativeOrder());
+		for (float f : vertices)
+		{
+			direct.putFloat(f);
+		}
+		((java.nio.Buffer) direct).flip();
+		
+		int textBuffer = gl.glGenBuffer();
+		gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, textBuffer);
+		gl.glBufferData(GL20.GL_ARRAY_BUFFER, vertices.length * Float.BYTES, direct.asFloatBuffer(), GL20.GL_STATIC_DRAW);
+		gl.glEnableVertexAttribArray(0);
+		gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
+		gl.glEnableVertexAttribArray(1);
+		gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
+		return textBuffer;
 	}
 }

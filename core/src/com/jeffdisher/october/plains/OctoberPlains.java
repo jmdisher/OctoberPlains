@@ -13,6 +13,8 @@ import com.jeffdisher.october.types.Entity;
 
 public class OctoberPlains extends ApplicationAdapter
 {
+	private static int TEMP_COUNTER = 0;
+
 	private TextureAtlas _textureAtlas;
 	private RenderSupport _renderer;
 
@@ -57,7 +59,8 @@ public class OctoberPlains extends ApplicationAdapter
 	public void render ()
 	{
 		// Draw the scene.
-		_renderer.renderScene();
+		_renderer.renderScene(Integer.toString(TEMP_COUNTER), 0.0f, 0.0f);
+		TEMP_COUNTER += 1;
 		
 		// Handle inputs - we will only allow a single direction at a time.
 		if (Gdx.input.isKeyJustPressed(Keys.SPACE))
