@@ -120,9 +120,7 @@ public class RenderSupport
 		BlockAddress selectedBlock;
 		{
 			// TILE_EDGE_SIZE is set to 0.05 so we have 40 tiles along the edge of the screen.
-			int xBlockOffset = (int)(xMouse / TILE_EDGE_SIZE);
-			int yBlockOffset = (int)(yMouse / TILE_EDGE_SIZE);
-			AbsoluteLocation selectedLocation = entityBlockLocation.getRelative(xBlockOffset, yBlockOffset, zLayerOffset);
+			AbsoluteLocation selectedLocation = _entityOffset(xMouse, yMouse, zLayerOffset, entityBlockLocation);
 			selectedCuboid = selectedLocation.getCuboidAddress();
 			
 			int[] meshLayers = _layerTextureMeshes.get(selectedCuboid);
@@ -255,6 +253,11 @@ public class RenderSupport
 		{
 			_gl.glDeleteBuffer(layer);
 		}
+	}
+
+	public AbsoluteLocation entityOffset(float xMouse, float yMouse, int zLayerOffset)
+	{
+		return _entityOffset(xMouse, yMouse, zLayerOffset, _thisEntity.location().getBlockLocation());
 	}
 
 
@@ -456,5 +459,12 @@ public class RenderSupport
 		gl.glEnableVertexAttribArray(1);
 		gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
 		return textBuffer;
+	}
+
+	private AbsoluteLocation _entityOffset(float xMouse, float yMouse, int zLayerOffset, AbsoluteLocation entityBlockLocation)
+	{
+		int xBlockOffset = (int)(xMouse / TILE_EDGE_SIZE);
+		int yBlockOffset = (int)(yMouse / TILE_EDGE_SIZE);
+		return entityBlockLocation.getRelative(xBlockOffset, yBlockOffset, zLayerOffset);
 	}
 }

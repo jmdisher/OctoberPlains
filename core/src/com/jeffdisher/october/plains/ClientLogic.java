@@ -10,6 +10,7 @@ import com.jeffdisher.october.integration.LocalServerShim;
 import com.jeffdisher.october.registries.AspectRegistry;
 import com.jeffdisher.october.registries.ItemRegistry;
 import com.jeffdisher.october.server.ServerRunner;
+import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
@@ -157,6 +158,24 @@ public class ClientLogic
 		if (!_client.isActivityInProgress(currentTimeMillis))
 		{
 			_client.doNothing(currentTimeMillis);
+		}
+	}
+
+	public void beginBreakingBlock(AbsoluteLocation blockLocation)
+	{
+		// We want to only consider breaking the block if it is within 2 blocks of where the entity currently is.
+		int absX = Math.abs(blockLocation.x() - Math.round(_thisEntity.location().x()));
+		int absY = Math.abs(blockLocation.y() - Math.round(_thisEntity.location().y()));
+		int absZ = Math.abs(blockLocation.z() - Math.round(_thisEntity.location().z()));
+		if ((absX <= 2) && (absY <= 2) && (absZ <= 2))
+		{
+			long currentTimeMillis = System.currentTimeMillis();
+			if (!_client.isActivityInProgress(currentTimeMillis))
+			{
+				// This returns the delay we need to wait until the block breaks, in millis.
+				_client.beginBreakBlock(blockLocation, currentTimeMillis);
+				_client.runPendingCalls(currentTimeMillis);
+			}
 		}
 	}
 

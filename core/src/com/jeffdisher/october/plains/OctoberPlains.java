@@ -7,6 +7,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
+import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
 
@@ -100,7 +101,16 @@ public class OctoberPlains extends ApplicationAdapter
 		}
 		else
 		{
-			_client.doNothing();
+			// If they press left click, start breaking a block).
+			if (Gdx.input.isButtonJustPressed(0))
+			{
+				AbsoluteLocation blockLocation = _renderer.entityOffset(glX, glY, zOffset);
+				_client.beginBreakingBlock(blockLocation);
+			}
+			else
+			{
+				_client.doNothing();
+			}
 		}
 	}
 
