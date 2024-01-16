@@ -58,8 +58,23 @@ public class OctoberPlains extends ApplicationAdapter
 	@Override
 	public void render ()
 	{
+		// Find the mouse.
+		float screenWidth = Gdx.graphics.getWidth();
+		float screenHeight = Gdx.graphics.getHeight();
+		float mouseX = (float)Gdx.input.getX();
+		float mouseY = (float)Gdx.input.getY();
+		// (screen coordinates are from the top-left and from 0-count whereas the scene is from bottom left and from -1.0 to 1.0).
+		float glX = (2.0f * mouseX / screenWidth) - 1.0f;
+		float glY = (2.0f * (screenHeight - mouseY) / screenHeight) - 1.0f;
+		int zOffset = (Gdx.input.isKeyPressed(Keys.Q))
+				? 1
+				: (Gdx.input.isKeyPressed(Keys.Z))
+					? -1
+					: 0
+		;
+		
 		// Draw the scene.
-		_renderer.renderScene(Integer.toString(TEMP_COUNTER), 0.0f, 0.0f);
+		_renderer.renderScene(Integer.toString(TEMP_COUNTER), 0.0f, 0.0f, glX, glY, zOffset);
 		TEMP_COUNTER += 1;
 		
 		// Handle inputs - we will only allow a single direction at a time.

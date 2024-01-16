@@ -23,6 +23,8 @@ public class RenderSupport
 {
 	// The screen is 2.0/2.0 (-1.0 - 1.0) and we want roughly 40x40 tiles on screen, so use this tile edge size.
 	public static final float TILE_EDGE_SIZE = 0.05f;
+	public static final int CUBOID_EDGE_TILE_COUNT = 32;
+	public static final int VERTICES_PER_SQUARE = 6;
 
 	// We need to render 2 kinds of things:  (1) Cuboid layers, (2) entities.
 	// We will just use a single pair of shaders, at least for now, for both of these cases:
@@ -95,8 +97,42 @@ public class RenderSupport
 		_layerTextureMeshes = new HashMap<>();
 	}
 
-	public void renderScene(String text, float xTextOffset, float yTextOffset)
+	/**
+	 * Renders a single frame of the scene, optionally including a floating text element.
+	 * 
+	 * @param text If non-null, will render this text in the floating text texture at the given coordinates.
+	 * @param xTextOffset The X-offset of the text box, in GL coordinates.
+	 * @param yTextOffset The Y-offset of the text box, in GL coordinates.
+	 * @param xMouse The X-location of the mouse, in GL coordinates.
+	 * @param yMouse The Y-location of the mouse, in GL coordinates.
+	 * @param zLayerOffset The Z-layer where the mouse "is", in terms of -1, 0, or +1 from the entity location.
+	 */
+	public void renderScene(String text, float xTextOffset, float yTextOffset, float xMouse, float yMouse, int zLayerOffset)
 	{
+		// We render this relative to the entity, so figure out where it is.
+		EntityLocation entityLocation = _thisEntity.location();
+		AbsoluteLocation entityBlockLocation = entityLocation.getBlockLocation();
+		float x = entityLocation.x();
+		float y = entityLocation.y();
+		
+		// Determine which tile is selected under the mouse.
+		CuboidAddress selectedCuboid;
+		BlockAddress selectedBlock;
+		{
+			// TILE_EDGE_SIZE is set to 0.05 so we have 40 tiles along the edge of the screen.
+			int xBlockOffset = (int)(xMouse / TILE_EDGE_SIZE);
+			int yBlockOffset = (int)(yMouse / TILE_EDGE_SIZE);
+			AbsoluteLocation selectedLocation = entityBlockLocation.getRelative(xBlockOffset, yBlockOffset, zLayerOffset);
+			selectedCuboid = selectedLocation.getCuboidAddress();
+			
+			int[] meshLayers = _layerTextureMeshes.get(selectedCuboid);
+			// This may not be here if the server hasn't sent it yet.
+			selectedBlock = (null != meshLayers)
+					? selectedLocation.getBlockAddress()
+					: null
+			;
+		}
+		
 		// Reset screen.
 		_gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 		_gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -108,23 +144,16 @@ public class RenderSupport
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
 		_gl.glUniform1i(_uTexture, 0);
 		
-		// We render this relative to the entity, so figure out where it is.
-		EntityLocation entityLocation = _thisEntity.location();
-		AbsoluteLocation entityBlockLocation = entityLocation.getBlockLocation();
-		float x = entityLocation.x();
-		float y = entityLocation.y();
-		
 		// We want to render 9 tiles with 3 layers:  3x3x3, centred around the entity location.
 		// (technically 4 tiles with 3 layers would be enough but that would require some extra logic)
-		int cuboidSize = 32;
 		float layerBrightness = 0.50f;
 		for (int zOffset = -1; zOffset <= 1; ++zOffset)
 		{
 			_gl.glUniform1f(_uLayerBrightness, layerBrightness);
 			layerBrightness += 0.25f;
-			for (int xOffset = -cuboidSize; xOffset <= cuboidSize; xOffset += cuboidSize)
+			for (int xOffset = -CUBOID_EDGE_TILE_COUNT; xOffset <= CUBOID_EDGE_TILE_COUNT; xOffset += CUBOID_EDGE_TILE_COUNT)
 			{
-				for (int yOffset = -cuboidSize; yOffset <= cuboidSize; yOffset += cuboidSize)
+				for (int yOffset = -CUBOID_EDGE_TILE_COUNT; yOffset <= CUBOID_EDGE_TILE_COUNT; yOffset += CUBOID_EDGE_TILE_COUNT)
 				{
 					AbsoluteLocation offsetLocation = entityBlockLocation.getRelative(xOffset, yOffset, zOffset);
 					CuboidAddress address = offsetLocation.getCuboidAddress();
@@ -137,8 +166,8 @@ public class RenderSupport
 						int buffer = meshLayers[zLayer];
 						
 						// Be sure to position the camera above the entity, so calculate the offset where we will draw this layer.
-						float xCamera = TILE_EDGE_SIZE * ((float)(address.x() * cuboidSize) - x);
-						float yCamera = TILE_EDGE_SIZE * ((float)(address.y() * cuboidSize) - y);
+						float xCamera = TILE_EDGE_SIZE * ((float)(address.x() * CUBOID_EDGE_TILE_COUNT) - x);
+						float yCamera = TILE_EDGE_SIZE * ((float)(address.y() * CUBOID_EDGE_TILE_COUNT) - y);
 						_gl.glUniform2f(_uOffset, xCamera, yCamera);
 						_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _layerMeshBuffer);
 						_gl.glEnableVertexAttribArray(0);
@@ -147,9 +176,18 @@ public class RenderSupport
 						_gl.glEnableVertexAttribArray(1);
 						_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 0, 0);
 						
-						int squaresPerCuboidEdge = 32;
-						int verticesPerSquare = 6;
-						_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, squaresPerCuboidEdge * squaresPerCuboidEdge * verticesPerSquare);
+						_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, CUBOID_EDGE_TILE_COUNT * CUBOID_EDGE_TILE_COUNT * VERTICES_PER_SQUARE);
+						
+						// Check if this is where the selected tile is and then re-draw it to highlight it.
+						if ((null != selectedBlock) && (zLayer == selectedBlock.z()) && selectedCuboid.equals(address))
+						{
+							_gl.glUniform1f(_uLayerBrightness, layerBrightness);
+							
+							// Redraw the single tile.
+							_gl.glDrawArrays(GL20.GL_TRIANGLES, VERTICES_PER_SQUARE * ((CUBOID_EDGE_TILE_COUNT * selectedBlock.y()) + selectedBlock.x()), VERTICES_PER_SQUARE);
+							
+							_gl.glUniform1f(_uLayerBrightness, layerBrightness - 0.25f);
+						}
 					}
 				}
 			}
@@ -289,11 +327,10 @@ public class RenderSupport
 	private static int _defineLayerMeshBuffer(GL20 gl)
 	{
 		// We render each layer as an abstract 32x32 tile mesh.
-		int tilesPerEdge = 32;
 		// The common mesh has 2 floats per vertex:  x and y (z is constant 0.0 for everything).
 		int commonLayerSizeBytes = 1
 				// tiles per layer
-				* (tilesPerEdge * tilesPerEdge)
+				* (CUBOID_EDGE_TILE_COUNT * CUBOID_EDGE_TILE_COUNT)
 				// triangles per tile
 				* 2
 				// vertices per triangle
@@ -305,9 +342,9 @@ public class RenderSupport
 		commonData.order(ByteOrder.nativeOrder());
 		// Populate the common mesh.
 		FloatBuffer meshBuffer = commonData.asFloatBuffer();
-		for (int y = 0; y < tilesPerEdge; ++y)
+		for (int y = 0; y < CUBOID_EDGE_TILE_COUNT; ++y)
 		{
-			for (int x = 0; x < tilesPerEdge; ++x)
+			for (int x = 0; x < CUBOID_EDGE_TILE_COUNT; ++x)
 			{
 				float xCoord = (TILE_EDGE_SIZE * x);
 				float yCoord = (TILE_EDGE_SIZE * y);
@@ -338,11 +375,10 @@ public class RenderSupport
 
 	private static int _defineLayerTextureBuffer(GL20 gl, TextureAtlas atlas, IReadOnlyCuboidData cuboid, byte zLayer)
 	{
-		int tilesPerEdge = 32;
 		// Build the single layer pointing at texture 0 - these are just texture coordinates.
 		int singleLayerSizeBytes = 1
 				// tiles per layer
-				* (tilesPerEdge * tilesPerEdge)
+				* (CUBOID_EDGE_TILE_COUNT * CUBOID_EDGE_TILE_COUNT)
 				// triangles per tile
 				* 2
 				// vertices per triangle
@@ -355,9 +391,9 @@ public class RenderSupport
 		// Populate the common mesh.
 		FloatBuffer textureBuffer = singleLayerData.asFloatBuffer();
 		float textureSize = atlas.coordinateSize;
-		for (int y = 0; y < tilesPerEdge; ++y)
+		for (int y = 0; y < CUBOID_EDGE_TILE_COUNT; ++y)
 		{
-			for (int x = 0; x < tilesPerEdge; ++x)
+			for (int x = 0; x < CUBOID_EDGE_TILE_COUNT; ++x)
 			{
 				short blockValue = cuboid.getData15(AspectRegistry.BLOCK, new BlockAddress((byte)x, (byte)y, zLayer));
 				
