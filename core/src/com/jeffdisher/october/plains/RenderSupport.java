@@ -39,6 +39,7 @@ public class RenderSupport
 	private int _uTexture;
 	private int _uLayerBrightness;
 	private int _uLayerAlpha;
+	private int _uColourBias;
 	private int _entityBuffer;
 	private int _layerMeshBuffer;
 	private int _textVertexBuffer;
@@ -72,11 +73,13 @@ public class RenderSupport
 						+ "uniform sampler2D uTexture;\n"
 						+ "uniform float uLayerBrightness;\n"
 						+ "uniform float uLayerAlpha;\n"
+						+ "uniform vec4 uColourBias;\n"
 						+ "varying vec2 vTexture;\n"
 						+ "void main()\n"
 						+ "{\n"
 						+ "	vec4 tex = texture2D(uTexture, vTexture);\n"
-						+ "	gl_FragColor = vec4(uLayerBrightness * tex.r, uLayerBrightness * tex.g, uLayerBrightness * tex.b, uLayerAlpha * tex.a);\n"
+						+ "	vec4 biased = vec4(clamp(uColourBias.r + tex.r, 0.0, 1.0), clamp(uColourBias.g + tex.g, 0.0, 1.0), clamp(uColourBias.b + tex.b, 0.0, 1.0), clamp(uColourBias.a + tex.a, 0.0, 1.0));\n"
+						+ "	gl_FragColor = vec4(uLayerBrightness * biased.r, uLayerBrightness * biased.g, uLayerBrightness * biased.b, uLayerAlpha * biased.a);\n"
 						+ "}\n"
 				, new String[] {
 						"aPosition",
@@ -87,6 +90,7 @@ public class RenderSupport
 		_uTexture = _gl.glGetUniformLocation(_program, "uTexture");
 		_uLayerBrightness = _gl.glGetUniformLocation(_program, "uLayerBrightness");
 		_uLayerAlpha = _gl.glGetUniformLocation(_program, "uLayerAlpha");
+		_uColourBias = _gl.glGetUniformLocation(_program, "uColourBias");
 		
 		// Define the entity mesh and texture.
 		_entityBuffer = _defineEntityBuffer(_gl, _textureAtlas);
@@ -145,6 +149,9 @@ public class RenderSupport
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
 		_gl.glUniform1i(_uTexture, 0);
 		
+		// Set any starting uniform values.
+		_gl.glUniform4f(_uColourBias, 0.0f, 0.0f, 0.0f, 0.0f);
+		
 		// We want to render 9 tiles with 3 layers:  3x3x3, centred around the entity location.
 		// (technically 4 tiles with 3 layers would be enough but that would require some extra logic)
 		float layerBrightness = 0.50f;
@@ -183,12 +190,13 @@ public class RenderSupport
 						// Check if this is where the selected tile is and then re-draw it to highlight it.
 						if ((null != selectedBlock) && (zLayer == selectedBlock.z()) && selectedCuboid.equals(address))
 						{
-							_gl.glUniform1f(_uLayerBrightness, layerBrightness);
+							// Give it a pinkish hue (with added alpha so we can select air blocks if placing a block).
+							_gl.glUniform4f(_uColourBias, 0.5f, 0.0f, 0.5f, 0.5f);
 							
 							// Redraw the single tile.
 							_gl.glDrawArrays(GL20.GL_TRIANGLES, VERTICES_PER_SQUARE * ((CUBOID_EDGE_TILE_COUNT * selectedBlock.y()) + selectedBlock.x()), VERTICES_PER_SQUARE);
 							
-							_gl.glUniform1f(_uLayerBrightness, layerBrightness - 0.25f);
+							_gl.glUniform4f(_uColourBias, 0.0f, 0.0f, 0.0f, 0.0f);
 						}
 					}
 				}
