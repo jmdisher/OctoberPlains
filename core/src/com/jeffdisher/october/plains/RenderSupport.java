@@ -38,6 +38,7 @@ public class RenderSupport
 	private int _uOffset;
 	private int _uTexture;
 	private int _uLayerBrightness;
+	private int _uLayerAlpha;
 	private int _entityBuffer;
 	private int _layerMeshBuffer;
 	private int _textVertexBuffer;
@@ -70,11 +71,12 @@ public class RenderSupport
 						+ "precision mediump float;\n"
 						+ "uniform sampler2D uTexture;\n"
 						+ "uniform float uLayerBrightness;\n"
+						+ "uniform float uLayerAlpha;\n"
 						+ "varying vec2 vTexture;\n"
 						+ "void main()\n"
 						+ "{\n"
 						+ "	vec4 tex = texture2D(uTexture, vTexture);\n"
-						+ "	gl_FragColor = vec4(uLayerBrightness * tex.r, uLayerBrightness * tex.g, uLayerBrightness * tex.b, tex.a);\n"
+						+ "	gl_FragColor = vec4(uLayerBrightness * tex.r, uLayerBrightness * tex.g, uLayerBrightness * tex.b, uLayerAlpha * tex.a);\n"
 						+ "}\n"
 				, new String[] {
 						"aPosition",
@@ -84,6 +86,7 @@ public class RenderSupport
 		_uOffset = _gl.glGetUniformLocation(_program, "uOffset");
 		_uTexture = _gl.glGetUniformLocation(_program, "uTexture");
 		_uLayerBrightness = _gl.glGetUniformLocation(_program, "uLayerBrightness");
+		_uLayerAlpha = _gl.glGetUniformLocation(_program, "uLayerAlpha");
 		
 		// Define the entity mesh and texture.
 		_entityBuffer = _defineEntityBuffer(_gl, _textureAtlas);
@@ -137,7 +140,7 @@ public class RenderSupport
 		_gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 		_gl.glUseProgram(_program);
 		
-		// Draw the background layer.
+		// Make sure that the texture atlas is active.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
 		_gl.glUniform1i(_uTexture, 0);
@@ -148,6 +151,7 @@ public class RenderSupport
 		for (int zOffset = -1; zOffset <= 1; ++zOffset)
 		{
 			_gl.glUniform1f(_uLayerBrightness, layerBrightness);
+			_gl.glUniform1f(_uLayerAlpha, (1 == zOffset) ? 0.5f : 1.0f);
 			layerBrightness += 0.25f;
 			for (int xOffset = -CUBOID_EDGE_TILE_COUNT; xOffset <= CUBOID_EDGE_TILE_COUNT; xOffset += CUBOID_EDGE_TILE_COUNT)
 			{
@@ -189,19 +193,28 @@ public class RenderSupport
 					}
 				}
 			}
+			
+			if (0 == zOffset)
+			{
+				// Draw the entity.
+				_gl.glActiveTexture(GL20.GL_TEXTURE0);
+				_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
+				_gl.glUniform1i(_uTexture, 0);
+				_gl.glUniform2f(_uOffset, 0.0f, 0.0f);
+				_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _entityBuffer);
+				_gl.glEnableVertexAttribArray(0);
+				_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
+				_gl.glEnableVertexAttribArray(1);
+				_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
+				_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+				
+				// (we switch the atlas in and out since this will likely be a different sprite atlas, later).
+				_gl.glActiveTexture(GL20.GL_TEXTURE0);
+				_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
+				_gl.glUniform1i(_uTexture, 0);
+			}
 		}
 		
-		// Draw the entity.
-		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
-		_gl.glUniform1i(_uTexture, 0);
-		_gl.glUniform2f(_uOffset, 0.0f, 0.0f);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _entityBuffer);
-		_gl.glEnableVertexAttribArray(0);
-		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
-		_gl.glEnableVertexAttribArray(1);
-		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
-		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 		
 		if (null != text)
 		{
