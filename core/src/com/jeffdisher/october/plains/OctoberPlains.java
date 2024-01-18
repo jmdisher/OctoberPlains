@@ -83,6 +83,11 @@ public class OctoberPlains extends ApplicationAdapter
 		{
 			_client.jump();
 		}
+		else if (Gdx.input.isKeyJustPressed(Keys.SHIFT_LEFT))
+		{
+			// We will pick up anything on this tile.
+			_client.pickUpItemsOnOurTile();
+		}
 		if (Gdx.input.isKeyPressed(Keys.DPAD_UP))
 		{
 			_client.stepNorth();
@@ -99,18 +104,21 @@ public class OctoberPlains extends ApplicationAdapter
 		{
 			_client.stepWest();
 		}
+		else if (Gdx.input.isButtonJustPressed(0))
+		{
+			// If they press left click, start breaking a block.
+			AbsoluteLocation blockLocation = _renderer.entityOffset(glX, glY, zOffset);
+			_client.beginBreakingBlock(blockLocation);
+		}
+		else if (Gdx.input.isButtonJustPressed(1))
+		{
+			// If they press right click, place our block (this will implicitly select stone).
+			AbsoluteLocation blockLocation = _renderer.entityOffset(glX, glY, zOffset);
+			_client.placeBlock(blockLocation);
+		}
 		else
 		{
-			// If they press left click, start breaking a block).
-			if (Gdx.input.isButtonJustPressed(0))
-			{
-				AbsoluteLocation blockLocation = _renderer.entityOffset(glX, glY, zOffset);
-				_client.beginBreakingBlock(blockLocation);
-			}
-			else
-			{
-				_client.doNothing();
-			}
+			_client.doNothing();
 		}
 	}
 

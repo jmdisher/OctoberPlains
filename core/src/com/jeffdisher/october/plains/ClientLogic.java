@@ -1,5 +1,7 @@
 package com.jeffdisher.october.plains;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import com.jeffdisher.october.client.ClientRunner;
@@ -14,6 +16,8 @@ import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
+import com.jeffdisher.october.types.Inventory;
+import com.jeffdisher.october.types.Items;
 import com.jeffdisher.october.utils.Assert;
 import com.jeffdisher.october.worldgen.CuboidGenerator;
 
@@ -35,6 +39,7 @@ public class ClientLogic
 
 	private final ClientRunner _client;
 	private Entity _thisEntity;
+	private final Map<CuboidAddress, IReadOnlyCuboidData> _cuboids;
 
 	public ClientLogic(Consumer<Entity> thisEntityConsumer
 			, Consumer<IReadOnlyCuboidData> changedCuboidConsumer
@@ -57,6 +62,7 @@ public class ClientLogic
 		_projectionListener = new ProjectionListener();
 		_clientListener = new ClientListener();
 		_client = new ClientRunner(_shim.getClientAdapter(), _projectionListener, _clientListener);
+		_cuboids = new HashMap<>();
 	}
 
 	public void finishStartup()
@@ -179,6 +185,50 @@ public class ClientLogic
 		}
 	}
 
+	public void placeBlock(AbsoluteLocation blockLocation)
+	{
+		// Make sure we have something in our inventory.
+		if (_thisEntity.inventory().currentEncumbrance > 0)
+		{
+			// We want to only consider placing the block if it is within 2 blocks of where the entity currently is.
+			int absX = Math.abs(blockLocation.x() - Math.round(_thisEntity.location().x()));
+			int absY = Math.abs(blockLocation.y() - Math.round(_thisEntity.location().y()));
+			int absZ = Math.abs(blockLocation.z() - Math.round(_thisEntity.location().z()));
+			if ((absX <= 2) && (absY <= 2) && (absZ <= 2))
+			{
+				long currentTimeMillis = System.currentTimeMillis();
+				if (!_client.isActivityInProgress(currentTimeMillis))
+				{
+					// For now, we will always pre-select the stone (since that is all we currently have) if not selected.
+					if (null == _thisEntity.selectedItem())
+					{
+						_client.selectItemInInventory(ItemRegistry.STONE, currentTimeMillis);
+					}
+					_client.placeSelectedBlock(blockLocation, currentTimeMillis);
+				}
+			}
+		}
+	}
+
+	public void pickUpItemsOnOurTile()
+	{
+		AbsoluteLocation location = _thisEntity.location().getBlockLocation();
+		IReadOnlyCuboidData cuboid = _cuboids.get(location.getCuboidAddress());
+		// For now, we shouldn't see not-yet-loaded cuboids here.
+		Assert.assertTrue(null != cuboid);
+		Inventory inventory = cuboid.getDataSpecial(AspectRegistry.INVENTORY, location.getBlockAddress());
+		if (null != inventory)
+		{
+			// For now, we will only pick up stone.
+			Items allStone = inventory.items.get(ItemRegistry.STONE);
+			if (null != allStone)
+			{
+				long currentTimeMillis = System.currentTimeMillis();
+				_client.pullItemsFromInventory(location, allStone, currentTimeMillis);
+			}
+		}
+	}
+
 	public void disconnect()
 	{
 		_client.disconnect();
@@ -212,16 +262,19 @@ public class ClientLogic
 		@Override
 		public void cuboidDidChange(IReadOnlyCuboidData cuboid)
 		{
+			_cuboids.put(cuboid.getCuboidAddress(), cuboid);
 			_changedCuboidConsumer.accept(cuboid);
 		}
 		@Override
 		public void cuboidDidLoad(IReadOnlyCuboidData cuboid)
 		{
+			_cuboids.put(cuboid.getCuboidAddress(), cuboid);
 			_changedCuboidConsumer.accept(cuboid);
 		}
 		@Override
 		public void cuboidDidUnload(CuboidAddress address)
 		{
+			_cuboids.remove(address);
 			_removedCuboidConsumer.accept(address);
 		}
 		@Override
