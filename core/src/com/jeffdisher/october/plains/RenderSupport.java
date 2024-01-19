@@ -110,11 +110,9 @@ public class RenderSupport
 	 * @param text If non-null, will render this text in the floating text texture at the given coordinates.
 	 * @param xTextOffset The X-offset of the text box, in GL coordinates.
 	 * @param yTextOffset The Y-offset of the text box, in GL coordinates.
-	 * @param xMouse The X-location of the mouse, in GL coordinates.
-	 * @param yMouse The Y-location of the mouse, in GL coordinates.
-	 * @param zLayerOffset The Z-layer where the mouse "is", in terms of -1, 0, or +1 from the entity location.
+	 * @param selectedLocation The block currently selected in the UI.
 	 */
-	public void renderScene(String text, float xTextOffset, float yTextOffset, float xMouse, float yMouse, int zLayerOffset)
+	public void renderScene(String text, float xTextOffset, float yTextOffset, AbsoluteLocation selectedLocation)
 	{
 		// We render this relative to the entity, so figure out where it is.
 		EntityLocation entityLocation = _thisEntity.location();
@@ -126,8 +124,6 @@ public class RenderSupport
 		CuboidAddress selectedCuboid;
 		BlockAddress selectedBlock;
 		{
-			// TILE_EDGE_SIZE is set to 0.05 so we have 40 tiles along the edge of the screen.
-			AbsoluteLocation selectedLocation = _entityOffset(xMouse, yMouse, zLayerOffset, entityBlockLocation);
 			selectedCuboid = selectedLocation.getCuboidAddress();
 			
 			int[] meshLayers = _layerTextureMeshes.get(selectedCuboid);
@@ -274,11 +270,6 @@ public class RenderSupport
 		{
 			_gl.glDeleteBuffer(layer);
 		}
-	}
-
-	public AbsoluteLocation entityOffset(float xMouse, float yMouse, int zLayerOffset)
-	{
-		return _entityOffset(xMouse, yMouse, zLayerOffset, _thisEntity.location().getBlockLocation());
 	}
 
 
@@ -480,12 +471,5 @@ public class RenderSupport
 		gl.glEnableVertexAttribArray(1);
 		gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
 		return textBuffer;
-	}
-
-	private AbsoluteLocation _entityOffset(float xMouse, float yMouse, int zLayerOffset, AbsoluteLocation entityBlockLocation)
-	{
-		int xBlockOffset = (int)(xMouse / TILE_EDGE_SIZE);
-		int yBlockOffset = (int)(yMouse / TILE_EDGE_SIZE);
-		return entityBlockLocation.getRelative(xBlockOffset, yBlockOffset, zLayerOffset);
 	}
 }

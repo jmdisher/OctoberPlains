@@ -16,6 +16,7 @@ public class OctoberPlains extends ApplicationAdapter
 {
 	private static int TEMP_COUNTER = 0;
 
+	private final MouseHandler _mouseHandler = new MouseHandler(Math.round(1.0f / RenderSupport.TILE_EDGE_SIZE));
 	private TextureAtlas _textureAtlas;
 	private RenderSupport _renderer;
 
@@ -49,7 +50,10 @@ public class OctoberPlains extends ApplicationAdapter
 		_renderer = new RenderSupport(gl, _textureAtlas);
 		
 		// At this point, we can also create the basic OctoberProject client and testing environment.
-		_client = new ClientLogic((Entity entity) -> _renderer.setThisEntity(entity)
+		_client = new ClientLogic((Entity entity) -> {
+					_renderer.setThisEntity(entity);
+					_mouseHandler.setCentreLocation(entity.location());
+				}
 				, (IReadOnlyCuboidData cuboid) -> _renderer.setOneCuboid(cuboid)
 				, (CuboidAddress address) -> _renderer.removeCuboid(address)
 		);
@@ -73,9 +77,10 @@ public class OctoberPlains extends ApplicationAdapter
 					? -1
 					: 0
 		;
+		AbsoluteLocation selection = _mouseHandler.getXyzTile(glX, glY, zOffset);
 		
 		// Draw the scene.
-		_renderer.renderScene(Integer.toString(TEMP_COUNTER), 0.0f, 0.0f, glX, glY, zOffset);
+		_renderer.renderScene(Integer.toString(TEMP_COUNTER), 0.0f, 0.0f, selection);
 		TEMP_COUNTER += 1;
 		
 		// Handle inputs - we will only allow a single direction at a time.
@@ -107,14 +112,12 @@ public class OctoberPlains extends ApplicationAdapter
 		else if (Gdx.input.isButtonJustPressed(0))
 		{
 			// If they press left click, start breaking a block.
-			AbsoluteLocation blockLocation = _renderer.entityOffset(glX, glY, zOffset);
-			_client.beginBreakingBlock(blockLocation);
+			_client.beginBreakingBlock(selection);
 		}
 		else if (Gdx.input.isButtonJustPressed(1))
 		{
 			// If they press right click, place our block (this will implicitly select stone).
-			AbsoluteLocation blockLocation = _renderer.entityOffset(glX, glY, zOffset);
-			_client.placeBlock(blockLocation);
+			_client.placeBlock(selection);
 		}
 		else
 		{
