@@ -14,8 +14,6 @@ import com.jeffdisher.october.types.Entity;
 
 public class OctoberPlains extends ApplicationAdapter
 {
-	private static int TEMP_COUNTER = 0;
-
 	private final MouseHandler _mouseHandler = new MouseHandler(Math.round(1.0f / RenderSupport.TILE_EDGE_SIZE));
 	private TextureAtlas _textureAtlas;
 	private RenderSupport _renderer;
@@ -51,12 +49,13 @@ public class OctoberPlains extends ApplicationAdapter
 		_renderer = new RenderSupport(gl, _textureAtlas);
 		
 		// Create the window manager.
-		_windowManager = new WindowManager(gl);
+		_windowManager = new WindowManager(gl, _textureAtlas);
 		
 		// At this point, we can also create the basic OctoberProject client and testing environment.
 		_client = new ClientLogic((Entity entity) -> {
 					_renderer.setThisEntity(entity);
 					_mouseHandler.setCentreLocation(entity.location());
+					_windowManager.setSelectedItem(entity.selectedItem());
 				}
 				, (IReadOnlyCuboidData cuboid) -> _renderer.setOneCuboid(cuboid)
 				, (CuboidAddress address) -> _renderer.removeCuboid(address)
@@ -87,8 +86,7 @@ public class OctoberPlains extends ApplicationAdapter
 		_renderer.renderScene(selection);
 		
 		// Draw any active windows over the scene.
-		_windowManager.drawWindows(Integer.toString(TEMP_COUNTER));
-		TEMP_COUNTER += 1;
+		_windowManager.drawWindows();
 		
 		// Handle inputs - we will only allow a single direction at a time.
 		if (Gdx.input.isKeyJustPressed(Keys.SPACE))

@@ -199,11 +199,6 @@ public class ClientLogic
 				long currentTimeMillis = System.currentTimeMillis();
 				if (!_client.isActivityInProgress(currentTimeMillis))
 				{
-					// For now, we will always pre-select the stone (since that is all we currently have) if not selected.
-					if (null == _thisEntity.selectedItem())
-					{
-						_client.selectItemInInventory(ItemRegistry.STONE, currentTimeMillis);
-					}
 					_client.placeSelectedBlock(blockLocation, currentTimeMillis);
 				}
 			}
@@ -226,6 +221,13 @@ public class ClientLogic
 				long currentTimeMillis = System.currentTimeMillis();
 				_client.pullItemsFromInventory(location, allStone, currentTimeMillis);
 			}
+		}
+		
+		// TODO:  This selection either needs to be an explicit action and/or done in the mutation since this will be undone by the server since they haven't yet picked up the items when we submit this on the first call.
+		if (null == _thisEntity.selectedItem())
+		{
+			long currentTimeMillis = System.currentTimeMillis();
+			_client.selectItemInInventory(ItemRegistry.STONE, currentTimeMillis);
 		}
 	}
 

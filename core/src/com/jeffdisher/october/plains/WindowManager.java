@@ -6,8 +6,11 @@ import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.badlogic.gdx.graphics.GL20;
+import com.jeffdisher.october.types.Item;
 
 
 /**
@@ -16,22 +19,34 @@ import com.badlogic.gdx.graphics.GL20;
 public class WindowManager
 {
 	public static final int TEXT_TEXTURE_WIDTH_PIXELS = 256;
-	public static final int TEXT_TEXTURE_HEIGHT_PIXELS = 128;
+	public static final int TEXT_TEXTURE_HEIGHT_PIXELS = 64;
 
 	private final GL20 _gl;
+	private final TextureAtlas _atlas;
 
 	private int _program;
 	private int _uOffset;
 	private int _uTexture;
+	private int _uTextureBase;
 
-	private int _smallTextTexture;
-	private int _counterBuffer;
+	// When rendering block information in the overlay, we have a vertex buffer for the tile and one for text.
+	private int _tileVertexBuffer;
+	private int _labelVertexBuffer;
 
-	public WindowManager(GL20 gl)
+	private final Map<String, Integer> _textTextures;
+	private Item _selectedItem;
+
+	public WindowManager(GL20 gl, TextureAtlas atlas)
 	{
 		_gl = gl;
+		_atlas = atlas;
 		
 		// Create the program we will use for the window overlays.
+		// Explanation of these:
+		//  We only draw rectangles and they are either a tile or a text label.  This means that our vertex arrays are
+		// both 6 vertices with relative locations and vertex coordinates.  However, the tile rendering will use the
+		// texture atlas, hence needing that texture size while the text labels will use full-sized textures.  This
+		// means that each vertex array will encode the tile size but will need its base passed in as a uniform.
 		_program = RenderSupport.fullyLinkedProgram(_gl
 				, "#version 100\n"
 						+ "attribute vec2 aPosition;\n"
@@ -46,10 +61,12 @@ public class WindowManager
 				, "#version 100\n"
 						+ "precision mediump float;\n"
 						+ "uniform sampler2D uTexture;\n"
+						+ "uniform vec2 uTextureBase;\n"
 						+ "varying vec2 vTexture;\n"
 						+ "void main()\n"
 						+ "{\n"
-						+ "	vec4 tex = texture2D(uTexture, vTexture);\n"
+						+ "	vec2 texCoord = vec2(vTexture.x + uTextureBase.x, vTexture.y + uTextureBase.y);\n"
+						+ "	vec4 tex = texture2D(uTexture, texCoord);\n"
 						+ "	vec4 biased = vec4(tex.r, tex.g, tex.b, tex.a);\n"
 						+ "	gl_FragColor = vec4(biased.r, biased.g, biased.b, biased.a);\n"
 						+ "}\n"
@@ -60,40 +77,77 @@ public class WindowManager
 		);
 		_uOffset = _gl.glGetUniformLocation(_program, "uOffset");
 		_uTexture = _gl.glGetUniformLocation(_program, "uTexture");
+		_uTextureBase = _gl.glGetUniformLocation(_program, "uTextureBase");
 		
-		// Create the placeholder for our text texture.
-		_smallTextTexture = gl.glGenTexture();
-		gl.glBindTexture(GL20.GL_TEXTURE_2D, _smallTextTexture);
-		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, TEXT_TEXTURE_WIDTH_PIXELS, TEXT_TEXTURE_HEIGHT_PIXELS, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, null);
-		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
+		// We need to create the vertex buffers for the tile and the label.
+		_tileVertexBuffer = _defineTileVertexBuffer(_gl, _atlas.coordinateSize);
+		_labelVertexBuffer = _defineTextVertexBuffer(_gl);
 		
-		// Create the relevant meshes.
-		_counterBuffer = _defineTextVertexBuffer(_gl);
+		_textTextures = new HashMap<>();
 	}
 
-	public void drawWindows(String text)
+	public void drawWindows()
 	{
 		// Enable our program
 		_gl.glUseProgram(_program);
 		
-		// Currently, we just have the text so draw that in the bottom.
-		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_renderTextToImage(_gl, _smallTextTexture, text);
-		_gl.glUniform1i(_uTexture, 0);
-		_gl.glUniform2f(_uOffset, 0.0f, -0.8f);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _counterBuffer);
-		_gl.glEnableVertexAttribArray(0);
-		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
-		_gl.glEnableVertexAttribArray(1);
-		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
-		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+		// If there is an item selected, show it.
+		if (null != _selectedItem)
+		{
+			// We lazily create the label.
+			short number = _selectedItem.number();
+			String name = "Block " + number;
+			if (!_textTextures.containsKey(name))
+			{
+				int labelTexture = _gl.glGenTexture();
+				_gl.glBindTexture(GL20.GL_TEXTURE_2D, labelTexture);
+				_gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, TEXT_TEXTURE_WIDTH_PIXELS, TEXT_TEXTURE_HEIGHT_PIXELS, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, null);
+				_renderTextToImage(_gl, labelTexture, name);
+				_textTextures.put(name, labelTexture);
+			}
+			
+			// Draw the tile.
+			_gl.glActiveTexture(GL20.GL_TEXTURE0);
+			_gl.glBindTexture(GL20.GL_TEXTURE_2D, _atlas.texture);
+			float[] uv = _atlas.baseOfTexture(number);
+			float textureBaseU = uv[0];
+			float textureBaseV = uv[1];
+			_gl.glUniform1i(_uTexture, 0);
+			_gl.glUniform2f(_uOffset, -0.3f, -0.9f);
+			_gl.glUniform2f(_uTextureBase, textureBaseU, textureBaseV);
+			_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _tileVertexBuffer);
+			_gl.glEnableVertexAttribArray(0);
+			_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
+			_gl.glEnableVertexAttribArray(1);
+			_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
+			_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+			
+			// Draw the label.
+			int labelTexture = _textTextures.get(name);
+			_gl.glActiveTexture(GL20.GL_TEXTURE0);
+			_gl.glBindTexture(GL20.GL_TEXTURE_2D, labelTexture);
+			_gl.glUniform1i(_uTexture, 0);
+			_gl.glUniform2f(_uOffset, -0.1f, -0.9f);
+			_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
+			_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _labelVertexBuffer);
+			_gl.glEnableVertexAttribArray(0);
+			_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
+			_gl.glEnableVertexAttribArray(1);
+			_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
+			_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+		}
+	}
+
+	public void setSelectedItem(Item selectedItem)
+	{
+		_selectedItem = selectedItem;
 	}
 
 
 	private static void _renderTextToImage(GL20 gl, int texture, String text)
 	{
 		// We just use "something" for the font and size, for now - this will be made into something more specific, later.
-		Font font = new Font("Arial", Font.BOLD, 96);
+		Font font = new Font("Arial", Font.BOLD, 64);
 		BufferedImage image = new BufferedImage(TEXT_TEXTURE_WIDTH_PIXELS, TEXT_TEXTURE_HEIGHT_PIXELS, BufferedImage.TYPE_INT_ARGB);
 		Graphics graphics = image.getGraphics();
 		graphics.setFont(font);
@@ -122,25 +176,30 @@ public class WindowManager
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
 	}
 
+	private static int _defineTileVertexBuffer(GL20 gl, float textureSize)
+	{
+		return _defineCommonVertices(gl, 1.0f, textureSize);
+	}
+
 	private static int _defineTextVertexBuffer(GL20 gl)
 	{
-		float width = 0.4f;
-		float height = 0.2f;
-		float left = -width / 2.0f;
-		float right = width / 2.0f;
-		float top = height / 2.0f;
-		float bottom = -height / 2.0f;
+		return _defineCommonVertices(gl, 4.0f, 1.0f);
+	}
+
+	private static int _defineCommonVertices(GL20 gl, float aspectRatio, float textureSize)
+	{
+		float height = 0.1f;
+		float width = aspectRatio * height;
 		float textureBaseU = 0.0f;
 		float textureBaseV = 0.0f;
-		float textureSize = 1.0f;
 		float[] vertices = new float[] {
-				left, bottom, textureBaseU, textureBaseV + textureSize,
-				left, top, textureBaseU, textureBaseV,
-				right, top, textureBaseU + textureSize, textureBaseV,
+				0.0f, 0.0f, textureBaseU, textureBaseV + textureSize,
+				0.0f, height, textureBaseU, textureBaseV,
+				width, height, textureBaseU + textureSize, textureBaseV,
 				
-				right, top, textureBaseU + textureSize, textureBaseV,
-				right, bottom, textureBaseU + textureSize, textureBaseV + textureSize,
-				left, bottom, textureBaseU, textureBaseV + textureSize,
+				width, height, textureBaseU + textureSize, textureBaseV,
+				width, 0.0f, textureBaseU + textureSize, textureBaseV + textureSize,
+				0.0f, 0.0f, textureBaseU, textureBaseV + textureSize,
 		};
 		ByteBuffer direct = ByteBuffer.allocateDirect(vertices.length * Float.BYTES);
 		direct.order(ByteOrder.nativeOrder());
