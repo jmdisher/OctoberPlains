@@ -55,7 +55,7 @@ public class OctoberPlains extends ApplicationAdapter
 		_client = new ClientLogic((Entity entity) -> {
 					_renderer.setThisEntity(entity);
 					_mouseHandler.setCentreLocation(entity.location());
-					_windowManager.setSelectedItem(entity.selectedItem());
+					_windowManager.setEntity(entity);
 				}
 				, (IReadOnlyCuboidData cuboid) -> _renderer.setOneCuboid(cuboid)
 				, (CuboidAddress address) -> _renderer.removeCuboid(address)
@@ -113,6 +113,10 @@ public class OctoberPlains extends ApplicationAdapter
 		else if (Gdx.input.isKeyPressed(Keys.DPAD_LEFT))
 		{
 			_client.stepWest();
+		}
+		else if (Gdx.input.isKeyJustPressed(Keys.I))
+		{
+			_windowManager.toggleInventory();
 		}
 		else if (Gdx.input.isButtonJustPressed(0))
 		{
