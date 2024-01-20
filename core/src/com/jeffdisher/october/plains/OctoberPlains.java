@@ -19,6 +19,7 @@ public class OctoberPlains extends ApplicationAdapter
 	private final MouseHandler _mouseHandler = new MouseHandler(Math.round(1.0f / RenderSupport.TILE_EDGE_SIZE));
 	private TextureAtlas _textureAtlas;
 	private RenderSupport _renderer;
+	private WindowManager _windowManager;
 
 	private ClientLogic _client;
 
@@ -48,6 +49,9 @@ public class OctoberPlains extends ApplicationAdapter
 		
 		// Create the generic render support class.
 		_renderer = new RenderSupport(gl, _textureAtlas);
+		
+		// Create the window manager.
+		_windowManager = new WindowManager(gl);
 		
 		// At this point, we can also create the basic OctoberProject client and testing environment.
 		_client = new ClientLogic((Entity entity) -> {
@@ -80,7 +84,10 @@ public class OctoberPlains extends ApplicationAdapter
 		AbsoluteLocation selection = _mouseHandler.getXyzTile(glX, glY, zOffset);
 		
 		// Draw the scene.
-		_renderer.renderScene(Integer.toString(TEMP_COUNTER), 0.0f, 0.0f, selection);
+		_renderer.renderScene(selection);
+		
+		// Draw any active windows over the scene.
+		_windowManager.drawWindows(Integer.toString(TEMP_COUNTER));
 		TEMP_COUNTER += 1;
 		
 		// Handle inputs - we will only allow a single direction at a time.

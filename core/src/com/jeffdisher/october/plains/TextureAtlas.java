@@ -1,8 +1,5 @@
 package com.jeffdisher.october.plains;
 
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -18,9 +15,6 @@ import com.jeffdisher.october.utils.Assert;
 
 public class TextureAtlas
 {
-	public static final int TEXT_TEXTURE_WIDTH_PIXELS = 256;
-	public static final int TEXT_TEXTURE_HEIGHT_PIXELS = 128;
-
 	public static TextureAtlas loadAtlas(GL20 gl, String[] names) throws IOException
 	{
 		// We essentially just want the base2 logarithm of the array length rounded to the nearest power of 2.
@@ -99,58 +93,18 @@ public class TextureAtlas
 		gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_WRAP_S, GL20.GL_CLAMP_TO_EDGE);
 		gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_WRAP_T, GL20.GL_CLAMP_TO_EDGE);
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
-		
-		// Create the placeholder for our text texture.
-		int smallTextTexture = gl.glGenTexture();
-		gl.glBindTexture(GL20.GL_TEXTURE_2D, smallTextTexture);
-		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, TEXT_TEXTURE_WIDTH_PIXELS, TEXT_TEXTURE_HEIGHT_PIXELS, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, null);
-		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
-		return new TextureAtlas(texture, texturesPerRow, smallTextTexture);
-	}
-
-	public static void renderTextToImage(GL20 gl, int texture, String text)
-	{
-		// We just use "something" for the font and size, for now - this will be made into something more specific, later.
-		Font font = new Font("Arial", Font.BOLD, 96);
-		BufferedImage image = new BufferedImage(TEXT_TEXTURE_WIDTH_PIXELS, TEXT_TEXTURE_HEIGHT_PIXELS, BufferedImage.TYPE_INT_ARGB);
-		Graphics graphics = image.getGraphics();
-		graphics.setFont(font);
-		graphics.setColor(Color.WHITE);
-		graphics.drawString(text, 0, TEXT_TEXTURE_HEIGHT_PIXELS);
-		
-		int channelsPerPixel = 2;
-		ByteBuffer textureBufferData = ByteBuffer.allocateDirect(TEXT_TEXTURE_WIDTH_PIXELS * TEXT_TEXTURE_HEIGHT_PIXELS * channelsPerPixel);
-		textureBufferData.order(ByteOrder.nativeOrder());
-		for (int y = 0; y < TEXT_TEXTURE_HEIGHT_PIXELS; ++y)
-		{
-			for (int x = 0; x < TEXT_TEXTURE_WIDTH_PIXELS; ++x)
-			{
-				int pixel = image.getRGB(x, y);
-				// This data is pulled out as ARGB but we need to upload it as LA.
-				// We draw white so just get any channel and the alpha.
-				byte a = (byte)((0xFF000000 & pixel) >> 24);
-				byte b = (byte) (0x000000FF & pixel);
-				textureBufferData.put(new byte[] { b, a });
-			}
-		}
-		((java.nio.Buffer) textureBufferData).flip();
-		
-		gl.glBindTexture(GL20.GL_TEXTURE_2D, texture);
-		gl.glTexSubImage2D(GL20.GL_TEXTURE_2D, 0, 0, 0, TEXT_TEXTURE_WIDTH_PIXELS, TEXT_TEXTURE_HEIGHT_PIXELS, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
-		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
+		return new TextureAtlas(texture, texturesPerRow);
 	}
 
 
 	public final int texture;
 	public final float coordinateSize;
-	public final int smallTextTexture;
 	private final int _texturesPerRow;
 
-	private TextureAtlas(int texture, int texturesPerRow, int smallTextTexture)
+	private TextureAtlas(int texture, int texturesPerRow)
 	{
 		this.texture = texture;
 		this.coordinateSize = 1.0f / (float)texturesPerRow;
-		this.smallTextTexture = smallTextTexture;
 		_texturesPerRow = texturesPerRow;
 	}
 
