@@ -120,8 +120,9 @@ public class RenderSupport
 		float y = entityLocation.y();
 		
 		// Determine which tile is selected under the mouse.
-		CuboidAddress selectedCuboid;
-		BlockAddress selectedBlock;
+		CuboidAddress selectedCuboid = null;
+		BlockAddress selectedBlock = null;
+		if (null != selectedLocation)
 		{
 			selectedCuboid = selectedLocation.getCuboidAddress();
 			

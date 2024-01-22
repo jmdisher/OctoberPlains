@@ -1,6 +1,7 @@
 package com.jeffdisher.october.plains;
 
 import java.io.IOException;
+import java.util.function.Consumer;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
@@ -74,19 +75,27 @@ public class OctoberPlains extends ApplicationAdapter
 		// (screen coordinates are from the top-left and from 0-count whereas the scene is from bottom left and from -1.0 to 1.0).
 		float glX = (2.0f * mouseX / screenWidth) - 1.0f;
 		float glY = (2.0f * (screenHeight - mouseY) / screenHeight) - 1.0f;
-		int zOffset = (Gdx.input.isKeyPressed(Keys.Q))
-				? 1
-				: (Gdx.input.isKeyPressed(Keys.Z))
-					? -1
-					: 0
-		;
-		AbsoluteLocation selection = _mouseHandler.getXyzTile(glX, glY, zOffset);
+		
+		// Ask the window manager if the mouse is over anything it knows about.
+		Consumer<ClientLogic> clickButtonCapture = _windowManager.findButton(glX, glY);
+		AbsoluteLocation selection = null;
+		if (null == clickButtonCapture)
+		{
+			// We aren't hovering over a button in the window manager overlay so see if we are hovering over a tile.
+			int zOffset = (Gdx.input.isKeyPressed(Keys.Q))
+					? 1
+					: (Gdx.input.isKeyPressed(Keys.Z))
+						? -1
+						: 0
+			;
+			selection = _mouseHandler.getXyzTile(glX, glY, zOffset);
+		}
 		
 		// Draw the scene.
 		_renderer.renderScene(selection);
 		
 		// Draw any active windows over the scene.
-		_windowManager.drawWindows();
+		_windowManager.drawWindows(glX, glY);
 		
 		// Handle inputs - we will only allow a single direction at a time.
 		if (Gdx.input.isKeyJustPressed(Keys.SPACE))
@@ -120,13 +129,24 @@ public class OctoberPlains extends ApplicationAdapter
 		}
 		else if (Gdx.input.isButtonJustPressed(0))
 		{
-			// If they press left click, start breaking a block.
-			_client.beginBreakingBlock(selection);
+			// See if they have a button.
+			if (null != clickButtonCapture)
+			{
+				clickButtonCapture.accept(_client);
+			}
+			if (null != selection)
+			{
+				// If they press left click, start breaking a block.
+				_client.beginBreakingBlock(selection);
+			}
 		}
 		else if (Gdx.input.isButtonJustPressed(1))
 		{
-			// If they press right click, place our block (this will implicitly select stone).
-			_client.placeBlock(selection);
+			if (null != selection)
+			{
+				// If they press right click, place our block (this will implicitly select stone).
+				_client.placeBlock(selection);
+			}
 		}
 		else
 		{

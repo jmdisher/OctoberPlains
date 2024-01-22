@@ -17,6 +17,7 @@ import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.Inventory;
+import com.jeffdisher.october.types.Item;
 import com.jeffdisher.october.types.Items;
 import com.jeffdisher.october.utils.Assert;
 import com.jeffdisher.october.worldgen.CuboidGenerator;
@@ -222,13 +223,12 @@ public class ClientLogic
 				_client.pullItemsFromInventory(location, allStone, currentTimeMillis);
 			}
 		}
-		
-		// TODO:  This selection either needs to be an explicit action and/or done in the mutation since this will be undone by the server since they haven't yet picked up the items when we submit this on the first call.
-		if (null == _thisEntity.selectedItem())
-		{
-			long currentTimeMillis = System.currentTimeMillis();
-			_client.selectItemInInventory(ItemRegistry.STONE, currentTimeMillis);
-		}
+	}
+
+	public void setSelectedItem(Item item)
+	{
+		long currentTimeMillis = System.currentTimeMillis();
+		_client.selectItemInInventory(item, currentTimeMillis);
 	}
 
 	public void disconnect()

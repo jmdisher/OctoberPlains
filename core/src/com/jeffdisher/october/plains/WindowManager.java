@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.types.Entity;
@@ -22,6 +23,8 @@ public class WindowManager
 {
 	public static final int TEXT_TEXTURE_WIDTH_PIXELS = 256;
 	public static final int TEXT_TEXTURE_HEIGHT_PIXELS = 64;
+	public static final float BUTTON_HEIGHT = 0.1f;
+	public static final float BUTTON_BACKGROUND_ASPECT_RATIO = 7.0f;
 
 	private final GL20 _gl;
 	private final TextureAtlas _atlas;
@@ -37,6 +40,7 @@ public class WindowManager
 
 	private int _backgroundVertexBuffer;
 	private int _backgroundTexture;
+	private int _backgroundHighlightTexture;
 	private final Map<String, Integer> _textTextures;
 	private Entity _entity;
 
@@ -90,22 +94,32 @@ public class WindowManager
 		_labelVertexBuffer = _defineTextVertexBuffer(_gl);
 		
 		// Create the background rectangle for labels, etc.
-		_backgroundVertexBuffer = _defineCommonVertices(gl, 7.0f, 1.0f);
+		_backgroundVertexBuffer = _defineCommonVertices(gl, BUTTON_BACKGROUND_ASPECT_RATIO, 1.0f);
 		// Create the background colour texture we will use (just one pixel allowing us to avoid creating a new shader).
 		// This is just dark grey with alpha.
 		_backgroundTexture = _gl.glGenTexture();
 		ByteBuffer textureBufferData = ByteBuffer.allocateDirect(2);
 		textureBufferData.order(ByteOrder.nativeOrder());
-		textureBufferData.put(new byte[] { 64, (byte)196 });
+		textureBufferData.put(new byte[] { 32, (byte)196 });
 		((java.nio.Buffer) textureBufferData).flip();
 		gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundTexture);
-		gl.glTexSubImage2D(GL20.GL_TEXTURE_2D, 0, 0, 0, 1, 1, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
+		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, 1, 1, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
+		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
+		
+		// Similarly, we create the background highlight texture for selection.
+		// This is just light grey with alpha.
+		_backgroundHighlightTexture = _gl.glGenTexture();
+		((java.nio.Buffer) textureBufferData).position(0);
+		textureBufferData.put(new byte[] { (byte)128, (byte)196 });
+		((java.nio.Buffer) textureBufferData).flip();
+		gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundHighlightTexture);
+		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, 1, 1, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
 		
 		_textTextures = new HashMap<>();
 	}
 
-	public void drawWindows()
+	public void drawWindows(float glX, float glY)
 	{
 		// Enable our program
 		_gl.glUseProgram(_program);
@@ -114,7 +128,7 @@ public class WindowManager
 		Item selectedItem = (null != _entity) ? _entity.selectedItem() : null;
 		if (null != selectedItem)
 		{
-			_drawItem(selectedItem, -0.3f, -0.9f);
+			_drawItem(selectedItem, -0.3f, -0.9f, false);
 		}
 		
 		// See if we should show the inventory window.
@@ -125,7 +139,8 @@ public class WindowManager
 			Inventory inv = _entity.inventory();
 			for (Item item : inv.items.keySet())
 			{
-				_drawItem(item, baseX, baseY);
+				boolean shouldHighlight = _isOverButton(baseX, baseY, glX, glY);
+				_drawItem(item, baseX, baseY, shouldHighlight);
 				baseY -= 0.2f;
 			}
 		}
@@ -139,6 +154,38 @@ public class WindowManager
 	public void toggleInventory()
 	{
 		_showInventory = !_showInventory;
+	}
+
+	public Consumer<ClientLogic> findButton(float glX, float glY)
+	{
+		Consumer<ClientLogic> button = null;
+		// If we have the inventory open, see if this is a button location.
+		if (_showInventory)
+		{
+			float baseX = 0.2f;
+			float baseY = 0.8f;
+			Inventory inv = _entity.inventory();
+			for (Item item : inv.items.keySet())
+			{
+				if (_isOverButton(baseX, baseY, glX, glY))
+				{
+					button = (ClientLogic client) -> {
+						// If this already was selected, clear it.
+						if (_entity.selectedItem() == item)
+						{
+							client.setSelectedItem(null);
+						}
+						else
+						{
+							client.setSelectedItem(item);
+						}
+					};
+					break;
+				}
+				baseY -= 0.2f;
+			}
+		}
+		return button;
 	}
 
 
@@ -186,7 +233,7 @@ public class WindowManager
 
 	private static int _defineCommonVertices(GL20 gl, float aspectRatio, float textureSize)
 	{
-		float height = 0.1f;
+		float height = BUTTON_HEIGHT;
 		float width = aspectRatio * height;
 		float textureBaseU = 0.0f;
 		float textureBaseV = 0.0f;
@@ -217,7 +264,7 @@ public class WindowManager
 		return entityBuffer;
 	}
 
-	private void _drawItem(Item selectedItem, float baseX, float baseY)
+	private void _drawItem(Item selectedItem, float baseX, float baseY, boolean shouldHighlight)
 	{
 		// We lazily create the label.
 		short number = selectedItem.number();
@@ -233,7 +280,7 @@ public class WindowManager
 		
 		// Draw the background.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundTexture);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, shouldHighlight ? _backgroundHighlightTexture : _backgroundTexture);
 		_gl.glUniform1i(_uTexture, 0);
 		_gl.glUniform2f(_uOffset, baseX, baseY);
 		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
@@ -273,5 +320,13 @@ public class WindowManager
 		_gl.glEnableVertexAttribArray(1);
 		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+	}
+
+	private static boolean _isOverButton(float baseX, float baseY, float glX, float glY)
+	{
+		// The button background is 0.1 high and 0.7 wide.
+		float edgeX = baseX + (BUTTON_BACKGROUND_ASPECT_RATIO * BUTTON_HEIGHT);
+		float edgeY = baseY + BUTTON_HEIGHT;
+		return ((glX >= baseX) && (glX <= edgeX) && (glY >= baseY) && (glY <= edgeY));
 	}
 }
