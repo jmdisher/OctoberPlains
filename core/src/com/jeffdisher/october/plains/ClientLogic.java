@@ -208,7 +208,7 @@ public class ClientLogic
 
 	public void pickUpItemsOnOurTile()
 	{
-		AbsoluteLocation location = _thisEntity.location().getBlockLocation();
+		AbsoluteLocation location = GeometryHelpers.getCentreAtFeet(_thisEntity);
 		IReadOnlyCuboidData cuboid = _cuboids.get(location.getCuboidAddress());
 		// For now, we shouldn't see not-yet-loaded cuboids here.
 		Assert.assertTrue(null != cuboid);

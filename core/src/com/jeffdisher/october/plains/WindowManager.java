@@ -9,11 +9,17 @@ import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import com.badlogic.gdx.graphics.GL20;
+import com.jeffdisher.october.data.BlockProxy;
+import com.jeffdisher.october.registries.AspectRegistry;
+import com.jeffdisher.october.registries.ItemRegistry;
+import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
+import com.jeffdisher.october.utils.Assert;
 
 
 /**
@@ -28,6 +34,7 @@ public class WindowManager
 
 	private final GL20 _gl;
 	private final TextureAtlas _atlas;
+	private final Function<AbsoluteLocation, BlockProxy> _blockLoader;
 
 	private int _program;
 	private int _uOffset;
@@ -46,10 +53,11 @@ public class WindowManager
 
 	private boolean _showInventory;
 
-	public WindowManager(GL20 gl, TextureAtlas atlas)
+	public WindowManager(GL20 gl, TextureAtlas atlas, Function<AbsoluteLocation, BlockProxy> blockLoader)
 	{
 		_gl = gl;
 		_atlas = atlas;
+		_blockLoader = blockLoader;
 		
 		// Create the program we will use for the window overlays.
 		// Explanation of these:
@@ -132,8 +140,10 @@ public class WindowManager
 		}
 		
 		// See if we should show the inventory window.
+		// (note that the entity could only be null during start-up).
 		if (_showInventory && (null != _entity))
 		{
+			// Draw the entity inventory.
 			float baseX = 0.2f;
 			float baseY = 0.8f;
 			Inventory inv = _entity.inventory();
@@ -142,6 +152,20 @@ public class WindowManager
 				boolean shouldHighlight = _isOverButton(baseX, baseY, glX, glY);
 				_drawItem(item, baseX, baseY, shouldHighlight);
 				baseY -= 0.2f;
+			}
+			
+			// Draw the inventory on the ground.
+			Inventory blockInventory = _currentBlockInventory();
+			if (null != blockInventory)
+			{
+				baseX = -0.8f;
+				baseY = -0.2f;
+				for (Item item : blockInventory.items.keySet())
+				{
+					boolean shouldHighlight = _isOverButton(baseX, baseY, glX, glY);
+					_drawItem(item, baseX, baseY, shouldHighlight);
+					baseY -= 0.2f;
+				}
 			}
 		}
 	}
@@ -183,6 +207,28 @@ public class WindowManager
 					break;
 				}
 				baseY -= 0.2f;
+			}
+			
+			// Repeat this process for the ground.
+			Inventory blockInventory = _currentBlockInventory();
+			if (null != blockInventory)
+			{
+				baseX = -0.8f;
+				baseY = -0.2f;
+				for (Item item : blockInventory.items.keySet())
+				{
+					// TODO:  This can support other types when pickUpItemsOnOurTile() is adapted to request the type (and count).
+					Assert.assertTrue(ItemRegistry.STONE == item);
+					if (_isOverButton(baseX, baseY, glX, glY))
+					{
+						button = (ClientLogic client) -> {
+							// Eventually, we will unify these inventory behaviours but for now we just pick up these items.
+							client.pickUpItemsOnOurTile();
+						};
+						break;
+					}
+					baseY -= 0.2f;
+				}
 			}
 		}
 		return button;
@@ -328,5 +374,13 @@ public class WindowManager
 		float edgeX = baseX + (BUTTON_BACKGROUND_ASPECT_RATIO * BUTTON_HEIGHT);
 		float edgeY = baseY + BUTTON_HEIGHT;
 		return ((glX >= baseX) && (glX <= edgeX) && (glY >= baseY) && (glY <= edgeY));
+	}
+
+	private Inventory _currentBlockInventory()
+	{
+		AbsoluteLocation block = GeometryHelpers.getCentreAtFeet(_entity);
+		BlockProxy proxy = _blockLoader.apply(block);
+		Inventory blockInventory = proxy.getDataSpecial(AspectRegistry.INVENTORY);
+		return blockInventory;
 	}
 }

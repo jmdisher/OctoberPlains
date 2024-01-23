@@ -16,6 +16,8 @@ import com.jeffdisher.october.types.Entity;
 public class OctoberPlains extends ApplicationAdapter
 {
 	private final MouseHandler _mouseHandler = new MouseHandler(Math.round(1.0f / RenderSupport.TILE_EDGE_SIZE));
+	private final WorldCache _worldCache = new WorldCache();
+
 	private TextureAtlas _textureAtlas;
 	private RenderSupport _renderer;
 	private WindowManager _windowManager;
@@ -54,7 +56,9 @@ public class OctoberPlains extends ApplicationAdapter
 		_renderer = new RenderSupport(gl, _textureAtlas);
 		
 		// Create the window manager.
-		_windowManager = new WindowManager(gl, _textureAtlas);
+		_windowManager = new WindowManager(gl, _textureAtlas, (AbsoluteLocation location) -> {
+			return _worldCache.readBlock(location);
+		});
 		
 		// At this point, we can also create the basic OctoberProject client and testing environment.
 		_client = new ClientLogic((Entity entity) -> {
@@ -62,8 +66,18 @@ public class OctoberPlains extends ApplicationAdapter
 					_mouseHandler.setCentreLocation(entity.location());
 					_windowManager.setEntity(entity);
 				}
-				, (IReadOnlyCuboidData cuboid) -> _renderer.setOneCuboid(cuboid)
-				, (CuboidAddress address) -> _renderer.removeCuboid(address)
+				, (IReadOnlyCuboidData cuboid) -> {
+					// Update our data cache.
+					_worldCache.setCuboid(cuboid);
+					// Notify the renderer to redraw this cuboid.
+					_renderer.setOneCuboid(cuboid);
+				}
+				, (CuboidAddress address) -> {
+					// Delete thie from our cache.
+					_worldCache.removeCuboid(address);
+					// Notify the renderer to drop this from video memory.
+					_renderer.removeCuboid(address);
+				}
 		);
 		_client.finishStartup();
 	}
@@ -105,11 +119,6 @@ public class OctoberPlains extends ApplicationAdapter
 		if (Gdx.input.isKeyJustPressed(Keys.SPACE))
 		{
 			_client.jump();
-		}
-		else if (Gdx.input.isKeyJustPressed(Keys.SHIFT_LEFT))
-		{
-			// We will pick up anything on this tile.
-			_client.pickUpItemsOnOurTile();
 		}
 		if (Gdx.input.isKeyPressed(Keys.DPAD_UP))
 		{
