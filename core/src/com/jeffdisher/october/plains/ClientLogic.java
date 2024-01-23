@@ -206,23 +206,20 @@ public class ClientLogic
 		}
 	}
 
-	public void pickUpItemsOnOurTile()
+	public void pickUpItemsOnOurTile(Item type, int count)
 	{
 		AbsoluteLocation location = GeometryHelpers.getCentreAtFeet(_thisEntity);
 		IReadOnlyCuboidData cuboid = _cuboids.get(location.getCuboidAddress());
 		// For now, we shouldn't see not-yet-loaded cuboids here.
 		Assert.assertTrue(null != cuboid);
 		Inventory inventory = cuboid.getDataSpecial(AspectRegistry.INVENTORY, location.getBlockAddress());
-		if (null != inventory)
-		{
-			// For now, we will only pick up stone.
-			Items allStone = inventory.items.get(ItemRegistry.STONE);
-			if (null != allStone)
-			{
-				long currentTimeMillis = System.currentTimeMillis();
-				_client.pullItemsFromInventory(location, allStone, currentTimeMillis);
-			}
-		}
+		// This must exist to be calling this.
+		Assert.assertTrue(null != inventory);
+		// This must be a valid request.
+		Assert.assertTrue(inventory.items.get(type).count() >= count);
+		
+		long currentTimeMillis = System.currentTimeMillis();
+		_client.pullItemsFromInventory(location, new Items(type, count), currentTimeMillis);
 	}
 
 	public void setSelectedItem(Item item)

@@ -94,26 +94,20 @@ public class OctoberPlains extends ApplicationAdapter
 		float glX = (2.0f * mouseX / screenWidth) - 1.0f;
 		float glY = (2.0f * (screenHeight - mouseY) / screenHeight) - 1.0f;
 		
-		// Ask the window manager if the mouse is over anything it knows about.
-		Consumer<ClientLogic> clickButtonCapture = _windowManager.findButton(glX, glY);
-		AbsoluteLocation selection = null;
-		if (null == clickButtonCapture)
-		{
-			// We aren't hovering over a button in the window manager overlay so see if we are hovering over a tile.
-			int zOffset = (Gdx.input.isKeyPressed(Keys.Q))
-					? 1
-					: (Gdx.input.isKeyPressed(Keys.Z))
-						? -1
-						: 0
-			;
-			selection = _mouseHandler.getXyzTile(glX, glY, zOffset);
-		}
+		// Find out what we are hovering over in the tile background.
+		int zOffset = (Gdx.input.isKeyPressed(Keys.Q))
+				? 1
+				: (Gdx.input.isKeyPressed(Keys.Z))
+					? -1
+					: 0
+		;
+		AbsoluteLocation selection = _mouseHandler.getXyzTile(glX, glY, zOffset);
 		
 		// Draw the scene.
 		_renderer.renderScene(selection);
 		
-		// Draw any active windows over the scene.
-		_windowManager.drawWindows(glX, glY);
+		// Draw any active windows over the scene and get the capture for anything we which can receive click events.
+		Consumer<ClientLogic> clickButtonCapture = _windowManager.drawWindowsWithButtonCapture(glX, glY);
 		
 		// Handle inputs - we will only allow a single direction at a time.
 		if (Gdx.input.isKeyJustPressed(Keys.SPACE))

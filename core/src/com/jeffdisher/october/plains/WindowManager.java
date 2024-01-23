@@ -14,12 +14,11 @@ import java.util.function.Function;
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.registries.AspectRegistry;
-import com.jeffdisher.october.registries.ItemRegistry;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
-import com.jeffdisher.october.utils.Assert;
+import com.jeffdisher.october.types.MutableInventory;
 
 
 /**
@@ -127,7 +126,7 @@ public class WindowManager
 		_textTextures = new HashMap<>();
 	}
 
-	public void drawWindows(float glX, float glY)
+	public Consumer<ClientLogic> drawWindowsWithButtonCapture(float glX, float glY)
 	{
 		// Enable our program
 		_gl.glUseProgram(_program);
@@ -141,57 +140,19 @@ public class WindowManager
 		
 		// See if we should show the inventory window.
 		// (note that the entity could only be null during start-up).
+		Consumer<ClientLogic> button = null;
 		if (_showInventory && (null != _entity))
 		{
 			// Draw the entity inventory.
 			float baseX = 0.2f;
 			float baseY = 0.8f;
 			Inventory inv = _entity.inventory();
+			Inventory blockInventory = _currentBlockInventory();
 			for (Item item : inv.items.keySet())
 			{
 				boolean shouldHighlight = _isOverButton(baseX, baseY, glX, glY);
 				_drawItem(item, baseX, baseY, shouldHighlight);
-				baseY -= 0.2f;
-			}
-			
-			// Draw the inventory on the ground.
-			Inventory blockInventory = _currentBlockInventory();
-			if (null != blockInventory)
-			{
-				baseX = -0.8f;
-				baseY = -0.2f;
-				for (Item item : blockInventory.items.keySet())
-				{
-					boolean shouldHighlight = _isOverButton(baseX, baseY, glX, glY);
-					_drawItem(item, baseX, baseY, shouldHighlight);
-					baseY -= 0.2f;
-				}
-			}
-		}
-	}
-
-	public void setEntity(Entity entity)
-	{
-		_entity = entity;
-	}
-
-	public void toggleInventory()
-	{
-		_showInventory = !_showInventory;
-	}
-
-	public Consumer<ClientLogic> findButton(float glX, float glY)
-	{
-		Consumer<ClientLogic> button = null;
-		// If we have the inventory open, see if this is a button location.
-		if (_showInventory)
-		{
-			float baseX = 0.2f;
-			float baseY = 0.8f;
-			Inventory inv = _entity.inventory();
-			for (Item item : inv.items.keySet())
-			{
-				if (_isOverButton(baseX, baseY, glX, glY))
+				if (shouldHighlight)
 				{
 					button = (ClientLogic client) -> {
 						// If this already was selected, clear it.
@@ -204,34 +165,63 @@ public class WindowManager
 							client.setSelectedItem(item);
 						}
 					};
-					break;
 				}
 				baseY -= 0.2f;
 			}
 			
-			// Repeat this process for the ground.
-			Inventory blockInventory = _currentBlockInventory();
+			// Draw the inventory on the ground.
 			if (null != blockInventory)
 			{
-				baseX = -0.8f;
+				baseX = -1.0f;
 				baseY = -0.2f;
 				for (Item item : blockInventory.items.keySet())
 				{
-					// TODO:  This can support other types when pickUpItemsOnOurTile() is adapted to request the type (and count).
-					Assert.assertTrue(ItemRegistry.STONE == item);
-					if (_isOverButton(baseX, baseY, glX, glY))
+					// We never highlight the label, just the buttons.
+					_drawItem(item, baseX, baseY, false);
+					float xferX = baseX + 0.5f;
+					boolean shouldHighlight = _isOverButton(xferX, baseY, glX, glY);
+					_drawBackground(xferX, baseY, shouldHighlight);
+					_drawLabel(xferX, baseY, "1");
+					if (shouldHighlight)
 					{
 						button = (ClientLogic client) -> {
-							// Eventually, we will unify these inventory behaviours but for now we just pick up these items.
-							client.pickUpItemsOnOurTile();
+							client.pickUpItemsOnOurTile(item, 1);
+							System.out.println("Pick up 1");
 						};
-						break;
+					}
+					xferX += 0.3f;
+					shouldHighlight = _isOverButton(xferX, baseY, glX, glY);
+					_drawBackground(xferX, baseY, shouldHighlight);
+					_drawLabel(xferX, baseY, "All");
+					if (shouldHighlight)
+					{
+						button = (ClientLogic client) -> {
+							// Find out how many we can hold.
+							MutableInventory checker = new MutableInventory(_entity.inventory());
+							int max = checker.maxVacancyForItem(item);
+							int toPickUp = Math.min(blockInventory.items.get(item).count(), max);
+							if (toPickUp > 0)
+							{
+								client.pickUpItemsOnOurTile(item, toPickUp);
+							}
+							System.out.println("Pick up All - " + toPickUp);
+						};
 					}
 					baseY -= 0.2f;
 				}
 			}
 		}
 		return button;
+	}
+
+	public void setEntity(Entity entity)
+	{
+		_entity = entity;
+	}
+
+	public void toggleInventory()
+	{
+		_showInventory = !_showInventory;
 	}
 
 
@@ -315,27 +305,9 @@ public class WindowManager
 		// We lazily create the label.
 		short number = selectedItem.number();
 		String name = "Block " + number;
-		if (!_textTextures.containsKey(name))
-		{
-			int labelTexture = _gl.glGenTexture();
-			_gl.glBindTexture(GL20.GL_TEXTURE_2D, labelTexture);
-			_gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, TEXT_TEXTURE_WIDTH_PIXELS, TEXT_TEXTURE_HEIGHT_PIXELS, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, null);
-			_renderTextToImage(_gl, labelTexture, name);
-			_textTextures.put(name, labelTexture);
-		}
 		
 		// Draw the background.
-		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, shouldHighlight ? _backgroundHighlightTexture : _backgroundTexture);
-		_gl.glUniform1i(_uTexture, 0);
-		_gl.glUniform2f(_uOffset, baseX, baseY);
-		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _backgroundVertexBuffer);
-		_gl.glEnableVertexAttribArray(0);
-		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
-		_gl.glEnableVertexAttribArray(1);
-		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
-		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+		_drawBackground(baseX, baseY, shouldHighlight);
 		
 		// Draw the tile.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
@@ -354,18 +326,7 @@ public class WindowManager
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 		
 		// Draw the label.
-		int labelTexture = _textTextures.get(name);
-		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, labelTexture);
-		_gl.glUniform1i(_uTexture, 0);
-		_gl.glUniform2f(_uOffset, baseX + 0.2f, baseY);
-		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _labelVertexBuffer);
-		_gl.glEnableVertexAttribArray(0);
-		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
-		_gl.glEnableVertexAttribArray(1);
-		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
-		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+		_drawLabel(baseX + 0.2f, baseY, name);
 	}
 
 	private static boolean _isOverButton(float baseX, float baseY, float glX, float glY)
@@ -382,5 +343,49 @@ public class WindowManager
 		BlockProxy proxy = _blockLoader.apply(block);
 		Inventory blockInventory = proxy.getDataSpecial(AspectRegistry.INVENTORY);
 		return blockInventory;
+	}
+
+	private void _drawLabel(float baseX, float baseY, String label)
+	{
+		int labelTexture = _lazilyLoadStringTexture(label);
+		_gl.glActiveTexture(GL20.GL_TEXTURE0);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, labelTexture);
+		_gl.glUniform1i(_uTexture, 0);
+		_gl.glUniform2f(_uOffset, baseX, baseY);
+		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
+		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _labelVertexBuffer);
+		_gl.glEnableVertexAttribArray(0);
+		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
+		_gl.glEnableVertexAttribArray(1);
+		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
+		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+	}
+
+	private int _lazilyLoadStringTexture(String string)
+	{
+		if (!_textTextures.containsKey(string))
+		{
+			int labelTexture = _gl.glGenTexture();
+			_gl.glBindTexture(GL20.GL_TEXTURE_2D, labelTexture);
+			_gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, TEXT_TEXTURE_WIDTH_PIXELS, TEXT_TEXTURE_HEIGHT_PIXELS, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, null);
+			_renderTextToImage(_gl, labelTexture, string);
+			_textTextures.put(string, labelTexture);
+		}
+		return _textTextures.get(string);
+	}
+
+	private void _drawBackground(float baseX, float baseY, boolean shouldHighlight)
+	{
+		_gl.glActiveTexture(GL20.GL_TEXTURE0);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, shouldHighlight ? _backgroundHighlightTexture : _backgroundTexture);
+		_gl.glUniform1i(_uTexture, 0);
+		_gl.glUniform2f(_uOffset, baseX, baseY);
+		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
+		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _backgroundVertexBuffer);
+		_gl.glEnableVertexAttribArray(0);
+		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
+		_gl.glEnableVertexAttribArray(1);
+		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
+		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 	}
 }
