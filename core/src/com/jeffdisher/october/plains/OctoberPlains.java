@@ -37,8 +37,12 @@ public class OctoberPlains extends ApplicationAdapter
 					"stone.png",
 					"log.png",
 					"plank.png",
-					"unknown.jpeg",
-			});
+				}
+				// Player.
+				, "unknown.jpeg"
+				// Debris.
+				, "debris.png"
+			);
 		}
 		catch (IOException e)
 		{

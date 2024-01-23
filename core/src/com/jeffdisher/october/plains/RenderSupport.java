@@ -16,6 +16,7 @@ import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.EntityLocation;
+import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.utils.Assert;
 
 
@@ -291,8 +292,7 @@ public class RenderSupport
 	private static int _defineEntityBuffer(GL20 gl, TextureAtlas atlas)
 	{
 		float textureSize = atlas.coordinateSize;
-		// (we use the unknown texture at index 4, for now).
-		float[] uv = atlas.baseOfTexture(4);
+		float[] uv = atlas.baseOfPlayerTexture();
 		float textureBaseU = uv[0];
 		float textureBaseV = uv[1];
 		float[] vertices = new float[] {
@@ -393,9 +393,18 @@ public class RenderSupport
 		{
 			for (int x = 0; x < CUBOID_EDGE_TILE_COUNT; ++x)
 			{
-				short blockValue = cuboid.getData15(AspectRegistry.BLOCK, new BlockAddress((byte)x, (byte)y, zLayer));
+				BlockAddress blockAddress = new BlockAddress((byte)x, (byte)y, zLayer);
+				short blockValue = cuboid.getData15(AspectRegistry.BLOCK, blockAddress);
 				
-				float[] uv = atlas.baseOfTexture(blockValue);
+				// Note that we generally just map the block values directly but there is a special case of an air block with an inventory (debris).
+				Inventory inventory = (0 == blockValue)
+						? cuboid.getDataSpecial(AspectRegistry.INVENTORY, blockAddress)
+						: null
+				;
+				float[] uv = (null == inventory)
+						? atlas.baseOfTexture(blockValue)
+						: atlas.baseOfDebrisTexture()
+				;
 				float textureBaseU = uv[0];
 				float textureBaseV = uv[1];
 				

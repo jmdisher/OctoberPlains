@@ -15,21 +15,31 @@ import com.jeffdisher.october.utils.Assert;
 
 public class TextureAtlas
 {
-	public static TextureAtlas loadAtlas(GL20 gl, String[] names) throws IOException
+	public static TextureAtlas loadAtlas(GL20 gl
+			, String[] names
+			, String playerTextureName
+			, String debrisTextureName
+	) throws IOException
 	{
+		// We store all the textures in the same atlas but some of them are special versus some looked up by index.
+		String[] combinedNames = new String[names.length + 2];
+		System.arraycopy(names, 0, combinedNames, 0, names.length);
+		combinedNames[names.length] = playerTextureName;
+		combinedNames[names.length + 1] = debrisTextureName;
+		
 		// We essentially just want the base2 logarithm of the array length rounded to the nearest power of 2.
 		// (a faster and generalizable algorithm using leading zeros could be used but is less obvious than this, for now)
 		int texturesPerRow = 1;
-		if (names.length > 1)
+		if (combinedNames.length > 1)
 		{
 			texturesPerRow = 2;
-			if (names.length > 4)
+			if (combinedNames.length > 4)
 			{
 				texturesPerRow = 4;
-				if (names.length > 16)
+				if (combinedNames.length > 16)
 				{
 					texturesPerRow = 8;
-					Assert.assertTrue(names.length <= 64);
+					Assert.assertTrue(combinedNames.length <= 64);
 				}
 			}
 		}
@@ -45,10 +55,10 @@ public class TextureAtlas
 		textureBufferData.order(ByteOrder.nativeOrder());
 		
 		// Load all the images and walk across them to fill the buffer.
-		BufferedImage loadedTextures[] = new BufferedImage[names.length];
-		for (int i = 0; i < names.length; ++i)
+		BufferedImage loadedTextures[] = new BufferedImage[combinedNames.length];
+		for (int i = 0; i < combinedNames.length; ++i)
 		{
-			String name = names[i];
+			String name = combinedNames[i];
 			
 			// TODO:  Change this when we have more than one texture and need to actually build the atlas.
 			FileHandle unknownTextureFile = Gdx.files.internal(name);
@@ -93,19 +103,25 @@ public class TextureAtlas
 		gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_WRAP_S, GL20.GL_CLAMP_TO_EDGE);
 		gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_WRAP_T, GL20.GL_CLAMP_TO_EDGE);
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
-		return new TextureAtlas(texture, texturesPerRow);
+		int indexOfPlayer = names.length;
+		int indexOfDebris = indexOfPlayer + 1;
+		return new TextureAtlas(texture, texturesPerRow, indexOfPlayer, indexOfDebris);
 	}
 
 
 	public final int texture;
 	public final float coordinateSize;
 	private final int _texturesPerRow;
+	private final int _indexOfPlayer;
+	private final int _indexOfDebris;
 
-	private TextureAtlas(int texture, int texturesPerRow)
+	private TextureAtlas(int texture, int texturesPerRow, int indexOfPlayer, int indexOfDebris)
 	{
 		this.texture = texture;
 		this.coordinateSize = 1.0f / (float)texturesPerRow;
 		_texturesPerRow = texturesPerRow;
+		_indexOfPlayer = indexOfPlayer;
+		_indexOfDebris = indexOfDebris;
 	}
 
 	/**
@@ -115,6 +131,23 @@ public class TextureAtlas
 	 * @return {u, v} of texture base coordinates.
 	 */
 	public float[] baseOfTexture(int index)
+	{
+		Assert.assertTrue(index < _indexOfPlayer);
+		return _baseOfTexture(index);
+	}
+
+	public float[] baseOfPlayerTexture()
+	{
+		return _baseOfTexture(_indexOfPlayer);
+	}
+
+	public float[] baseOfDebrisTexture()
+	{
+		return _baseOfTexture(_indexOfDebris);
+	}
+
+
+	private float[] _baseOfTexture(int index)
 	{
 		int row = index / _texturesPerRow;
 		int column = index % _texturesPerRow;
