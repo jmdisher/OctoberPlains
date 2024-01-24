@@ -11,6 +11,7 @@ import com.jeffdisher.october.data.CuboidData;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.integration.LocalServerShim;
 import com.jeffdisher.october.registries.AspectRegistry;
+import com.jeffdisher.october.registries.Craft;
 import com.jeffdisher.october.registries.ItemRegistry;
 import com.jeffdisher.october.server.ServerRunner;
 import com.jeffdisher.october.types.AbsoluteLocation;
@@ -83,7 +84,15 @@ public class ClientLogic
 		
 		// Since the location is standing in 0.0, we need to load at least the 8 cuboids around the origin.
 		// Note that we want them to stand on the ground so we will fill the bottom 4 with stone and the top 4 with air.
-		_shim.injectCuboidToServer(_generateColumnCuboid(new CuboidAddress((short)0, (short)0, (short)0)));
+		// (in order to better test inventory and crafting interfaces, we will drop a bunch of items on the ground where we start).
+		CuboidData cuboid000 = _generateColumnCuboid(new CuboidAddress((short)0, (short)0, (short)0));
+		Inventory starting = Inventory.start(InventoryAspect.CAPACITY_AIR)
+				.add(ItemRegistry.STONE, 1)
+				.add(ItemRegistry.LOG, 1)
+				.add(ItemRegistry.PLANK, 1)
+				.finish();
+		cuboid000.setDataSpecial(AspectRegistry.INVENTORY, new BlockAddress((byte)0, (byte)0, (byte)0), starting);
+		_shim.injectCuboidToServer(cuboid000);
 		_shim.injectCuboidToServer(_generateColumnCuboid(new CuboidAddress((short)0, (short)-1, (short)0)));
 		_shim.injectCuboidToServer(_generateColumnCuboid(new CuboidAddress((short)-1, (short)-1, (short)0)));
 		_shim.injectCuboidToServer(_generateColumnCuboid(new CuboidAddress((short)-1, (short)0, (short)0)));
@@ -248,6 +257,12 @@ public class ClientLogic
 	{
 		long currentTimeMillis = System.currentTimeMillis();
 		_client.selectItemInInventory(item, currentTimeMillis);
+	}
+
+	public void beginCraft(Craft craft)
+	{
+		long currentTimeMillis = System.currentTimeMillis();
+		_client.craft(craft, currentTimeMillis);
 	}
 
 	public void disconnect()

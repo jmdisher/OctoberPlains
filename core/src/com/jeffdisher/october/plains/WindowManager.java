@@ -15,6 +15,8 @@ import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.aspects.InventoryAspect;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.registries.AspectRegistry;
+import com.jeffdisher.october.registries.Craft;
+import com.jeffdisher.october.registries.ItemRegistry;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.Inventory;
@@ -247,6 +249,24 @@ public class WindowManager
 					}
 					baseY -= 0.2f;
 				}
+			}
+			
+			// Draw the crafting panel.
+			baseX = -1.0f;
+			baseY = 0.8f;
+			// (currently, there is just the one recipe so hard-code it).
+			boolean shouldHighlight = _isOverButton(baseX, baseY, 0.7f, glX, glY);
+			_drawItem(ItemRegistry.PLANK, 2, baseX, baseY, 0.7f, shouldHighlight);
+			if (shouldHighlight)
+			{
+				button = (ClientLogic client) -> {
+					// See if we have the inputs for this and then issue the craft command.
+					int logs = new MutableInventory(_entity.inventory()).getCount(ItemRegistry.LOG);
+					if (logs > 0)
+					{
+						client.beginCraft(Craft.LOG_TO_PLANKS);
+					}
+				};
 			}
 		}
 		return button;
