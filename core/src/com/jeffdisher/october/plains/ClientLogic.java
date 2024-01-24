@@ -187,11 +187,14 @@ public class ClientLogic
 		int absZ = Math.abs(blockLocation.z() - Math.round(_thisEntity.location().z()));
 		if ((absX <= 2) && (absY <= 2) && (absZ <= 2))
 		{
+			// Make sure that this is a block we can break and there is nothing currently in progress.
+			short blockNumber = _cuboids.get(blockLocation.getCuboidAddress()).getData15(AspectRegistry.BLOCK, blockLocation.getBlockAddress());
+			Item type = ItemRegistry.BLOCKS_BY_TYPE[blockNumber];
 			long currentTimeMillis = System.currentTimeMillis();
-			if (!_client.isActivityInProgress(currentTimeMillis))
+			if ((ItemRegistry.AIR != type) && !_client.isActivityInProgress(currentTimeMillis))
 			{
 				// This returns the delay we need to wait until the block breaks, in millis.
-				_client.beginBreakBlock(blockLocation, currentTimeMillis);
+				_client.beginBreakBlock(blockLocation, type, currentTimeMillis);
 				_client.runPendingCalls(currentTimeMillis);
 			}
 		}
