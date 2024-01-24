@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import com.jeffdisher.october.aspects.InventoryAspect;
 import com.jeffdisher.october.client.ClientRunner;
 import com.jeffdisher.october.client.SpeculativeProjection;
 import com.jeffdisher.october.data.CuboidData;
@@ -19,6 +20,7 @@ import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
 import com.jeffdisher.october.types.Items;
+import com.jeffdisher.october.types.MutableInventory;
 import com.jeffdisher.october.utils.Assert;
 import com.jeffdisher.october.worldgen.CuboidGenerator;
 
@@ -220,6 +222,26 @@ public class ClientLogic
 		
 		long currentTimeMillis = System.currentTimeMillis();
 		_client.pullItemsFromInventory(location, new Items(type, count), currentTimeMillis);
+	}
+
+	public void dropItemsOnOurTile(Item type, int count)
+	{
+		AbsoluteLocation location = GeometryHelpers.getCentreAtFeet(_thisEntity);
+		IReadOnlyCuboidData cuboid = _cuboids.get(location.getCuboidAddress());
+		// For now, we shouldn't see not-yet-loaded cuboids here.
+		Assert.assertTrue(null != cuboid);
+		// Make sure that these can fit in the tile.
+		BlockAddress blockAddress = location.getBlockAddress();
+		if (ItemRegistry.AIR.number() == cuboid.getData15(AspectRegistry.BLOCK, blockAddress))
+		{
+			Inventory existing = cuboid.getDataSpecial(AspectRegistry.INVENTORY, blockAddress);
+			MutableInventory inv = new MutableInventory((null != existing) ? existing : Inventory.start(InventoryAspect.CAPACITY_AIR).finish());
+			if (inv.maxVacancyForItem(type) >= count)
+			{
+				long currentTimeMillis = System.currentTimeMillis();
+				_client.pushItemsToInventory(location, new Items(type, count), currentTimeMillis);
+			}
+		}
 	}
 
 	public void setSelectedItem(Item item)

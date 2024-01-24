@@ -12,6 +12,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import com.badlogic.gdx.graphics.GL20;
+import com.jeffdisher.october.aspects.InventoryAspect;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.registries.AspectRegistry;
 import com.jeffdisher.october.types.AbsoluteLocation;
@@ -150,7 +151,7 @@ public class WindowManager
 		if (_showInventory && (null != _entity))
 		{
 			// Draw the entity inventory.
-			float baseX = 0.2f;
+			float baseX = 0.0f;
 			float baseY = 0.8f;
 			Inventory inv = _entity.inventory();
 			Inventory blockInventory = _currentBlockInventory();
@@ -171,6 +172,35 @@ public class WindowManager
 						else
 						{
 							client.setSelectedItem(item);
+						}
+					};
+				}
+				
+				// Now, draw the transfer buttons.
+				float xferX = baseX + 0.5f;
+				shouldHighlight = _isOverButton(xferX, baseY, 0.2f, glX, glY);
+				_drawBackground(xferX, baseY, 0.2f, shouldHighlight);
+				_drawLabel(xferX, baseY, "1");
+				if (shouldHighlight)
+				{
+					button = (ClientLogic client) -> {
+						client.dropItemsOnOurTile(item, 1);
+					};
+				}
+				xferX += 0.3f;
+				shouldHighlight = _isOverButton(xferX, baseY, 0.2f, glX, glY);
+				_drawBackground(xferX, baseY, 0.2f, shouldHighlight);
+				_drawLabel(xferX, baseY, "All");
+				if (shouldHighlight)
+				{
+					button = (ClientLogic client) -> {
+						// Find out how many can fit in the block.
+						MutableInventory checker = new MutableInventory((null != blockInventory) ? blockInventory : Inventory.start(InventoryAspect.CAPACITY_AIR).finish());
+						int max = checker.maxVacancyForItem(item);
+						int toDrop = Math.min(count, max);
+						if (toDrop > 0)
+						{
+							client.dropItemsOnOurTile(item, toDrop);
 						}
 					};
 				}
@@ -196,7 +226,6 @@ public class WindowManager
 					{
 						button = (ClientLogic client) -> {
 							client.pickUpItemsOnOurTile(item, 1);
-							System.out.println("Pick up 1");
 						};
 					}
 					xferX += 0.3f;
@@ -209,12 +238,11 @@ public class WindowManager
 							// Find out how many we can hold.
 							MutableInventory checker = new MutableInventory(_entity.inventory());
 							int max = checker.maxVacancyForItem(item);
-							int toPickUp = Math.min(blockInventory.items.get(item).count(), max);
+							int toPickUp = Math.min(count, max);
 							if (toPickUp > 0)
 							{
 								client.pickUpItemsOnOurTile(item, toPickUp);
 							}
-							System.out.println("Pick up All - " + toPickUp);
 						};
 					}
 					baseY -= 0.2f;
