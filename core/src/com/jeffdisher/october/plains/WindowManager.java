@@ -18,6 +18,7 @@ import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
+import com.jeffdisher.october.types.Items;
 import com.jeffdisher.october.types.MutableInventory;
 
 
@@ -37,6 +38,7 @@ public class WindowManager
 
 	private int _program;
 	private int _uOffset;
+	private int _uScale;
 	private int _uTexture;
 	private int _uTextureBase;
 
@@ -69,20 +71,22 @@ public class WindowManager
 						+ "attribute vec2 aPosition;\n"
 						+ "attribute vec2 aTexture;\n"
 						+ "uniform vec2 uOffset;\n"
+						+ "uniform vec2 uScale;\n"
 						+ "varying vec2 vTexture;\n"
 						+ "void main()\n"
 						+ "{\n"
 						+ "	vTexture = aTexture;\n"
-						+ "	gl_Position = vec4(aPosition.x + uOffset.x, aPosition.y + uOffset.y, 0.0, 1.0);\n"
+						+ "	gl_Position = vec4((uScale.x * aPosition.x) + uOffset.x, (uScale.y * aPosition.y) + uOffset.y, 0.0, 1.0);\n"
 						+ "}\n"
 				, "#version 100\n"
 						+ "precision mediump float;\n"
+						+ "uniform vec2 uScale;\n"
 						+ "uniform sampler2D uTexture;\n"
 						+ "uniform vec2 uTextureBase;\n"
 						+ "varying vec2 vTexture;\n"
 						+ "void main()\n"
 						+ "{\n"
-						+ "	vec2 texCoord = vec2(vTexture.x + uTextureBase.x, vTexture.y + uTextureBase.y);\n"
+						+ "	vec2 texCoord = vec2((uScale.x * vTexture.x) + uTextureBase.x, (uScale.y * vTexture.y) + uTextureBase.y);\n"
 						+ "	vec4 tex = texture2D(uTexture, texCoord);\n"
 						+ "	vec4 biased = vec4(tex.r, tex.g, tex.b, tex.a);\n"
 						+ "	gl_FragColor = vec4(biased.r, biased.g, biased.b, biased.a);\n"
@@ -93,6 +97,7 @@ public class WindowManager
 				}
 		);
 		_uOffset = _gl.glGetUniformLocation(_program, "uOffset");
+		_uScale = _gl.glGetUniformLocation(_program, "uScale");
 		_uTexture = _gl.glGetUniformLocation(_program, "uTexture");
 		_uTextureBase = _gl.glGetUniformLocation(_program, "uTextureBase");
 		
@@ -135,7 +140,8 @@ public class WindowManager
 		Item selectedItem = (null != _entity) ? _entity.selectedItem() : null;
 		if (null != selectedItem)
 		{
-			_drawItem(selectedItem, -0.3f, -0.9f, false);
+			int count = _entity.inventory().items.get(selectedItem).count();
+			_drawItem(selectedItem, count, -0.3f, -0.9f, 0.7f, false);
 		}
 		
 		// See if we should show the inventory window.
@@ -148,10 +154,12 @@ public class WindowManager
 			float baseY = 0.8f;
 			Inventory inv = _entity.inventory();
 			Inventory blockInventory = _currentBlockInventory();
-			for (Item item : inv.items.keySet())
+			for (Map.Entry<Item, Items> elt : inv.items.entrySet())
 			{
-				boolean shouldHighlight = _isOverButton(baseX, baseY, glX, glY);
-				_drawItem(item, baseX, baseY, shouldHighlight);
+				Item item = elt.getKey();
+				int count = elt.getValue().count();
+				boolean shouldHighlight = _isOverButton(baseX, baseY, 0.7f, glX, glY);
+				_drawItem(item, count, baseX, baseY, 0.7f, shouldHighlight);
 				if (shouldHighlight)
 				{
 					button = (ClientLogic client) -> {
@@ -174,13 +182,15 @@ public class WindowManager
 			{
 				baseX = -1.0f;
 				baseY = -0.2f;
-				for (Item item : blockInventory.items.keySet())
+				for (Map.Entry<Item, Items> elt : blockInventory.items.entrySet())
 				{
+					Item item = elt.getKey();
+					int count = elt.getValue().count();
 					// We never highlight the label, just the buttons.
-					_drawItem(item, baseX, baseY, false);
+					_drawItem(item, count, baseX, baseY, 0.7f, false);
 					float xferX = baseX + 0.5f;
-					boolean shouldHighlight = _isOverButton(xferX, baseY, glX, glY);
-					_drawBackground(xferX, baseY, shouldHighlight);
+					boolean shouldHighlight = _isOverButton(xferX, baseY, 0.2f, glX, glY);
+					_drawBackground(xferX, baseY, 0.2f, shouldHighlight);
 					_drawLabel(xferX, baseY, "1");
 					if (shouldHighlight)
 					{
@@ -190,8 +200,8 @@ public class WindowManager
 						};
 					}
 					xferX += 0.3f;
-					shouldHighlight = _isOverButton(xferX, baseY, glX, glY);
-					_drawBackground(xferX, baseY, shouldHighlight);
+					shouldHighlight = _isOverButton(xferX, baseY, 0.2f, glX, glY);
+					_drawBackground(xferX, baseY, 0.2f, shouldHighlight);
 					_drawLabel(xferX, baseY, "All");
 					if (shouldHighlight)
 					{
@@ -300,14 +310,14 @@ public class WindowManager
 		return entityBuffer;
 	}
 
-	private void _drawItem(Item selectedItem, float baseX, float baseY, boolean shouldHighlight)
+	private void _drawItem(Item selectedItem, int count, float baseX, float baseY, float xScale, boolean shouldHighlight)
 	{
 		// We lazily create the label.
 		short number = selectedItem.number();
 		String name = "Block " + number;
 		
 		// Draw the background.
-		_drawBackground(baseX, baseY, shouldHighlight);
+		_drawBackground(baseX, baseY, xScale, shouldHighlight);
 		
 		// Draw the tile.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
@@ -317,6 +327,7 @@ public class WindowManager
 		float textureBaseV = uv[1];
 		_gl.glUniform1i(_uTexture, 0);
 		_gl.glUniform2f(_uOffset, baseX, baseY);
+		_gl.glUniform2f(_uScale, xScale, 1.0f);
 		_gl.glUniform2f(_uTextureBase, textureBaseU, textureBaseV);
 		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _tileVertexBuffer);
 		_gl.glEnableVertexAttribArray(0);
@@ -325,14 +336,28 @@ public class WindowManager
 		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 		
+		// Draw the number in the corner.
+		_gl.glActiveTexture(GL20.GL_TEXTURE0);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _lazilyLoadStringTexture(Integer.toString(count)));
+		_gl.glUniform1i(_uTexture, 0);
+		_gl.glUniform2f(_uOffset, baseX, baseY);
+		_gl.glUniform2f(_uScale, 0.2f, 1.0f);
+		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
+		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _labelVertexBuffer);
+		_gl.glEnableVertexAttribArray(0);
+		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
+		_gl.glEnableVertexAttribArray(1);
+		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
+		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+		
 		// Draw the label.
-		_drawLabel(baseX + 0.2f, baseY, name);
+		_drawLabel(baseX + 0.1f, baseY, name);
 	}
 
-	private static boolean _isOverButton(float baseX, float baseY, float glX, float glY)
+	private static boolean _isOverButton(float baseX, float baseY, float xScale, float glX, float glY)
 	{
 		// The button background is 0.1 high and 0.7 wide.
-		float edgeX = baseX + (BUTTON_BACKGROUND_ASPECT_RATIO * BUTTON_HEIGHT);
+		float edgeX = baseX + (xScale * BUTTON_BACKGROUND_ASPECT_RATIO * BUTTON_HEIGHT);
 		float edgeY = baseY + BUTTON_HEIGHT;
 		return ((glX >= baseX) && (glX <= edgeX) && (glY >= baseY) && (glY <= edgeY));
 	}
@@ -352,6 +377,7 @@ public class WindowManager
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, labelTexture);
 		_gl.glUniform1i(_uTexture, 0);
 		_gl.glUniform2f(_uOffset, baseX, baseY);
+		_gl.glUniform2f(_uScale, 1.0f, 1.0f);
 		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
 		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _labelVertexBuffer);
 		_gl.glEnableVertexAttribArray(0);
@@ -374,12 +400,13 @@ public class WindowManager
 		return _textTextures.get(string);
 	}
 
-	private void _drawBackground(float baseX, float baseY, boolean shouldHighlight)
+	private void _drawBackground(float baseX, float baseY, float xScale, boolean shouldHighlight)
 	{
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, shouldHighlight ? _backgroundHighlightTexture : _backgroundTexture);
 		_gl.glUniform1i(_uTexture, 0);
 		_gl.glUniform2f(_uOffset, baseX, baseY);
+		_gl.glUniform2f(_uScale, xScale, 1.0f);
 		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
 		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _backgroundVertexBuffer);
 		_gl.glEnableVertexAttribArray(0);

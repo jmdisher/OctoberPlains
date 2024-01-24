@@ -10,6 +10,8 @@ public class DesktopLauncher {
 		Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
 		config.setForegroundFPS(60);
 		config.setTitle("OctoberPlains");
+		// Increase our default size.
+		config.setWindowedMode(1280, 960);
 		new Lwjgl3Application(new OctoberPlains(), config);
 	}
 }
