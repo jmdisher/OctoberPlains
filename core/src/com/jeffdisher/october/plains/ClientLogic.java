@@ -124,7 +124,6 @@ public class ClientLogic
 		if (!_client.isActivityInProgress(currentTimeMillis))
 		{
 			_client.moveHorizontal(0.0f, +INCREMENT, currentTimeMillis);
-			_client.runPendingCalls(currentTimeMillis);
 		}
 	}
 
@@ -135,7 +134,6 @@ public class ClientLogic
 		if (!_client.isActivityInProgress(currentTimeMillis))
 		{
 			_client.moveHorizontal(0.0f, -INCREMENT, currentTimeMillis);
-			_client.runPendingCalls(currentTimeMillis);
 		}
 	}
 
@@ -146,7 +144,6 @@ public class ClientLogic
 		if (!_client.isActivityInProgress(currentTimeMillis))
 		{
 			_client.moveHorizontal(+INCREMENT, 0.0f, currentTimeMillis);
-			_client.runPendingCalls(currentTimeMillis);
 		}
 	}
 
@@ -157,7 +154,6 @@ public class ClientLogic
 		if (!_client.isActivityInProgress(currentTimeMillis))
 		{
 			_client.moveHorizontal(-INCREMENT, 0.0f, currentTimeMillis);
-			_client.runPendingCalls(currentTimeMillis);
 		}
 	}
 
@@ -167,7 +163,6 @@ public class ClientLogic
 		if (!_client.isActivityInProgress(currentTimeMillis))
 		{
 			_client.jump(currentTimeMillis);
-			_client.runPendingCalls(currentTimeMillis);
 		}
 	}
 
@@ -196,7 +191,6 @@ public class ClientLogic
 			{
 				// This returns the delay we need to wait until the block breaks, in millis.
 				_client.beginBreakBlock(blockLocation, type, currentTimeMillis);
-				_client.runPendingCalls(currentTimeMillis);
 			}
 		}
 	}
@@ -234,7 +228,10 @@ public class ClientLogic
 		Assert.assertTrue(inventory.items.get(type).count() >= count);
 		
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.pullItemsFromInventory(location, new Items(type, count), currentTimeMillis);
+		if (!_client.isActivityInProgress(currentTimeMillis))
+		{
+			_client.pullItemsFromInventory(location, new Items(type, count), currentTimeMillis);
+		}
 	}
 
 	public void dropItemsOnOurTile(Item type, int count)
@@ -252,7 +249,10 @@ public class ClientLogic
 			if (inv.maxVacancyForItem(type) >= count)
 			{
 				long currentTimeMillis = System.currentTimeMillis();
-				_client.pushItemsToInventory(location, new Items(type, count), currentTimeMillis);
+				if (!_client.isActivityInProgress(currentTimeMillis))
+				{
+					_client.pushItemsToInventory(location, new Items(type, count), currentTimeMillis);
+				}
 			}
 		}
 	}
@@ -260,13 +260,19 @@ public class ClientLogic
 	public void setSelectedItem(Item item)
 	{
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.selectItemInInventory(item, currentTimeMillis);
+		if (!_client.isActivityInProgress(currentTimeMillis))
+		{
+			_client.selectItemInInventory(item, currentTimeMillis);
+		}
 	}
 
 	public void beginCraft(Craft craft)
 	{
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.craft(craft, currentTimeMillis);
+		if (!_client.isActivityInProgress(currentTimeMillis))
+		{
+			_client.craft(craft, currentTimeMillis);
+		}
 	}
 
 	public void disconnect()
