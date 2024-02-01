@@ -43,6 +43,7 @@ public class RenderSupport
 	
 	private int _program;
 	private int _uOffset;
+	private int _uScale;
 	private int _uTexture;
 	private int _uLayerBrightness;
 	private int _uLayerAlpha;
@@ -68,11 +69,12 @@ public class RenderSupport
 						+ "attribute vec2 aPosition;\n"
 						+ "attribute vec2 aTexture;\n"
 						+ "uniform vec2 uOffset;\n"
+						+ "uniform float uScale;\n"
 						+ "varying vec2 vTexture;\n"
 						+ "void main()\n"
 						+ "{\n"
 						+ "	vTexture = aTexture;\n"
-						+ "	gl_Position = vec4(aPosition.x + uOffset.x, aPosition.y + uOffset.y, 0.0, 1.0);\n"
+						+ "	gl_Position = vec4((uScale * aPosition.x) + uOffset.x, (uScale * aPosition.y) + uOffset.y, 0.0, 1.0);\n"
 						+ "}\n"
 				, "#version 100\n"
 						+ "precision mediump float;\n"
@@ -93,6 +95,7 @@ public class RenderSupport
 				}
 		);
 		_uOffset = _gl.glGetUniformLocation(_program, "uOffset");
+		_uScale = _gl.glGetUniformLocation(_program, "uScale");
 		_uTexture = _gl.glGetUniformLocation(_program, "uTexture");
 		_uLayerBrightness = _gl.glGetUniformLocation(_program, "uLayerBrightness");
 		_uLayerAlpha = _gl.glGetUniformLocation(_program, "uLayerAlpha");
@@ -148,6 +151,7 @@ public class RenderSupport
 		
 		// Set any starting uniform values.
 		_gl.glUniform4f(_uColourBias, 0.0f, 0.0f, 0.0f, 0.0f);
+		_gl.glUniform1f(_uScale, 1.0f);
 		
 		// We want to render 9 tiles with 3 layers:  3x3x3, centred around the entity location.
 		// (technically 4 tiles with 3 layers would be enough but that would require some extra logic)
@@ -206,6 +210,7 @@ public class RenderSupport
 				_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
 				_gl.glUniform1i(_uTexture, 0);
 				_gl.glUniform2f(_uOffset, 0.0f, 0.0f);
+				_gl.glUniform1f(_uScale, _thisEntity.volume().width());
 				_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _entityBuffer);
 				_gl.glEnableVertexAttribArray(0);
 				_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
@@ -217,6 +222,7 @@ public class RenderSupport
 				_gl.glActiveTexture(GL20.GL_TEXTURE0);
 				_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
 				_gl.glUniform1i(_uTexture, 0);
+				_gl.glUniform1f(_uScale, 1.0f);
 			}
 		}
 	}

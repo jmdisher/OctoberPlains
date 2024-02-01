@@ -42,7 +42,7 @@ public class OctoberPlains extends ApplicationAdapter
 					"stone_brick.png",
 				}
 				// Player.
-				, "unknown.jpeg"
+				, "player.png"
 				// Debris.
 				, "debris.png"
 			);
