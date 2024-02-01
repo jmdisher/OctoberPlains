@@ -325,7 +325,7 @@ public class WindowManager
 	{
 		// We lazily create the label.
 		short number = selectedItem.number();
-		String name = "Block " + number;
+		String name = selectedItem.name().toUpperCase();
 		
 		// Draw the background.
 		_drawBackground(baseX, baseY, xScale, shouldHighlight);

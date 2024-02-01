@@ -18,7 +18,7 @@ import com.badlogic.gdx.graphics.GL20;
  */
 public class TextManager
 {
-	public static final int TEXT_TEXTURE_WIDTH_PIXELS = 256;
+	public static final int TEXT_TEXTURE_WIDTH_PIXELS = 512;
 	public static final int TEXT_TEXTURE_HEIGHT_PIXELS = 64;
 
 	private final GL20 _gl;
