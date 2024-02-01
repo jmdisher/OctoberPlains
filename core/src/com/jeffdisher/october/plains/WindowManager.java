@@ -1,12 +1,7 @@
 package com.jeffdisher.october.plains;
 
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -29,14 +24,13 @@ import com.jeffdisher.october.types.MutableInventory;
  */
 public class WindowManager
 {
-	public static final int TEXT_TEXTURE_WIDTH_PIXELS = 256;
-	public static final int TEXT_TEXTURE_HEIGHT_PIXELS = 64;
 	public static final float BUTTON_HEIGHT = 0.1f;
 	public static final float BUTTON_BACKGROUND_ASPECT_RATIO = 7.0f;
 
 	private final GL20 _gl;
 	private final TextureAtlas _atlas;
 	private final Function<AbsoluteLocation, BlockProxy> _blockLoader;
+	private final TextManager _textManager;
 
 	private int _program;
 	private int _uOffset;
@@ -51,7 +45,6 @@ public class WindowManager
 	private int _backgroundVertexBuffer;
 	private int _backgroundTexture;
 	private int _backgroundHighlightTexture;
-	private final Map<String, Integer> _textTextures;
 	private Entity _entity;
 
 	private boolean _showInventory;
@@ -61,6 +54,7 @@ public class WindowManager
 		_gl = gl;
 		_atlas = atlas;
 		_blockLoader = blockLoader;
+		_textManager = new TextManager(gl);
 		
 		// Create the program we will use for the window overlays.
 		// Explanation of these:
@@ -130,7 +124,6 @@ public class WindowManager
 		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, 1, 1, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
 		
-		_textTextures = new HashMap<>();
 	}
 
 	public Consumer<ClientLogic> drawWindowsWithButtonCapture(float glX, float glY)
@@ -285,38 +278,6 @@ public class WindowManager
 	}
 
 
-	private static void _renderTextToImage(GL20 gl, int texture, String text)
-	{
-		// We just use "something" for the font and size, for now - this will be made into something more specific, later.
-		Font font = new Font("Arial", Font.BOLD, 64);
-		BufferedImage image = new BufferedImage(TEXT_TEXTURE_WIDTH_PIXELS, TEXT_TEXTURE_HEIGHT_PIXELS, BufferedImage.TYPE_INT_ARGB);
-		Graphics graphics = image.getGraphics();
-		graphics.setFont(font);
-		graphics.setColor(Color.WHITE);
-		graphics.drawString(text, 0, TEXT_TEXTURE_HEIGHT_PIXELS);
-		
-		int channelsPerPixel = 2;
-		ByteBuffer textureBufferData = ByteBuffer.allocateDirect(TEXT_TEXTURE_WIDTH_PIXELS * TEXT_TEXTURE_HEIGHT_PIXELS * channelsPerPixel);
-		textureBufferData.order(ByteOrder.nativeOrder());
-		for (int y = 0; y < TEXT_TEXTURE_HEIGHT_PIXELS; ++y)
-		{
-			for (int x = 0; x < TEXT_TEXTURE_WIDTH_PIXELS; ++x)
-			{
-				int pixel = image.getRGB(x, y);
-				// This data is pulled out as ARGB but we need to upload it as LA.
-				// We draw white so just get any channel and the alpha.
-				byte a = (byte)((0xFF000000 & pixel) >> 24);
-				byte b = (byte) (0x000000FF & pixel);
-				textureBufferData.put(new byte[] { b, a });
-			}
-		}
-		((java.nio.Buffer) textureBufferData).flip();
-		
-		gl.glBindTexture(GL20.GL_TEXTURE_2D, texture);
-		gl.glTexSubImage2D(GL20.GL_TEXTURE_2D, 0, 0, 0, TEXT_TEXTURE_WIDTH_PIXELS, TEXT_TEXTURE_HEIGHT_PIXELS, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
-		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
-	}
-
 	private static int _defineTileVertexBuffer(GL20 gl, float textureSize)
 	{
 		return _defineCommonVertices(gl, 1.0f, textureSize);
@@ -388,7 +349,7 @@ public class WindowManager
 		
 		// Draw the number in the corner.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _lazilyLoadStringTexture(Integer.toString(count)));
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textManager.lazilyLoadStringTexture(Integer.toString(count)));
 		_gl.glUniform1i(_uTexture, 0);
 		_gl.glUniform2f(_uOffset, baseX, baseY);
 		_gl.glUniform2f(_uScale, 0.2f, 1.0f);
@@ -422,7 +383,7 @@ public class WindowManager
 
 	private void _drawLabel(float baseX, float baseY, String label)
 	{
-		int labelTexture = _lazilyLoadStringTexture(label);
+		int labelTexture = _textManager.lazilyLoadStringTexture(label);
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, labelTexture);
 		_gl.glUniform1i(_uTexture, 0);
@@ -435,19 +396,6 @@ public class WindowManager
 		_gl.glEnableVertexAttribArray(1);
 		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
-	}
-
-	private int _lazilyLoadStringTexture(String string)
-	{
-		if (!_textTextures.containsKey(string))
-		{
-			int labelTexture = _gl.glGenTexture();
-			_gl.glBindTexture(GL20.GL_TEXTURE_2D, labelTexture);
-			_gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, TEXT_TEXTURE_WIDTH_PIXELS, TEXT_TEXTURE_HEIGHT_PIXELS, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, null);
-			_renderTextToImage(_gl, labelTexture, string);
-			_textTextures.put(string, labelTexture);
-		}
-		return _textTextures.get(string);
 	}
 
 	private void _drawBackground(float baseX, float baseY, float xScale, boolean shouldHighlight)
