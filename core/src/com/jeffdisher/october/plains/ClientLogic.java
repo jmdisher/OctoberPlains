@@ -200,17 +200,11 @@ public class ClientLogic
 		// Make sure we have something in our inventory.
 		if (_thisEntity.inventory().currentEncumbrance > 0)
 		{
-			// We want to only consider placing the block if it is within 2 blocks of where the entity currently is.
-			int absX = Math.abs(blockLocation.x() - Math.round(_thisEntity.location().x()));
-			int absY = Math.abs(blockLocation.y() - Math.round(_thisEntity.location().y()));
-			int absZ = Math.abs(blockLocation.z() - Math.round(_thisEntity.location().z()));
-			if ((absX <= 2) && (absY <= 2) && (absZ <= 2))
+			// The mutation will check proximity and collision.
+			long currentTimeMillis = System.currentTimeMillis();
+			if (!_client.isActivityInProgress(currentTimeMillis))
 			{
-				long currentTimeMillis = System.currentTimeMillis();
-				if (!_client.isActivityInProgress(currentTimeMillis))
-				{
-					_client.placeSelectedBlock(blockLocation, currentTimeMillis);
-				}
+				_client.placeSelectedBlock(blockLocation, currentTimeMillis);
 			}
 		}
 	}
