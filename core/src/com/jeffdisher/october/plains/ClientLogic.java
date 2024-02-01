@@ -1,5 +1,6 @@
 package com.jeffdisher.october.plains;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -58,9 +59,9 @@ public class ClientLogic
 		{
 			_shim = LocalServerShim.startedServerShim(ServerRunner.DEFAULT_MILLIS_PER_TICK, () -> System.currentTimeMillis());
 		}
-		catch (InterruptedException e)
+		catch (IOException e)
 		{
-			// We don't use interruption.
+			// TODO:  Handle this network start-up failure or make sure it can't happen.
 			throw Assert.unexpected(e);
 		}
 		_projectionListener = new ProjectionListener();
