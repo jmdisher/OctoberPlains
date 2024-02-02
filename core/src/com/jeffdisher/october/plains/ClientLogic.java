@@ -177,21 +177,14 @@ public class ClientLogic
 
 	public void beginBreakingBlock(AbsoluteLocation blockLocation)
 	{
-		// We want to only consider breaking the block if it is within 2 blocks of where the entity currently is.
-		int absX = Math.abs(blockLocation.x() - Math.round(_thisEntity.location().x()));
-		int absY = Math.abs(blockLocation.y() - Math.round(_thisEntity.location().y()));
-		int absZ = Math.abs(blockLocation.z() - Math.round(_thisEntity.location().z()));
-		if ((absX <= 2) && (absY <= 2) && (absZ <= 2))
+		// Make sure that this is a block we can break and there is nothing currently in progress.
+		short blockNumber = _cuboids.get(blockLocation.getCuboidAddress()).getData15(AspectRegistry.BLOCK, blockLocation.getBlockAddress());
+		Item type = ItemRegistry.BLOCKS_BY_TYPE[blockNumber];
+		long currentTimeMillis = System.currentTimeMillis();
+		if ((ItemRegistry.AIR != type) && !_client.isActivityInProgress(currentTimeMillis))
 		{
-			// Make sure that this is a block we can break and there is nothing currently in progress.
-			short blockNumber = _cuboids.get(blockLocation.getCuboidAddress()).getData15(AspectRegistry.BLOCK, blockLocation.getBlockAddress());
-			Item type = ItemRegistry.BLOCKS_BY_TYPE[blockNumber];
-			long currentTimeMillis = System.currentTimeMillis();
-			if ((ItemRegistry.AIR != type) && !_client.isActivityInProgress(currentTimeMillis))
-			{
-				// This returns the delay we need to wait until the block breaks, in millis.
-				_client.beginBreakBlock(blockLocation, type, currentTimeMillis);
-			}
+			// This returns the delay we need to wait until the block breaks, in millis.
+			_client.beginBreakBlock(blockLocation, type, currentTimeMillis);
 		}
 	}
 
