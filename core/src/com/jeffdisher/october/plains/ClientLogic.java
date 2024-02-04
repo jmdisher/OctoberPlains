@@ -1,16 +1,16 @@
 package com.jeffdisher.october.plains;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
 import com.jeffdisher.october.aspects.InventoryAspect;
-import com.jeffdisher.october.client.ClientRunner;
-import com.jeffdisher.october.client.SpeculativeProjection;
 import com.jeffdisher.october.data.CuboidData;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
-import com.jeffdisher.october.integration.LocalServerShim;
+import com.jeffdisher.october.process.ClientProcess;
+import com.jeffdisher.october.process.ServerProcess;
 import com.jeffdisher.october.registries.AspectRegistry;
 import com.jeffdisher.october.registries.Craft;
 import com.jeffdisher.october.registries.ItemRegistry;
@@ -33,16 +33,15 @@ public class ClientLogic
 	// We have a walking speed limit of 4 blocks/second so we will pick something to push against that.
 	// (too high and we will see jitter due to rejections, too low and it will feel too slow).
 	public static final float INCREMENT = 0.05f;
+	public static final int PORT = 5678;
 
 	private final Consumer<Entity> _thisEntityConsumer;
 	private final Consumer<IReadOnlyCuboidData> _changedCuboidConsumer;
 	private final Consumer<CuboidAddress> _removedCuboidConsumer;
 
-	private final LocalServerShim _shim;
-	private final ProjectionListener _projectionListener;
-	private final ClientListener _clientListener;
+	private final ServerProcess _server;
+	private final ClientProcess _client;
 
-	private final ClientRunner _client;
 	private Entity _thisEntity;
 	private final Map<CuboidAddress, IReadOnlyCuboidData> _cuboids;
 
@@ -57,31 +56,20 @@ public class ClientLogic
 		
 		try
 		{
-			_shim = LocalServerShim.startedServerShim(ServerRunner.DEFAULT_MILLIS_PER_TICK, () -> System.currentTimeMillis());
+			_server = new ServerProcess(PORT, ServerRunner.DEFAULT_MILLIS_PER_TICK, () -> System.currentTimeMillis());
+			_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, "client");
 		}
 		catch (IOException e)
 		{
 			// TODO:  Handle this network start-up failure or make sure it can't happen.
 			throw Assert.unexpected(e);
 		}
-		_projectionListener = new ProjectionListener();
-		_clientListener = new ClientListener();
-		_client = new ClientRunner(_shim.getClientAdapter(), _projectionListener, _clientListener);
 		_cuboids = new HashMap<>();
 	}
 
 	public void finishStartup()
 	{
 		// Wait for the initial entity data to appear.
-		try
-		{
-			_shim.waitForClient();
-		}
-		catch (InterruptedException e)
-		{
-			// We don't use interruption.
-			throw Assert.unexpected(e);
-		}
 		
 		// Since the location is standing in 0.0, we need to load at least the 8 cuboids around the origin.
 		// Note that we want them to stand on the ground so we will fill the bottom 4 with stone and the top 4 with air.
@@ -93,28 +81,27 @@ public class ClientLogic
 				.add(ItemRegistry.PLANK, 1)
 				.finish();
 		cuboid000.setDataSpecial(AspectRegistry.INVENTORY, new BlockAddress((byte)0, (byte)0, (byte)0), starting);
-		_shim.injectCuboidToServer(cuboid000);
-		_shim.injectCuboidToServer(_generateColumnCuboid(new CuboidAddress((short)0, (short)-1, (short)0)));
-		_shim.injectCuboidToServer(_generateColumnCuboid(new CuboidAddress((short)-1, (short)-1, (short)0)));
-		_shim.injectCuboidToServer(_generateColumnCuboid(new CuboidAddress((short)-1, (short)0, (short)0)));
+		_server.loadCuboid(cuboid000);
+		_server.loadCuboid(_generateColumnCuboid(new CuboidAddress((short)0, (short)-1, (short)0)));
+		_server.loadCuboid(_generateColumnCuboid(new CuboidAddress((short)-1, (short)-1, (short)0)));
+		_server.loadCuboid(_generateColumnCuboid(new CuboidAddress((short)-1, (short)0, (short)0)));
 		
-		_shim.injectCuboidToServer(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)0, (short)-1), ItemRegistry.STONE));
-		_shim.injectCuboidToServer(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)-1, (short)-1), ItemRegistry.STONE));
-		_shim.injectCuboidToServer(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)-1, (short)-1), ItemRegistry.STONE));
-		_shim.injectCuboidToServer(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)0, (short)-1), ItemRegistry.STONE));
+		_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)0, (short)-1), ItemRegistry.STONE));
+		_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)-1, (short)-1), ItemRegistry.STONE));
+		_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)-1, (short)-1), ItemRegistry.STONE));
+		_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)0, (short)-1), ItemRegistry.STONE));
 		
 		// We need to wait for a few ticks for everything to go through on the server and then be pushed through here.
 		// TODO:  Better handle asynchronous start-up.
 		try
 		{
-			_shim.waitForTickAdvance(3L);
+			_client.waitForTickAdvance(3L, System.currentTimeMillis());
 		}
 		catch (InterruptedException e)
 		{
 			// We don't use interruption.
 			throw Assert.unexpected(e);
 		}
-		_client.runPendingCalls(System.currentTimeMillis());
 	}
 
 	public void stepNorth()
@@ -265,15 +252,7 @@ public class ClientLogic
 	public void disconnect()
 	{
 		_client.disconnect();
-		try
-		{
-			_shim.waitForServerShutdown();
-		}
-		catch (InterruptedException e)
-		{
-			// We don't use interruption.
-			throw Assert.unexpected(e);
-		}
+		_server.stop();
 	}
 
 
@@ -290,8 +269,17 @@ public class ClientLogic
 		return cuboid;
 	}
 
-	private class ProjectionListener implements SpeculativeProjection.IProjectionListener
+
+	private class _ClientListener implements ClientProcess.IListener
 	{
+		@Override
+		public void connectionClosed()
+		{
+		}
+		@Override
+		public void connectionEstablished(int assignedLocalEntityId)
+		{
+		}
 		@Override
 		public void cuboidDidChange(IReadOnlyCuboidData cuboid)
 		{
@@ -324,19 +312,6 @@ public class ClientLogic
 		}
 		@Override
 		public void entityDidUnload(int id)
-		{
-		}
-	}
-
-
-	private class ClientListener implements ClientRunner.IListener
-	{
-		@Override
-		public void clientDidConnectAndLogin(int assignedLocalEntityId)
-		{
-		}
-		@Override
-		public void clientDisconnected()
 		{
 		}
 	}
