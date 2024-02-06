@@ -201,6 +201,7 @@ public class OctoberPlains extends ApplicationAdapter
 				{
 					String host = commandLineArgs[1];
 					int port = Integer.parseInt(commandLineArgs[2]);
+					System.out.println("Resolving host: " + host);
 					serverAddress = new InetSocketAddress(host, port);
 				}
 				else

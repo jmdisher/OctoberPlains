@@ -68,11 +68,13 @@ public class ClientLogic
 			// If we weren't given a server address, start the internal server.
 			if (null == serverAddress)
 			{
+				System.out.println("Starting local server for single-player...");
 				_server = new ServerProcess(PORT, ServerRunner.DEFAULT_MILLIS_PER_TICK, () -> System.currentTimeMillis());
 				_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, "client");
 			}
 			else
 			{
+				System.out.println("Connecting to server: " + serverAddress);
 				_server = null;
 				_client = new ClientProcess(new _ClientListener(), serverAddress.getAddress(), serverAddress.getPort(), "client");
 			}
