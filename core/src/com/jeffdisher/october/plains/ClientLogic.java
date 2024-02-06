@@ -6,6 +6,7 @@ import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 
 import com.jeffdisher.october.aspects.InventoryAspect;
 import com.jeffdisher.october.data.CuboidData;
@@ -38,6 +39,7 @@ public class ClientLogic
 
 	private final Consumer<Entity> _thisEntityConsumer;
 	private final Consumer<Entity> _otherEntityConsumer;
+	private final IntConsumer _unloadEntityConsumer;
 	private final Consumer<IReadOnlyCuboidData> _changedCuboidConsumer;
 	private final Consumer<CuboidAddress> _removedCuboidConsumer;
 
@@ -49,6 +51,7 @@ public class ClientLogic
 
 	public ClientLogic(Consumer<Entity> thisEntityConsumer
 			, Consumer<Entity> otherEntityConsumer
+			, IntConsumer unloadEntityConsumer
 			, Consumer<IReadOnlyCuboidData> changedCuboidConsumer
 			, Consumer<CuboidAddress> removedCuboidConsumer
 			, InetSocketAddress serverAddress
@@ -56,6 +59,7 @@ public class ClientLogic
 	{
 		_thisEntityConsumer = thisEntityConsumer;
 		_otherEntityConsumer = otherEntityConsumer;
+		_unloadEntityConsumer = unloadEntityConsumer;
 		_changedCuboidConsumer = changedCuboidConsumer;
 		_removedCuboidConsumer = removedCuboidConsumer;
 		
@@ -350,6 +354,7 @@ public class ClientLogic
 		@Override
 		public void entityDidUnload(int id)
 		{
+			_unloadEntityConsumer.accept(id);
 		}
 	}
 }

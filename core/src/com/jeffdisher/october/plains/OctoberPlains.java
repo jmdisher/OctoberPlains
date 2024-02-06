@@ -78,6 +78,9 @@ public class OctoberPlains extends ApplicationAdapter
 				, (Entity entity) -> {
 					_renderer.setOtherEntity(entity);
 				}
+				, (int entityId) -> {
+					_renderer.removeEntity(entityId);
+				}
 				, (IReadOnlyCuboidData cuboid) -> {
 					// Update our data cache.
 					_worldCache.setCuboid(cuboid);

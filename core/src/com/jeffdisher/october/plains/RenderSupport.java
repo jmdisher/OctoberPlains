@@ -269,6 +269,13 @@ public class RenderSupport
 		_otherEntitiesById.put(entity.id(), entity);
 	}
 
+	public void removeEntity(int entityId)
+	{
+		Entity old = _otherEntitiesById.remove(entityId);
+		// This must have already been here.
+		Assert.assertTrue(null != old);
+	}
+
 
 	private static int _fullyLinkedProgram(GL20 gl, String vertexSource, String fragmentSource, String[] attributesInOrder)
 	{
