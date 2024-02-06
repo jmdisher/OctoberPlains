@@ -75,6 +75,9 @@ public class OctoberPlains extends ApplicationAdapter
 					_mouseHandler.setCentreLocation(entity.location());
 					_windowManager.setEntity(entity);
 				}
+				, (Entity entity) -> {
+					_renderer.setOtherEntity(entity);
+				}
 				, (IReadOnlyCuboidData cuboid) -> {
 					// Update our data cache.
 					_worldCache.setCuboid(cuboid);

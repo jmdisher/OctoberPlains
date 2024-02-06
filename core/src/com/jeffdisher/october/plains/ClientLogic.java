@@ -37,6 +37,7 @@ public class ClientLogic
 	public static final int PORT = 5678;
 
 	private final Consumer<Entity> _thisEntityConsumer;
+	private final Consumer<Entity> _otherEntityConsumer;
 	private final Consumer<IReadOnlyCuboidData> _changedCuboidConsumer;
 	private final Consumer<CuboidAddress> _removedCuboidConsumer;
 
@@ -47,12 +48,14 @@ public class ClientLogic
 	private final Map<CuboidAddress, IReadOnlyCuboidData> _cuboids;
 
 	public ClientLogic(Consumer<Entity> thisEntityConsumer
+			, Consumer<Entity> otherEntityConsumer
 			, Consumer<IReadOnlyCuboidData> changedCuboidConsumer
 			, Consumer<CuboidAddress> removedCuboidConsumer
 			, InetSocketAddress serverAddress
 	)
 	{
 		_thisEntityConsumer = thisEntityConsumer;
+		_otherEntityConsumer = otherEntityConsumer;
 		_changedCuboidConsumer = changedCuboidConsumer;
 		_removedCuboidConsumer = removedCuboidConsumer;
 		
@@ -290,6 +293,7 @@ public class ClientLogic
 
 	private class _ClientListener implements ClientProcess.IListener
 	{
+		private int _assignedLocalEntityId;
 		@Override
 		public void connectionClosed()
 		{
@@ -297,6 +301,7 @@ public class ClientLogic
 		@Override
 		public void connectionEstablished(int assignedLocalEntityId)
 		{
+			_assignedLocalEntityId = assignedLocalEntityId;
 		}
 		@Override
 		public void cuboidDidChange(IReadOnlyCuboidData cuboid)
@@ -319,14 +324,28 @@ public class ClientLogic
 		@Override
 		public void entityDidChange(Entity entity)
 		{
-			_thisEntity = entity;
-			_thisEntityConsumer.accept(_thisEntity);
+			if (_assignedLocalEntityId == entity.id())
+			{
+				_thisEntity = entity;
+				_thisEntityConsumer.accept(entity);
+			}
+			else
+			{
+				_otherEntityConsumer.accept(entity);
+			}
 		}
 		@Override
 		public void entityDidLoad(Entity entity)
 		{
-			_thisEntity = entity;
-			_thisEntityConsumer.accept(_thisEntity);
+			if (_assignedLocalEntityId == entity.id())
+			{
+				_thisEntity = entity;
+				_thisEntityConsumer.accept(entity);
+			}
+			else
+			{
+				_otherEntityConsumer.accept(entity);
+			}
 		}
 		@Override
 		public void entityDidUnload(int id)

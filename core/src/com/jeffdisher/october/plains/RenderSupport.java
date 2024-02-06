@@ -52,6 +52,7 @@ public class RenderSupport
 	private int _layerMeshBuffer;
 
 	private Entity _thisEntity;
+	private final Map<Integer, Entity> _otherEntitiesById;
 	private final Map<CuboidAddress, int[]> _layerTextureMeshes;
 
 	public RenderSupport(GL20 gl, TextureAtlas textureAtlas)
@@ -107,6 +108,7 @@ public class RenderSupport
 		// Define the layer mesh.
 		_layerMeshBuffer = _defineLayerMeshBuffer(_gl);
 		
+		_otherEntitiesById = new HashMap<>();
 		_layerTextureMeshes = new HashMap<>();
 	}
 
@@ -206,23 +208,23 @@ public class RenderSupport
 			if (0 == zOffset)
 			{
 				// Draw the entity.
-				_gl.glActiveTexture(GL20.GL_TEXTURE0);
-				_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
-				_gl.glUniform1i(_uTexture, 0);
-				_gl.glUniform2f(_uOffset, 0.0f, 0.0f);
-				_gl.glUniform1f(_uScale, _thisEntity.volume().width());
-				_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _entityBuffer);
-				_gl.glEnableVertexAttribArray(0);
-				_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
-				_gl.glEnableVertexAttribArray(1);
-				_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
-				_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
-				
-				// (we switch the atlas in and out since this will likely be a different sprite atlas, later).
-				_gl.glActiveTexture(GL20.GL_TEXTURE0);
-				_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
-				_gl.glUniform1i(_uTexture, 0);
-				_gl.glUniform1f(_uScale, 1.0f);
+				_drawEntity(0.0f, 0.0f, _thisEntity.volume().width());
+			}
+			
+			// See if there are any other entities at this z-level (we should organize this differently, or pre-sort it, in the future).
+			int thisZ = Math.round(_thisEntity.location().z()) + zOffset;
+			for (Entity otherEntity : _otherEntitiesById.values())
+			{
+				EntityLocation location = otherEntity.location();
+				int otherZ = Math.round(location.z());
+				if (thisZ == otherZ)
+				{
+					// Figure out the offset.
+					float xOffset = TILE_EDGE_SIZE * (location.x() - entityLocation.x());
+					float yOffset = TILE_EDGE_SIZE * (location.y() - entityLocation.y());
+					float scale = otherEntity.volume().width();
+					_drawEntity(xOffset, yOffset, scale);
+				}
 			}
 		}
 	}
@@ -260,6 +262,11 @@ public class RenderSupport
 		{
 			_gl.glDeleteBuffer(layer);
 		}
+	}
+
+	public void setOtherEntity(Entity entity)
+	{
+		_otherEntitiesById.put(entity.id(), entity);
 	}
 
 
@@ -437,5 +444,26 @@ public class RenderSupport
 		gl.glEnableVertexAttribArray(1);
 		gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 0, 0);
 		return commonTextures;
+	}
+
+	private void _drawEntity(float xOffset, float yOffset, float scale)
+	{
+		_gl.glActiveTexture(GL20.GL_TEXTURE0);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
+		_gl.glUniform1i(_uTexture, 0);
+		_gl.glUniform2f(_uOffset, xOffset, yOffset);
+		_gl.glUniform1f(_uScale, scale);
+		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _entityBuffer);
+		_gl.glEnableVertexAttribArray(0);
+		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
+		_gl.glEnableVertexAttribArray(1);
+		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
+		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+		
+		// (we switch the atlas in and out since this will likely be a different sprite atlas, later).
+		_gl.glActiveTexture(GL20.GL_TEXTURE0);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
+		_gl.glUniform1i(_uTexture, 0);
+		_gl.glUniform1f(_uScale, 1.0f);
 	}
 }
