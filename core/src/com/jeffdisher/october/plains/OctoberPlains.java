@@ -1,6 +1,7 @@
 package com.jeffdisher.october.plains;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.function.Consumer;
 
 import com.badlogic.gdx.ApplicationAdapter;
@@ -17,12 +18,19 @@ public class OctoberPlains extends ApplicationAdapter
 {
 	private final MouseHandler _mouseHandler = new MouseHandler(Math.round(1.0f / RenderSupport.TILE_EDGE_SIZE));
 	private final WorldCache _worldCache = new WorldCache();
+	private final InetSocketAddress _serverSocketAddress;
 
 	private TextureAtlas _textureAtlas;
 	private RenderSupport _renderer;
 	private WindowManager _windowManager;
 
 	private ClientLogic _client;
+
+	public OctoberPlains(String[] commandLineArgs)
+	{
+		// See if we want to be single-player or connecting to a server.
+		_serverSocketAddress = _parseServerSocketAddress(commandLineArgs);
+	}
 
 	@Override
 	public void create ()
@@ -79,6 +87,7 @@ public class OctoberPlains extends ApplicationAdapter
 					// Notify the renderer to drop this from video memory.
 					_renderer.removeCuboid(address);
 				}
+				, _serverSocketAddress
 		);
 		_client.finishStartup();
 	}
@@ -166,5 +175,49 @@ public class OctoberPlains extends ApplicationAdapter
 	public void dispose ()
 	{
 		_client.disconnect();
+	}
+
+
+	private static InetSocketAddress _parseServerSocketAddress(String[] commandLineArgs)
+	{
+		// Check the first arg for the mode.
+		InetSocketAddress serverAddress;
+		// (we probably want to handle this parsing and validation elsewhere or differently but this will get us going without over-designing).
+		if (commandLineArgs.length >= 1)
+		{
+			if ("--single".equals(commandLineArgs[0]))
+			{
+				serverAddress = null;
+			}
+			else if ("--multi".equals(commandLineArgs[0]))
+			{
+				if (3 == commandLineArgs.length)
+				{
+					String host = commandLineArgs[1];
+					int port = Integer.parseInt(commandLineArgs[2]);
+					serverAddress = new InetSocketAddress(host, port);
+				}
+				else
+				{
+					throw _usageError();
+				}
+			}
+			else
+			{
+				throw _usageError();
+			}
+		}
+		else
+		{
+			throw _usageError();
+		}
+		return serverAddress;
+	}
+
+	private static RuntimeException _usageError()
+	{
+		System.err.println("Args:  (--single)|(--multi host port)");
+		System.exit(1);
+		return null;
 	}
 }

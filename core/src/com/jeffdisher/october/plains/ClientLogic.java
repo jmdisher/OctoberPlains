@@ -2,6 +2,7 @@ package com.jeffdisher.october.plains;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -48,6 +49,7 @@ public class ClientLogic
 	public ClientLogic(Consumer<Entity> thisEntityConsumer
 			, Consumer<IReadOnlyCuboidData> changedCuboidConsumer
 			, Consumer<CuboidAddress> removedCuboidConsumer
+			, InetSocketAddress serverAddress
 	)
 	{
 		_thisEntityConsumer = thisEntityConsumer;
@@ -56,8 +58,17 @@ public class ClientLogic
 		
 		try
 		{
-			_server = new ServerProcess(PORT, ServerRunner.DEFAULT_MILLIS_PER_TICK, () -> System.currentTimeMillis());
-			_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, "client");
+			// If we weren't given a server address, start the internal server.
+			if (null == serverAddress)
+			{
+				_server = new ServerProcess(PORT, ServerRunner.DEFAULT_MILLIS_PER_TICK, () -> System.currentTimeMillis());
+				_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, "client");
+			}
+			else
+			{
+				_server = null;
+				_client = new ClientProcess(new _ClientListener(), serverAddress.getAddress(), serverAddress.getPort(), "client");
+			}
 		}
 		catch (IOException e)
 		{
@@ -69,33 +80,37 @@ public class ClientLogic
 
 	public void finishStartup()
 	{
+		// If we have a local server, pre-populate it.
+		if (null != _server)
+		{
+			// Since the location is standing in 0.0, we need to load at least the 8 cuboids around the origin.
+			// Note that we want them to stand on the ground so we will fill the bottom 4 with stone and the top 4 with air.
+			// (in order to better test inventory and crafting interfaces, we will drop a bunch of items on the ground where we start).
+			CuboidData cuboid000 = _generateColumnCuboid(new CuboidAddress((short)0, (short)0, (short)0));
+			Inventory starting = Inventory.start(InventoryAspect.CAPACITY_AIR)
+					.add(ItemRegistry.STONE, 1)
+					.add(ItemRegistry.LOG, 1)
+					.add(ItemRegistry.PLANK, 1)
+					.finish();
+			cuboid000.setDataSpecial(AspectRegistry.INVENTORY, new BlockAddress((byte)0, (byte)0, (byte)0), starting);
+			_server.loadCuboid(cuboid000);
+			_server.loadCuboid(_generateColumnCuboid(new CuboidAddress((short)0, (short)-1, (short)0)));
+			_server.loadCuboid(_generateColumnCuboid(new CuboidAddress((short)-1, (short)-1, (short)0)));
+			_server.loadCuboid(_generateColumnCuboid(new CuboidAddress((short)-1, (short)0, (short)0)));
+			
+			_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)0, (short)-1), ItemRegistry.STONE));
+			_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)-1, (short)-1), ItemRegistry.STONE));
+			_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)-1, (short)-1), ItemRegistry.STONE));
+			_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)0, (short)-1), ItemRegistry.STONE));
+		}
+		
 		// Wait for the initial entity data to appear.
-		
-		// Since the location is standing in 0.0, we need to load at least the 8 cuboids around the origin.
-		// Note that we want them to stand on the ground so we will fill the bottom 4 with stone and the top 4 with air.
-		// (in order to better test inventory and crafting interfaces, we will drop a bunch of items on the ground where we start).
-		CuboidData cuboid000 = _generateColumnCuboid(new CuboidAddress((short)0, (short)0, (short)0));
-		Inventory starting = Inventory.start(InventoryAspect.CAPACITY_AIR)
-				.add(ItemRegistry.STONE, 1)
-				.add(ItemRegistry.LOG, 1)
-				.add(ItemRegistry.PLANK, 1)
-				.finish();
-		cuboid000.setDataSpecial(AspectRegistry.INVENTORY, new BlockAddress((byte)0, (byte)0, (byte)0), starting);
-		_server.loadCuboid(cuboid000);
-		_server.loadCuboid(_generateColumnCuboid(new CuboidAddress((short)0, (short)-1, (short)0)));
-		_server.loadCuboid(_generateColumnCuboid(new CuboidAddress((short)-1, (short)-1, (short)0)));
-		_server.loadCuboid(_generateColumnCuboid(new CuboidAddress((short)-1, (short)0, (short)0)));
-		
-		_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)0, (short)-1), ItemRegistry.STONE));
-		_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)-1, (short)-1), ItemRegistry.STONE));
-		_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)-1, (short)-1), ItemRegistry.STONE));
-		_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)0, (short)-1), ItemRegistry.STONE));
-		
 		// We need to wait for a few ticks for everything to go through on the server and then be pushed through here.
 		// TODO:  Better handle asynchronous start-up.
 		try
 		{
-			_client.waitForTickAdvance(3L, System.currentTimeMillis());
+			long tick = _client.waitForLocalEntity(System.currentTimeMillis());
+			_client.waitForTick(tick + 1, System.currentTimeMillis());
 		}
 		catch (InterruptedException e)
 		{
@@ -252,7 +267,10 @@ public class ClientLogic
 	public void disconnect()
 	{
 		_client.disconnect();
-		_server.stop();
+		if (null != _server)
+		{
+			_server.stop();
+		}
 	}
 
 
