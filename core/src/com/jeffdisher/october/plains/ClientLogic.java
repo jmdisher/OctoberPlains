@@ -11,6 +11,8 @@ import java.util.function.IntConsumer;
 import com.jeffdisher.october.aspects.InventoryAspect;
 import com.jeffdisher.october.data.CuboidData;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
+import com.jeffdisher.october.persistence.CuboidLoader;
+import com.jeffdisher.october.persistence.FlatWorldGenerator;
 import com.jeffdisher.october.process.ClientProcess;
 import com.jeffdisher.october.process.ServerProcess;
 import com.jeffdisher.october.registries.AspectRegistry;
@@ -69,7 +71,10 @@ public class ClientLogic
 			if (null == serverAddress)
 			{
 				System.out.println("Starting local server for single-player...");
-				_server = new ServerProcess(PORT, ServerRunner.DEFAULT_MILLIS_PER_TICK, () -> System.currentTimeMillis());
+				// We will preload the initial starting area but that will be built on top of a standard flat world.
+				CuboidLoader loader = new CuboidLoader(new FlatWorldGenerator());
+				_preload(loader);
+				_server = new ServerProcess(PORT, ServerRunner.DEFAULT_MILLIS_PER_TICK, loader, () -> System.currentTimeMillis());
 				_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, "client");
 			}
 			else
@@ -89,30 +94,6 @@ public class ClientLogic
 
 	public void finishStartup()
 	{
-		// If we have a local server, pre-populate it.
-		if (null != _server)
-		{
-			// Since the location is standing in 0.0, we need to load at least the 8 cuboids around the origin.
-			// Note that we want them to stand on the ground so we will fill the bottom 4 with stone and the top 4 with air.
-			// (in order to better test inventory and crafting interfaces, we will drop a bunch of items on the ground where we start).
-			CuboidData cuboid000 = _generateColumnCuboid(new CuboidAddress((short)0, (short)0, (short)0));
-			Inventory starting = Inventory.start(InventoryAspect.CAPACITY_AIR)
-					.add(ItemRegistry.STONE, 1)
-					.add(ItemRegistry.LOG, 1)
-					.add(ItemRegistry.PLANK, 1)
-					.finish();
-			cuboid000.setDataSpecial(AspectRegistry.INVENTORY, new BlockAddress((byte)0, (byte)0, (byte)0), starting);
-			_server.loadCuboid(cuboid000);
-			_server.loadCuboid(_generateColumnCuboid(new CuboidAddress((short)0, (short)-1, (short)0)));
-			_server.loadCuboid(_generateColumnCuboid(new CuboidAddress((short)-1, (short)-1, (short)0)));
-			_server.loadCuboid(_generateColumnCuboid(new CuboidAddress((short)-1, (short)0, (short)0)));
-			
-			_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)0, (short)-1), ItemRegistry.STONE));
-			_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)-1, (short)-1), ItemRegistry.STONE));
-			_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)-1, (short)-1), ItemRegistry.STONE));
-			_server.loadCuboid(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)0, (short)-1), ItemRegistry.STONE));
-		}
-		
 		// Wait for the initial entity data to appear.
 		// We need to wait for a few ticks for everything to go through on the server and then be pushed through here.
 		// TODO:  Better handle asynchronous start-up.
@@ -283,7 +264,30 @@ public class ClientLogic
 	}
 
 
-	private CuboidData _generateColumnCuboid(CuboidAddress address)
+	private static void _preload(CuboidLoader loader)
+	{
+		// Since the location is standing in 0.0, we need to load at least the 8 cuboids around the origin.
+		// Note that we want them to stand on the ground so we will fill the bottom 4 with stone and the top 4 with air.
+		// (in order to better test inventory and crafting interfaces, we will drop a bunch of items on the ground where we start).
+		CuboidData cuboid000 = _generateColumnCuboid(new CuboidAddress((short)0, (short)0, (short)0));
+		Inventory starting = Inventory.start(InventoryAspect.CAPACITY_AIR)
+				.add(ItemRegistry.STONE, 1)
+				.add(ItemRegistry.LOG, 1)
+				.add(ItemRegistry.PLANK, 1)
+				.finish();
+		cuboid000.setDataSpecial(AspectRegistry.INVENTORY, new BlockAddress((byte)0, (byte)0, (byte)0), starting);
+		loader.preload(cuboid000);
+		loader.preload(_generateColumnCuboid(new CuboidAddress((short)0, (short)-1, (short)0)));
+		loader.preload(_generateColumnCuboid(new CuboidAddress((short)-1, (short)-1, (short)0)));
+		loader.preload(_generateColumnCuboid(new CuboidAddress((short)-1, (short)0, (short)0)));
+		
+		loader.preload(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)0, (short)-1), ItemRegistry.STONE));
+		loader.preload(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)-1, (short)-1), ItemRegistry.STONE));
+		loader.preload(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)-1, (short)-1), ItemRegistry.STONE));
+		loader.preload(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)0, (short)-1), ItemRegistry.STONE));
+	}
+
+	private static CuboidData _generateColumnCuboid(CuboidAddress address)
 	{
 		CuboidData cuboid = CuboidGenerator.createFilledCuboid(address, ItemRegistry.AIR);
 		
