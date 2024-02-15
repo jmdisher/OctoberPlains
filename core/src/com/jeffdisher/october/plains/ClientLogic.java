@@ -1,5 +1,6 @@
 package com.jeffdisher.october.plains;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -71,8 +72,14 @@ public class ClientLogic
 			if (null == serverAddress)
 			{
 				System.out.println("Starting local server for single-player...");
+				// We will just store the world in the current directory.
+				File worldDirectory = new File("world");
+				if (!worldDirectory.isDirectory())
+				{
+					Assert.assertTrue(worldDirectory.mkdirs());
+				}
 				// We will preload the initial starting area but that will be built on top of a standard flat world.
-				CuboidLoader loader = new CuboidLoader(new FlatWorldGenerator());
+				CuboidLoader loader = new CuboidLoader(worldDirectory, new FlatWorldGenerator());
 				_preload(loader);
 				_server = new ServerProcess(PORT, ServerRunner.DEFAULT_MILLIS_PER_TICK, loader, () -> System.currentTimeMillis());
 				_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, "client");
