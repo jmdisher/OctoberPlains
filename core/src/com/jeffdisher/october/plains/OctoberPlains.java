@@ -130,19 +130,19 @@ public class OctoberPlains extends ApplicationAdapter
 		{
 			_client.jump();
 		}
-		if (Gdx.input.isKeyPressed(Keys.DPAD_UP))
+		if (Gdx.input.isKeyPressed(Keys.DPAD_UP) || Gdx.input.isKeyPressed(Keys.W))
 		{
 			_client.stepNorth();
 		}
-		else if (Gdx.input.isKeyPressed(Keys.DPAD_DOWN))
+		else if (Gdx.input.isKeyPressed(Keys.DPAD_DOWN) || Gdx.input.isKeyPressed(Keys.S))
 		{
 			_client.stepSouth();
 		}
-		else if (Gdx.input.isKeyPressed(Keys.DPAD_RIGHT))
+		else if (Gdx.input.isKeyPressed(Keys.DPAD_RIGHT) || Gdx.input.isKeyPressed(Keys.D))
 		{
 			_client.stepEast();
 		}
-		else if (Gdx.input.isKeyPressed(Keys.DPAD_LEFT))
+		else if (Gdx.input.isKeyPressed(Keys.DPAD_LEFT) || Gdx.input.isKeyPressed(Keys.A))
 		{
 			_client.stepWest();
 		}
