@@ -314,6 +314,13 @@ public class ClientLogic
 		@Override
 		public void connectionClosed()
 		{
+			// TODO:  Handle this more gracefully in the future (we have no "connection interface" so there is not much to do beyond exit, at the moment).
+			System.out.println("Connection closed");
+			if (null != _server)
+			{
+				_server.stop();
+			}
+			System.exit(0);
 		}
 		@Override
 		public void connectionEstablished(int assignedLocalEntityId)
