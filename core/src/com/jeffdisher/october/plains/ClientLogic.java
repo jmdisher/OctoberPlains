@@ -12,8 +12,8 @@ import java.util.function.IntConsumer;
 import com.jeffdisher.october.aspects.InventoryAspect;
 import com.jeffdisher.october.data.CuboidData;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
-import com.jeffdisher.october.persistence.CuboidLoader;
 import com.jeffdisher.october.persistence.FlatWorldGenerator;
+import com.jeffdisher.october.persistence.ResourceLoader;
 import com.jeffdisher.october.process.ClientProcess;
 import com.jeffdisher.october.process.ServerProcess;
 import com.jeffdisher.october.registries.AspectRegistry;
@@ -79,7 +79,7 @@ public class ClientLogic
 					Assert.assertTrue(worldDirectory.mkdirs());
 				}
 				// We will preload the initial starting area but that will be built on top of a standard flat world.
-				CuboidLoader loader = new CuboidLoader(worldDirectory, new FlatWorldGenerator());
+				ResourceLoader loader = new ResourceLoader(worldDirectory, new FlatWorldGenerator());
 				_preload(loader);
 				_server = new ServerProcess(PORT, ServerRunner.DEFAULT_MILLIS_PER_TICK, loader, () -> System.currentTimeMillis());
 				_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, "client");
@@ -271,7 +271,7 @@ public class ClientLogic
 	}
 
 
-	private static void _preload(CuboidLoader loader)
+	private static void _preload(ResourceLoader loader)
 	{
 		// Since the location is standing in 0.0, we need to load at least the 8 cuboids around the origin.
 		// Note that we want them to stand on the ground so we will fill the bottom 4 with stone and the top 4 with air.
