@@ -17,7 +17,7 @@ buildscript {
 allprojects {
     apply plugin: "eclipse"
 
-    version = '1.0'
+    version = '0.0-demo5'
     ext {
         appName = "OctoberPlains"
         gdxVersion = '1.12.0'
@@ -57,6 +57,6 @@ project(":core") {
 
     dependencies {
         api "com.badlogicgames.gdx:gdx:$gdxVersion"
-        implementation 'com.jeffdisher.october:october-integration:0.0-SNAPSHOT'
+        implementation 'com.jeffdisher.october:october-integration:0.0-demo5'
     }
 }
