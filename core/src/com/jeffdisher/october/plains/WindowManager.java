@@ -12,6 +12,7 @@ import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.registries.AspectRegistry;
 import com.jeffdisher.october.registries.Craft;
 import com.jeffdisher.october.types.AbsoluteLocation;
+import com.jeffdisher.october.types.CraftOperation;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
@@ -26,6 +27,7 @@ public class WindowManager
 {
 	public static final float BUTTON_HEIGHT = 0.1f;
 	public static final float BUTTON_BACKGROUND_ASPECT_RATIO = 7.0f;
+	public static final float NO_PROGRESS = 0.0f;
 
 	private final GL20 _gl;
 	private final TextureAtlas _atlas;
@@ -136,7 +138,7 @@ public class WindowManager
 		if (null != selectedItem)
 		{
 			int count = _entity.inventory().items.get(selectedItem).count();
-			_drawItem(selectedItem, count, -0.3f, -0.9f, 0.7f, false);
+			_drawItem(selectedItem, count, -0.3f, -0.9f, 0.7f, false, NO_PROGRESS);
 		}
 		
 		// See if we should show the inventory window.
@@ -154,7 +156,7 @@ public class WindowManager
 				Item item = elt.getKey();
 				int count = elt.getValue().count();
 				boolean shouldHighlight = _isOverButton(baseX, baseY, 0.7f, glX, glY);
-				_drawItem(item, count, baseX, baseY, 0.7f, shouldHighlight);
+				_drawItem(item, count, baseX, baseY, 0.7f, shouldHighlight, NO_PROGRESS);
 				if (shouldHighlight)
 				{
 					button = (ClientLogic client) -> {
@@ -211,7 +213,7 @@ public class WindowManager
 					Item item = elt.getKey();
 					int count = elt.getValue().count();
 					// We never highlight the label, just the buttons.
-					_drawItem(item, count, baseX, baseY, 0.7f, false);
+					_drawItem(item, count, baseX, baseY, 0.7f, false, NO_PROGRESS);
 					float xferX = baseX + 0.5f;
 					boolean shouldHighlight = _isOverButton(xferX, baseY, 0.2f, glX, glY);
 					_drawBackground(xferX, baseY, 0.2f, shouldHighlight);
@@ -246,12 +248,19 @@ public class WindowManager
 			// Draw the crafting panel.
 			baseX = -1.0f;
 			baseY = 0.8f;
+			CraftOperation crafting = (null != _entity) ? _entity.localCraftOperation() : null;
 			for (Craft craft : Craft.values())
 			{
 				// We will only check the highlight if this is something we even could craft.
 				boolean canCraft = craft.canApply(inv);
 				boolean shouldHighlight = canCraft && _isOverButton(baseX, baseY, 0.7f, glX, glY);
-				_drawItem(craft.output.type(), craft.output.count(), baseX, baseY, 0.7f, shouldHighlight);
+				// Check to see if this is something we are currently crafting.
+				float progressBar = 0.0f;
+				if ((null != crafting) && (crafting.selectedCraft() == craft))
+				{
+					progressBar = (float)crafting.completedMillis() / (float)craft.millisPerCraft;
+				}
+				_drawItem(craft.output.type(), craft.output.count(), baseX, baseY, 0.7f, shouldHighlight, progressBar);
 				if (shouldHighlight)
 				{
 					button = (ClientLogic client) -> {
@@ -321,14 +330,23 @@ public class WindowManager
 		return entityBuffer;
 	}
 
-	private void _drawItem(Item selectedItem, int count, float baseX, float baseY, float xScale, boolean shouldHighlight)
+	private void _drawItem(Item selectedItem, int count, float baseX, float baseY, float xScale, boolean shouldHighlight, float progressBar)
 	{
 		// We lazily create the label.
 		short number = selectedItem.number();
 		String name = selectedItem.name().toUpperCase();
 		
 		// Draw the background.
-		_drawBackground(baseX, baseY, xScale, shouldHighlight);
+		if (progressBar > 0.0f)
+		{
+			// There is a progress bar, so draw that, instead.
+			_drawBackground(baseX, baseY, xScale * progressBar, true);
+		}
+		else
+		{
+			// Just draw the normal background.
+			_drawBackground(baseX, baseY, xScale, shouldHighlight);
+		}
 		
 		// Draw the tile.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
