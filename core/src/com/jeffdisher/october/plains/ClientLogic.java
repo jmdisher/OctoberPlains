@@ -174,7 +174,7 @@ public class ClientLogic
 		}
 	}
 
-	public void beginBreakingBlock(AbsoluteLocation blockLocation)
+	public void hitBlock(AbsoluteLocation blockLocation)
 	{
 		// Make sure that this is a block we can break and there is nothing currently in progress.
 		short blockNumber = _cuboids.get(blockLocation.getCuboidAddress()).getData15(AspectRegistry.BLOCK, blockLocation.getBlockAddress());
@@ -182,8 +182,8 @@ public class ClientLogic
 		long currentTimeMillis = System.currentTimeMillis();
 		if ((ItemRegistry.AIR != type) && !_client.isActivityInProgress(currentTimeMillis))
 		{
-			// This returns the delay we need to wait until the block breaks, in millis.
-			_client.beginBreakBlock(blockLocation, type, currentTimeMillis);
+			// Damage the block.
+			_client.hitBlock(blockLocation, currentTimeMillis);
 		}
 	}
 

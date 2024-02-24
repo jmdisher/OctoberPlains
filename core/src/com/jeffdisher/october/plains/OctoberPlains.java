@@ -150,17 +150,17 @@ public class OctoberPlains extends ApplicationAdapter
 		{
 			_windowManager.toggleInventory();
 		}
-		else if (Gdx.input.isButtonJustPressed(0))
+		else if (Gdx.input.isButtonPressed(0))
 		{
 			// See if they have a button.
-			if (null != clickButtonCapture)
+			if (Gdx.input.isButtonJustPressed(0) && (null != clickButtonCapture))
 			{
 				clickButtonCapture.accept(_client);
 			}
 			if (null != selection)
 			{
-				// If they press left click, start breaking a block.
-				_client.beginBreakingBlock(selection);
+				// As long as they are holding the left button, hit the block.
+				_client.hitBlock(selection);
 			}
 		}
 		else if (Gdx.input.isButtonJustPressed(1))
