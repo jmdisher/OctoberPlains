@@ -120,58 +120,40 @@ public class ClientLogic
 	{
 		// Make sure that there is no in-progress action, first.
 		long currentTimeMillis = System.currentTimeMillis();
-		if (!_client.isActivityInProgress(currentTimeMillis))
-		{
-			_client.moveHorizontal(0.0f, +INCREMENT, currentTimeMillis);
-		}
+		_client.moveHorizontal(0.0f, +INCREMENT, currentTimeMillis);
 	}
 
 	public void stepSouth()
 	{
 		// Make sure that there is no in-progress action, first.
 		long currentTimeMillis = System.currentTimeMillis();
-		if (!_client.isActivityInProgress(currentTimeMillis))
-		{
-			_client.moveHorizontal(0.0f, -INCREMENT, currentTimeMillis);
-		}
+		_client.moveHorizontal(0.0f, -INCREMENT, currentTimeMillis);
 	}
 
 	public void stepEast()
 	{
 		// Make sure that there is no in-progress action, first.
 		long currentTimeMillis = System.currentTimeMillis();
-		if (!_client.isActivityInProgress(currentTimeMillis))
-		{
-			_client.moveHorizontal(+INCREMENT, 0.0f, currentTimeMillis);
-		}
+		_client.moveHorizontal(+INCREMENT, 0.0f, currentTimeMillis);
 	}
 
 	public void stepWest()
 	{
 		// Make sure that there is no in-progress action, first.
 		long currentTimeMillis = System.currentTimeMillis();
-		if (!_client.isActivityInProgress(currentTimeMillis))
-		{
-			_client.moveHorizontal(-INCREMENT, 0.0f, currentTimeMillis);
-		}
+		_client.moveHorizontal(-INCREMENT, 0.0f, currentTimeMillis);
 	}
 
 	public void jump()
 	{
 		long currentTimeMillis = System.currentTimeMillis();
-		if (!_client.isActivityInProgress(currentTimeMillis))
-		{
-			_client.jump(currentTimeMillis);
-		}
+		_client.jump(currentTimeMillis);
 	}
 
 	public void doNothing()
 	{
 		long currentTimeMillis = System.currentTimeMillis();
-		if (!_client.isActivityInProgress(currentTimeMillis))
-		{
-			_client.doNothing(currentTimeMillis);
-		}
+		_client.doNothing(currentTimeMillis);
 	}
 
 	public void hitBlock(AbsoluteLocation blockLocation)
@@ -180,24 +162,26 @@ public class ClientLogic
 		short blockNumber = _cuboids.get(blockLocation.getCuboidAddress()).getData15(AspectRegistry.BLOCK, blockLocation.getBlockAddress());
 		Item type = ItemRegistry.BLOCKS_BY_TYPE[blockNumber];
 		long currentTimeMillis = System.currentTimeMillis();
-		if ((ItemRegistry.AIR != type) && !_client.isActivityInProgress(currentTimeMillis))
+		if (ItemRegistry.AIR != type)
 		{
 			// Damage the block.
 			_client.hitBlock(blockLocation, currentTimeMillis);
+		}
+		else
+		{
+			// If the block is air, we just treat this as a base where we should do nothing (this just avoids redundant client-side checks).
+			_client.doNothing(currentTimeMillis);
 		}
 	}
 
 	public void placeBlock(AbsoluteLocation blockLocation)
 	{
-		// Make sure we have something in our inventory.
-		if (_thisEntity.inventory().currentEncumbrance > 0)
+		// Make sure we have something selected.
+		if (null != _thisEntity.selectedItem())
 		{
 			// The mutation will check proximity and collision.
 			long currentTimeMillis = System.currentTimeMillis();
-			if (!_client.isActivityInProgress(currentTimeMillis))
-			{
-				_client.placeSelectedBlock(blockLocation, currentTimeMillis);
-			}
+			_client.placeSelectedBlock(blockLocation, currentTimeMillis);
 		}
 	}
 
@@ -214,10 +198,7 @@ public class ClientLogic
 		Assert.assertTrue(inventory.items.get(type).count() >= count);
 		
 		long currentTimeMillis = System.currentTimeMillis();
-		if (!_client.isActivityInProgress(currentTimeMillis))
-		{
-			_client.pullItemsFromInventory(location, new Items(type, count), currentTimeMillis);
-		}
+		_client.pullItemsFromInventory(location, new Items(type, count), currentTimeMillis);
 	}
 
 	public void dropItemsOnOurTile(Item type, int count)
@@ -235,10 +216,7 @@ public class ClientLogic
 			if (inv.maxVacancyForItem(type) >= count)
 			{
 				long currentTimeMillis = System.currentTimeMillis();
-				if (!_client.isActivityInProgress(currentTimeMillis))
-				{
-					_client.pushItemsToInventory(location, new Items(type, count), currentTimeMillis);
-				}
+				_client.pushItemsToInventory(location, new Items(type, count), currentTimeMillis);
 			}
 		}
 	}
@@ -246,19 +224,13 @@ public class ClientLogic
 	public void setSelectedItem(Item item)
 	{
 		long currentTimeMillis = System.currentTimeMillis();
-		if (!_client.isActivityInProgress(currentTimeMillis))
-		{
-			_client.selectItemInInventory(item, currentTimeMillis);
-		}
+		_client.selectItemInInventory(item, currentTimeMillis);
 	}
 
 	public void beginCraft(Craft craft)
 	{
 		long currentTimeMillis = System.currentTimeMillis();
-		if (!_client.isActivityInProgress(currentTimeMillis))
-		{
-			_client.craft(craft, currentTimeMillis);
-		}
+		_client.craft(craft, currentTimeMillis);
 	}
 
 	public void disconnect()
