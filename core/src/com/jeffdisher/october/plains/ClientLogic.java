@@ -12,6 +12,11 @@ import java.util.function.IntConsumer;
 import com.jeffdisher.october.aspects.InventoryAspect;
 import com.jeffdisher.october.data.CuboidData;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
+import com.jeffdisher.october.mutations.EntityChangeJump;
+import com.jeffdisher.october.mutations.MutationEntityPushItems;
+import com.jeffdisher.october.mutations.MutationEntityRequestItemPickUp;
+import com.jeffdisher.october.mutations.MutationEntitySelectItem;
+import com.jeffdisher.october.mutations.MutationPlaceSelectedBlock;
 import com.jeffdisher.october.persistence.FlatWorldGenerator;
 import com.jeffdisher.october.persistence.ResourceLoader;
 import com.jeffdisher.october.process.ClientProcess;
@@ -146,8 +151,9 @@ public class ClientLogic
 
 	public void jump()
 	{
+		EntityChangeJump jumpChange = new EntityChangeJump();
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.jump(currentTimeMillis);
+		_client.sendAction(jumpChange, currentTimeMillis);
 	}
 
 	public void doNothing()
@@ -180,8 +186,9 @@ public class ClientLogic
 		if (null != _thisEntity.selectedItem())
 		{
 			// The mutation will check proximity and collision.
+			MutationPlaceSelectedBlock place = new MutationPlaceSelectedBlock(blockLocation);
 			long currentTimeMillis = System.currentTimeMillis();
-			_client.placeSelectedBlock(blockLocation, currentTimeMillis);
+			_client.sendAction(place, currentTimeMillis);
 		}
 	}
 
@@ -197,8 +204,9 @@ public class ClientLogic
 		// This must be a valid request.
 		Assert.assertTrue(inventory.items.get(type).count() >= count);
 		
+		MutationEntityRequestItemPickUp request = new MutationEntityRequestItemPickUp(location, new Items(type, count));
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.pullItemsFromInventory(location, new Items(type, count), currentTimeMillis);
+		_client.sendAction(request, currentTimeMillis);
 	}
 
 	public void dropItemsOnOurTile(Item type, int count)
@@ -215,16 +223,18 @@ public class ClientLogic
 			MutableInventory inv = new MutableInventory((null != existing) ? existing : Inventory.start(InventoryAspect.CAPACITY_AIR).finish());
 			if (inv.maxVacancyForItem(type) >= count)
 			{
+				MutationEntityPushItems push = new MutationEntityPushItems(location, new Items(type, count));
 				long currentTimeMillis = System.currentTimeMillis();
-				_client.pushItemsToInventory(location, new Items(type, count), currentTimeMillis);
+				_client.sendAction(push, currentTimeMillis);
 			}
 		}
 	}
 
 	public void setSelectedItem(Item item)
 	{
+		MutationEntitySelectItem select = new MutationEntitySelectItem(item);
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.selectItemInInventory(item, currentTimeMillis);
+		_client.sendAction(select, currentTimeMillis);
 	}
 
 	public void beginCraft(Craft craft)
