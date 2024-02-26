@@ -245,25 +245,18 @@ public class ClientLogic
 
 	private static void _preload(ResourceLoader loader)
 	{
-		// Since the location is standing in 0.0, we need to load at least the 8 cuboids around the origin.
-		// Note that we want them to stand on the ground so we will fill the bottom 4 with stone and the top 4 with air.
-		// (in order to better test inventory and crafting interfaces, we will drop a bunch of items on the ground where we start).
+		// We will drop some logs on the ground to make craft testing possible before we add a more interesting world generator.
 		CuboidData cuboid000 = _generateColumnCuboid(new CuboidAddress((short)0, (short)0, (short)0));
 		Inventory starting = Inventory.start(InventoryAspect.CAPACITY_AIR)
-				.add(ItemRegistry.STONE, 1)
-				.add(ItemRegistry.LOG, 1)
-				.add(ItemRegistry.PLANK, 1)
+				.add(ItemRegistry.LOG, 5)
 				.finish();
 		cuboid000.setDataSpecial(AspectRegistry.INVENTORY, new BlockAddress((byte)0, (byte)0, (byte)0), starting);
+		
+		// We will also add in some basic cuboids with a few "columns", just so that there is something we can use for navigation when testing.
 		loader.preload(cuboid000);
 		loader.preload(_generateColumnCuboid(new CuboidAddress((short)0, (short)-1, (short)0)));
 		loader.preload(_generateColumnCuboid(new CuboidAddress((short)-1, (short)-1, (short)0)));
 		loader.preload(_generateColumnCuboid(new CuboidAddress((short)-1, (short)0, (short)0)));
-		
-		loader.preload(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)0, (short)-1), ItemRegistry.STONE));
-		loader.preload(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)0, (short)-1, (short)-1), ItemRegistry.STONE));
-		loader.preload(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)-1, (short)-1), ItemRegistry.STONE));
-		loader.preload(CuboidGenerator.createFilledCuboid(new CuboidAddress((short)-1, (short)0, (short)-1), ItemRegistry.STONE));
 	}
 
 	private static CuboidData _generateColumnCuboid(CuboidAddress address)
