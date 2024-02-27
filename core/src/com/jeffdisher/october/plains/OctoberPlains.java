@@ -168,13 +168,28 @@ public class OctoberPlains extends ApplicationAdapter
 		{
 			if (null != selection)
 			{
-				// If they press right click, place our block (this will implicitly select stone).
-				_client.placeBlock(selection);
+				// If we right-click on a crafting table, open that UI, otherwise we will place the selected block.
+				if (!_windowManager.didOpenInventory(selection))
+				{
+					// If they press right click, place our block (this will implicitly select stone).
+					_client.placeBlock(selection);
+				}
 			}
 		}
 		else
 		{
-			_client.doNothing();
+			// See if we have a crafting table open.
+			AbsoluteLocation craftingTable = _windowManager.getOpenCraftingTable();
+			if (null != craftingTable)
+			{
+				// Try to continue anything happening here.
+				_client.beginCraftInBlock(craftingTable, null);
+			}
+			else
+			{
+				// Default to whatever else is going on.
+				_client.doNothing();
+			}
 		}
 	}
 

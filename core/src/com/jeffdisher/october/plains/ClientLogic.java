@@ -192,9 +192,8 @@ public class ClientLogic
 		}
 	}
 
-	public void pickUpItemsOnOurTile(Item type, int count)
+	public void pickUpItemsFromTile(AbsoluteLocation location, Item type, int count)
 	{
-		AbsoluteLocation location = GeometryHelpers.getCentreAtFeet(_thisEntity);
 		IReadOnlyCuboidData cuboid = _cuboids.get(location.getCuboidAddress());
 		// For now, we shouldn't see not-yet-loaded cuboids here.
 		Assert.assertTrue(null != cuboid);
@@ -209,15 +208,15 @@ public class ClientLogic
 		_client.sendAction(request, currentTimeMillis);
 	}
 
-	public void dropItemsOnOurTile(Item type, int count)
+	public void dropItemsInTile(AbsoluteLocation location, Item type, int count)
 	{
-		AbsoluteLocation location = GeometryHelpers.getCentreAtFeet(_thisEntity);
 		IReadOnlyCuboidData cuboid = _cuboids.get(location.getCuboidAddress());
 		// For now, we shouldn't see not-yet-loaded cuboids here.
 		Assert.assertTrue(null != cuboid);
 		// Make sure that these can fit in the tile.
 		BlockAddress blockAddress = location.getBlockAddress();
-		if (ItemRegistry.AIR.number() == cuboid.getData15(AspectRegistry.BLOCK, blockAddress))
+		short blockNumber = cuboid.getData15(AspectRegistry.BLOCK, blockAddress);
+		if ((ItemRegistry.AIR.number() == blockNumber) || (ItemRegistry.CRAFTING_TABLE.number() == blockNumber))
 		{
 			Inventory existing = cuboid.getDataSpecial(AspectRegistry.INVENTORY, blockAddress);
 			MutableInventory inv = new MutableInventory((null != existing) ? existing : Inventory.start(InventoryAspect.CAPACITY_AIR).finish());
@@ -241,6 +240,12 @@ public class ClientLogic
 	{
 		long currentTimeMillis = System.currentTimeMillis();
 		_client.craft(craft, currentTimeMillis);
+	}
+
+	public void beginCraftInBlock(AbsoluteLocation block, Craft craft)
+	{
+		long currentTimeMillis = System.currentTimeMillis();
+		_client.craftInBlock(block, craft, currentTimeMillis);
 	}
 
 	public void disconnect()
