@@ -3,7 +3,6 @@ package com.jeffdisher.october.plains;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 import com.badlogic.gdx.graphics.GL20;
@@ -131,7 +130,7 @@ public class WindowManager
 		_mode = _WindowMode.NONE;
 	}
 
-	public Consumer<ClientLogic> drawWindowsWithButtonCapture(float glX, float glY)
+	public Runnable drawWindowsWithButtonCapture(ClientLogic client, float glX, float glY)
 	{
 		// Enable our program
 		_gl.glUseProgram(_program);
@@ -161,7 +160,7 @@ public class WindowManager
 		
 		// See if we should show the inventory window.
 		// (note that the entity could only be null during start-up).
-		Consumer<ClientLogic> button = null;
+		Runnable button = null;
 		if ((_WindowMode.NONE != _mode) && (null != _entity))
 		{
 			// Draw the entity inventory.
@@ -180,7 +179,7 @@ public class WindowManager
 				_drawItem(item, count, baseX, baseY, 0.7f, shouldHighlight, NO_PROGRESS);
 				if (shouldHighlight)
 				{
-					button = (ClientLogic client) -> {
+					button = () -> {
 						// If this already was selected, clear it.
 						if (_entity.selectedItem() == item)
 						{
@@ -200,7 +199,7 @@ public class WindowManager
 				_drawLabel(xferX, baseY, "1");
 				if (shouldHighlight)
 				{
-					button = (ClientLogic client) -> {
+					button = () -> {
 						AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
 						client.dropItemsInTile(location, item, 1);
 					};
@@ -211,7 +210,7 @@ public class WindowManager
 				_drawLabel(xferX, baseY, "All");
 				if (shouldHighlight)
 				{
-					button = (ClientLogic client) -> {
+					button = () -> {
 						// Find out how many can fit in the block.
 						int inventoryCapacity = (_WindowMode.CRAFTING_TABLE == _mode) ? InventoryAspect.CAPACITY_CRAFTING_TABLE : InventoryAspect.CAPACITY_AIR;
 						MutableInventory checker = new MutableInventory((null != blockInventory) ? blockInventory : Inventory.start(inventoryCapacity).finish());
@@ -244,7 +243,7 @@ public class WindowManager
 					_drawLabel(xferX, baseY, "1");
 					if (shouldHighlight)
 					{
-						button = (ClientLogic client) -> {
+						button = () -> {
 							AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
 							client.pickUpItemsFromTile(location, item, 1);
 						};
@@ -255,7 +254,7 @@ public class WindowManager
 					_drawLabel(xferX, baseY, "All");
 					if (shouldHighlight)
 					{
-						button = (ClientLogic client) -> {
+						button = () -> {
 							// Find out how many we can hold.
 							MutableInventory checker = new MutableInventory(_entity.inventory());
 							int max = checker.maxVacancyForItem(item);
@@ -307,7 +306,7 @@ public class WindowManager
 					if (_WindowMode.CRAFTING_TABLE == _mode)
 					{
 						// Craft in table.
-						button = (ClientLogic client) -> {
+						button = () -> {
 							if (craft.canApply(craftingInventory))
 							{
 								client.beginCraftInBlock(_openInventoryLocation, craft);
@@ -317,7 +316,7 @@ public class WindowManager
 					else
 					{
 						// Craft in inventory.
-						button = (ClientLogic client) -> {
+						button = () -> {
 							if (craft.canApply(craftingInventory))
 							{
 								client.beginCraft(craft);

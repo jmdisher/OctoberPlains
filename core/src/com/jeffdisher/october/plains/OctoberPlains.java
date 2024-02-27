@@ -2,7 +2,6 @@ package com.jeffdisher.october.plains;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.function.Consumer;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
@@ -124,7 +123,7 @@ public class OctoberPlains extends ApplicationAdapter
 		_renderer.renderScene(selection);
 		
 		// Draw any active windows over the scene and get the capture for anything we which can receive click events.
-		Consumer<ClientLogic> clickButtonCapture = _windowManager.drawWindowsWithButtonCapture(glX, glY);
+		Runnable clickButtonCapture = _windowManager.drawWindowsWithButtonCapture(_client, glX, glY);
 		
 		// Handle inputs - we will only allow a single direction at a time.
 		if (Gdx.input.isKeyJustPressed(Keys.SPACE))
@@ -156,7 +155,7 @@ public class OctoberPlains extends ApplicationAdapter
 			// See if they have a button.
 			if (Gdx.input.isButtonJustPressed(0) && (null != clickButtonCapture))
 			{
-				clickButtonCapture.accept(_client);
+				clickButtonCapture.run();
 			}
 			if (null != selection)
 			{
