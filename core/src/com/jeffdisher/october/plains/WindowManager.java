@@ -9,7 +9,6 @@ import java.util.function.Function;
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.aspects.InventoryAspect;
 import com.jeffdisher.october.data.BlockProxy;
-import com.jeffdisher.october.registries.AspectRegistry;
 import com.jeffdisher.october.registries.Craft;
 import com.jeffdisher.october.registries.ItemRegistry;
 import com.jeffdisher.october.types.AbsoluteLocation;
@@ -152,7 +151,7 @@ public class WindowManager
 			int absY = Math.abs(_openInventoryLocation.y() - Math.round(_entity.location().y()));
 			int absZ = Math.abs(_openInventoryLocation.z() - Math.round(_entity.location().z()));
 			boolean isLocationClose = ((absX <= 2) && (absY <= 2) && (absZ <= 2));
-			boolean isCraftingTable = (ItemRegistry.CRAFTING_TABLE.number() == _blockLoader.apply(_openInventoryLocation).getData15(AspectRegistry.BLOCK));
+			boolean isCraftingTable = (ItemRegistry.CRAFTING_TABLE == _blockLoader.apply(_openInventoryLocation).getItem());
 			if (!isLocationClose || !isCraftingTable)
 			{
 				_mode = _WindowMode.NONE;
@@ -355,7 +354,7 @@ public class WindowManager
 		BlockProxy proxy = _blockLoader.apply(block);
 		// Currently, this is only relevant for crafting table blocks.
 		boolean didOpen = false;
-		if (ItemRegistry.CRAFTING_TABLE.number() == proxy.getData15(AspectRegistry.BLOCK))
+		if (ItemRegistry.CRAFTING_TABLE == proxy.getItem())
 		{
 			// Enter crafting table mode at this block.
 			_mode = _WindowMode.CRAFTING_TABLE;
@@ -480,19 +479,19 @@ public class WindowManager
 	{
 		AbsoluteLocation block = GeometryHelpers.getCentreAtFeet(_entity);
 		BlockProxy proxy = _blockLoader.apply(block);
-		return proxy.getDataSpecial(AspectRegistry.INVENTORY);
+		return proxy.getInventory();
 	}
 
 	private Inventory _selectedBlockInventory()
 	{
 		BlockProxy proxy = _blockLoader.apply(_openInventoryLocation);
-		return proxy.getDataSpecial(AspectRegistry.INVENTORY);
+		return proxy.getInventory();
 	}
 
 	private CraftOperation _selectedBlockCrafting()
 	{
 		BlockProxy proxy = _blockLoader.apply(_openInventoryLocation);
-		return proxy.getDataSpecial(AspectRegistry.CRAFTING);
+		return proxy.getCrafting();
 	}
 
 	private void _drawLabel(float baseX, float baseY, String label)
