@@ -2,7 +2,6 @@ package com.jeffdisher.october.plains;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Map;
 import java.util.function.Function;
 
 import com.badlogic.gdx.graphics.GL20;
@@ -24,8 +23,6 @@ import com.jeffdisher.october.types.MutableInventory;
  */
 public class WindowManager
 {
-	public static final float BUTTON_HEIGHT = 0.1f;
-	public static final float BUTTON_BACKGROUND_ASPECT_RATIO = 7.0f;
 	public static final float NO_PROGRESS = 0.0f;
 
 	private final GL20 _gl;
@@ -38,12 +35,12 @@ public class WindowManager
 	private int _uScale;
 	private int _uTexture;
 	private int _uTextureBase;
+	private int _uTextureScale;
 
-	// When rendering block information in the overlay, we have a vertex buffer for the tile and one for text.
-	private int _tileVertexBuffer;
-	private int _labelVertexBuffer;
+	// We use 2 buffers here, but they only differ in that the tile buffer knows the texture atlas size while the label buffer is 1.0/1.0.
+	private int _atlasVertexBuffer;
+	private int _unitVertexBuffer;
 
-	private int _backgroundVertexBuffer;
 	private int _backgroundTexture;
 	private int _backgroundHighlightTexture;
 	private Entity _entity;
@@ -81,10 +78,11 @@ public class WindowManager
 						+ "uniform vec2 uScale;\n"
 						+ "uniform sampler2D uTexture;\n"
 						+ "uniform vec2 uTextureBase;\n"
+						+ "uniform vec2 uTextureScale;\n"
 						+ "varying vec2 vTexture;\n"
 						+ "void main()\n"
 						+ "{\n"
-						+ "	vec2 texCoord = vec2((uScale.x * vTexture.x) + uTextureBase.x, (uScale.y * vTexture.y) + uTextureBase.y);\n"
+						+ "	vec2 texCoord = vec2(clamp((uTextureScale.x * vTexture.x) + uTextureBase.x, 0.0, 1.0), clamp((uTextureScale.y * vTexture.y) + uTextureBase.y, 0.0, 1.0));\n"
 						+ "	vec4 tex = texture2D(uTexture, texCoord);\n"
 						+ "	vec4 biased = vec4(tex.r, tex.g, tex.b, tex.a);\n"
 						+ "	gl_FragColor = vec4(biased.r, biased.g, biased.b, biased.a);\n"
@@ -98,13 +96,12 @@ public class WindowManager
 		_uScale = _gl.glGetUniformLocation(_program, "uScale");
 		_uTexture = _gl.glGetUniformLocation(_program, "uTexture");
 		_uTextureBase = _gl.glGetUniformLocation(_program, "uTextureBase");
+		_uTextureScale = _gl.glGetUniformLocation(_program, "uTextureScale");
 		
 		// We need to create the vertex buffers for the tile and the label.
-		_tileVertexBuffer = _defineTileVertexBuffer(_gl, _atlas.coordinateSize);
-		_labelVertexBuffer = _defineTextVertexBuffer(_gl);
+		_atlasVertexBuffer = _defineCommonVertices(_gl, _atlas.coordinateSize);
+		_unitVertexBuffer = _defineCommonVertices(_gl, 1.0f);
 		
-		// Create the background rectangle for labels, etc.
-		_backgroundVertexBuffer = _defineCommonVertices(gl, BUTTON_BACKGROUND_ASPECT_RATIO, 1.0f);
 		// Create the background colour texture we will use (just one pixel allowing us to avoid creating a new shader).
 		// This is just dark grey with alpha.
 		_backgroundTexture = _gl.glGenTexture();
@@ -140,7 +137,7 @@ public class WindowManager
 		if (null != selectedItem)
 		{
 			int count = _entity.inventory().items.get(selectedItem).count();
-			_drawItem(selectedItem, count, -0.3f, -0.9f, 0.7f, false, NO_PROGRESS);
+			_drawItem(selectedItem, count, -0.3f, -0.9f, 0.3f, -0.8f, false, NO_PROGRESS);
 		}
 		
 		// Handle the case where we might need to close the inventory window if the block was destroyed or we are too far away.
@@ -171,12 +168,12 @@ public class WindowManager
 					? _currentBlockInventory()
 					: _selectedBlockInventory()
 			;
-			for (Map.Entry<Item, Items> elt : entityInventory.items.entrySet())
+			for (Items items : entityInventory.items.values())
 			{
-				Item item = elt.getKey();
-				int count = elt.getValue().count();
-				boolean shouldHighlight = _isOverButton(baseX, baseY, 0.7f, glX, glY);
-				_drawItem(item, count, baseX, baseY, 0.7f, shouldHighlight, NO_PROGRESS);
+				Item item = items.type();
+				int count = items.count();
+				boolean shouldHighlight = _isOverButton(baseX, baseY, baseX + 0.7f, baseY + 0.1f, glX, glY);
+				_drawItem(item, count, baseX, baseY, baseX + 0.7f, baseY + 0.1f, shouldHighlight, NO_PROGRESS);
 				if (shouldHighlight)
 				{
 					button = () -> {
@@ -193,10 +190,10 @@ public class WindowManager
 				}
 				
 				// Now, draw the transfer buttons.
-				float xferX = baseX + 0.5f;
-				shouldHighlight = _isOverButton(xferX, baseY, 0.2f, glX, glY);
-				_drawBackground(xferX, baseY, 0.2f, shouldHighlight);
-				_drawLabel(xferX, baseY, "1");
+				float xferX = baseX + 0.75f;
+				shouldHighlight = _isOverButton(xferX, baseY, xferX + 0.1f, baseY + 0.1f, glX, glY);
+				_drawBackground(xferX, baseY, xferX + 0.1f, baseY + 0.1f, shouldHighlight);
+				_drawLabel(xferX, baseY, xferX + 0.1f, baseY + 0.1f, "1");
 				if (shouldHighlight)
 				{
 					button = () -> {
@@ -204,10 +201,10 @@ public class WindowManager
 						client.dropItemsInTile(location, item, 1);
 					};
 				}
-				xferX += 0.3f;
-				shouldHighlight = _isOverButton(xferX, baseY, 0.2f, glX, glY);
-				_drawBackground(xferX, baseY, 0.2f, shouldHighlight);
-				_drawLabel(xferX, baseY, "All");
+				xferX += 0.15f;
+				shouldHighlight = _isOverButton(xferX, baseY, xferX + 0.1f, baseY + 0.1f, glX, glY);
+				_drawBackground(xferX, baseY, xferX + 0.1f, baseY + 0.1f, shouldHighlight);
+				_drawLabel(xferX, baseY, xferX + 0.1f, baseY + 0.1f, "All");
 				if (shouldHighlight)
 				{
 					button = () -> {
@@ -223,7 +220,7 @@ public class WindowManager
 						}
 					};
 				}
-				baseY -= 0.2f;
+				baseY -= 0.15f;
 			}
 			
 			// Draw the inventory of the ground or selected block.
@@ -231,16 +228,16 @@ public class WindowManager
 			{
 				baseX = -1.0f;
 				baseY = -0.2f;
-				for (Map.Entry<Item, Items> elt : blockInventory.items.entrySet())
+				for (Items items : blockInventory.items.values())
 				{
-					Item item = elt.getKey();
-					int count = elt.getValue().count();
+					Item item = items.type();
+					int count = items.count();
 					// We never highlight the label, just the buttons.
-					_drawItem(item, count, baseX, baseY, 0.7f, false, NO_PROGRESS);
-					float xferX = baseX + 0.5f;
-					boolean shouldHighlight = _isOverButton(xferX, baseY, 0.2f, glX, glY);
-					_drawBackground(xferX, baseY, 0.2f, shouldHighlight);
-					_drawLabel(xferX, baseY, "1");
+					_drawItem(item, count, baseX, baseY, baseX + 0.7f, baseY + 0.1f, false, NO_PROGRESS);
+					float xferX = baseX + 0.75f;
+					boolean shouldHighlight = _isOverButton(xferX, baseY, xferX + 0.1f, baseY + 0.1f, glX, glY);
+					_drawBackground(xferX, baseY, xferX + 0.1f, baseY + 0.1f, shouldHighlight);
+					_drawLabel(xferX, baseY, xferX + 0.1f, baseY + 0.1f, "1");
 					if (shouldHighlight)
 					{
 						button = () -> {
@@ -248,10 +245,10 @@ public class WindowManager
 							client.pickUpItemsFromTile(location, item, 1);
 						};
 					}
-					xferX += 0.3f;
-					shouldHighlight = _isOverButton(xferX, baseY, 0.2f, glX, glY);
-					_drawBackground(xferX, baseY, 0.2f, shouldHighlight);
-					_drawLabel(xferX, baseY, "All");
+					xferX += 0.15f;
+					shouldHighlight = _isOverButton(xferX, baseY, xferX + 0.1f, baseY + 0.1f, glX, glY);
+					_drawBackground(xferX, baseY, xferX + 0.1f, baseY + 0.1f, shouldHighlight);
+					_drawLabel(xferX, baseY, xferX + 0.1f, baseY + 0.1f, "All");
 					if (shouldHighlight)
 					{
 						button = () -> {
@@ -266,7 +263,7 @@ public class WindowManager
 							}
 						};
 					}
-					baseY -= 0.2f;
+					baseY -= 0.15f;
 				}
 			}
 			
@@ -293,14 +290,14 @@ public class WindowManager
 				// We will only check the highlight if this is something we even could craft.
 				// Note that this needs to handle 
 				boolean canCraft = (null != craftingInventory) ? craft.canApply(craftingInventory) : false;
-				boolean shouldHighlight = canCraft && _isOverButton(baseX, baseY, 0.7f, glX, glY);
+				boolean shouldHighlight = canCraft && _isOverButton(baseX, baseY, baseX + 0.5f, baseY + 0.1f, glX, glY);
 				// Check to see if this is something we are currently crafting.
 				float progressBar = 0.0f;
 				if ((null != crafting) && (crafting.selectedCraft() == craft))
 				{
 					progressBar = (float)crafting.completedMillis() / (float)craft.millisPerCraft;
 				}
-				_drawItem(craft.output.type(), craft.output.count(), baseX, baseY, 0.7f, shouldHighlight, progressBar);
+				_drawItem(craft.output.type(), craft.output.count(), baseX, baseY, baseX + 0.7f, baseY + 0.1f, shouldHighlight, progressBar);
 				if (shouldHighlight)
 				{
 					if (_WindowMode.CRAFTING_TABLE == _mode)
@@ -324,7 +321,7 @@ public class WindowManager
 						};
 					}
 				}
-				baseY -= 0.2f;
+				baseY -= 0.15f;
 			}
 		}
 		return button;
@@ -370,20 +367,10 @@ public class WindowManager
 	}
 
 
-	private static int _defineTileVertexBuffer(GL20 gl, float textureSize)
+	private static int _defineCommonVertices(GL20 gl, float textureSize)
 	{
-		return _defineCommonVertices(gl, 1.0f, textureSize);
-	}
-
-	private static int _defineTextVertexBuffer(GL20 gl)
-	{
-		return _defineCommonVertices(gl, 4.0f, 1.0f);
-	}
-
-	private static int _defineCommonVertices(GL20 gl, float aspectRatio, float textureSize)
-	{
-		float height = BUTTON_HEIGHT;
-		float width = aspectRatio * height;
+		float height = 1.0f;
+		float width = 1.0f;
 		float textureBaseU = 0.0f;
 		float textureBaseV = 0.0f;
 		float[] vertices = new float[] {
@@ -413,7 +400,7 @@ public class WindowManager
 		return entityBuffer;
 	}
 
-	private void _drawItem(Item selectedItem, int count, float baseX, float baseY, float xScale, boolean shouldHighlight, float progressBar)
+	private void _drawItem(Item selectedItem, int count, float left, float bottom, float right, float top, boolean shouldHighlight, float progressBar)
 	{
 		// We lazily create the label.
 		short number = selectedItem.number();
@@ -423,13 +410,16 @@ public class WindowManager
 		if (progressBar > 0.0f)
 		{
 			// There is a progress bar, so draw that, instead.
-			_drawBackground(baseX, baseY, xScale * progressBar, true);
+			float progressRight = left + ((right - left) * progressBar);
+			_drawBackground(left, bottom, progressRight, top, true);
 		}
 		else
 		{
 			// Just draw the normal background.
-			_drawBackground(baseX, baseY, xScale, shouldHighlight);
+			_drawBackground(left, bottom, right, top, shouldHighlight);
 		}
+		float xScale = (right - left);
+		float yScale = (top - bottom);
 		
 		// Draw the tile.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
@@ -438,10 +428,12 @@ public class WindowManager
 		float textureBaseU = uv[0];
 		float textureBaseV = uv[1];
 		_gl.glUniform1i(_uTexture, 0);
-		_gl.glUniform2f(_uOffset, baseX, baseY);
-		_gl.glUniform2f(_uScale, xScale, 1.0f);
+		_gl.glUniform2f(_uOffset, left, bottom);
+		// We want to just draw this square.
+		_gl.glUniform2f(_uScale, yScale, yScale);
 		_gl.glUniform2f(_uTextureBase, textureBaseU, textureBaseV);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _tileVertexBuffer);
+		_gl.glUniform2f(_uTextureScale, 1.0f, 1.0f);
+		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _atlasVertexBuffer);
 		_gl.glEnableVertexAttribArray(0);
 		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
 		_gl.glEnableVertexAttribArray(1);
@@ -452,10 +444,11 @@ public class WindowManager
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textManager.lazilyLoadStringTexture(Integer.toString(count)));
 		_gl.glUniform1i(_uTexture, 0);
-		_gl.glUniform2f(_uOffset, baseX, baseY);
-		_gl.glUniform2f(_uScale, 0.2f, 1.0f);
+		_gl.glUniform2f(_uOffset, left, bottom);
+		_gl.glUniform2f(_uScale, xScale * 0.5f, yScale * 0.5f);
 		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _labelVertexBuffer);
+		_gl.glUniform2f(_uTextureScale, 0.5f, 1.0f);
+		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _unitVertexBuffer);
 		_gl.glEnableVertexAttribArray(0);
 		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
 		_gl.glEnableVertexAttribArray(1);
@@ -463,15 +456,12 @@ public class WindowManager
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 		
 		// Draw the label.
-		_drawLabel(baseX + 0.1f, baseY, name);
+		_drawLabel(left + 0.1f, bottom, right, top, name);
 	}
 
-	private static boolean _isOverButton(float baseX, float baseY, float xScale, float glX, float glY)
+	private static boolean _isOverButton(float left, float bottom, float right, float top, float glX, float glY)
 	{
-		// The button background is 0.1 high and 0.7 wide.
-		float edgeX = baseX + (xScale * BUTTON_BACKGROUND_ASPECT_RATIO * BUTTON_HEIGHT);
-		float edgeY = baseY + BUTTON_HEIGHT;
-		return ((glX >= baseX) && (glX <= edgeX) && (glY >= baseY) && (glY <= edgeY));
+		return ((left <= glX) && (glX <= right) && (bottom <= glY) && (glY <= top));
 	}
 
 	private Inventory _currentBlockInventory()
@@ -493,32 +483,39 @@ public class WindowManager
 		return proxy.getCrafting();
 	}
 
-	private void _drawLabel(float baseX, float baseY, String label)
+	private void _drawLabel(float left, float bottom, float right, float top, String label)
 	{
 		int labelTexture = _textManager.lazilyLoadStringTexture(label);
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, labelTexture);
-		_gl.glUniform1i(_uTexture, 0);
-		_gl.glUniform2f(_uOffset, baseX, baseY);
-		_gl.glUniform2f(_uScale, 1.0f, 1.0f);
-		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _labelVertexBuffer);
-		_gl.glEnableVertexAttribArray(0);
-		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
-		_gl.glEnableVertexAttribArray(1);
-		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
-		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+		float xScale = (right - left);
+		float yScale = (top - bottom);
+		float xRatio = xScale / yScale;
+		// We want to slim down the text so use a multiplier here.
+		float textureAspect = (float)TextManager.TEXT_TEXTURE_WIDTH_PIXELS / (float)TextManager.TEXT_TEXTURE_HEIGHT_PIXELS / 2.0f;
+		_gl.glUniform2f(_uTextureScale, xRatio / textureAspect, 1.0f);
+		_drawUnitRect(left, bottom, right, top);
 	}
 
-	private void _drawBackground(float baseX, float baseY, float xScale, boolean shouldHighlight)
+	private void _drawBackground(float left, float bottom, float right, float top, boolean shouldHighlight)
 	{
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, shouldHighlight ? _backgroundHighlightTexture : _backgroundTexture);
+		_gl.glUniform2f(_uTextureScale, 1.0f, 1.0f);
+		_drawUnitRect(left, bottom, right, top);
+	}
+
+	private void _drawUnitRect(float left, float bottom, float right, float top)
+	{
+		// NOTE:  This assumes that texture unit 0 is already bound to the appropriate texture.
+		// The unit vertex buffer has 0.0 - 1.0 on both axes so scale within that.
+		float xScale = (right - left);
+		float yScale = (top - bottom);
 		_gl.glUniform1i(_uTexture, 0);
-		_gl.glUniform2f(_uOffset, baseX, baseY);
-		_gl.glUniform2f(_uScale, xScale, 1.0f);
+		_gl.glUniform2f(_uOffset, left, bottom);
+		_gl.glUniform2f(_uScale, xScale, yScale);
 		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _backgroundVertexBuffer);
+		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _unitVertexBuffer);
 		_gl.glEnableVertexAttribArray(0);
 		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
 		_gl.glEnableVertexAttribArray(1);
