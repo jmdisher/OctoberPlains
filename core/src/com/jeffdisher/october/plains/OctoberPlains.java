@@ -48,6 +48,7 @@ public class OctoberPlains extends ApplicationAdapter
 					"plank.png",
 					"stone_brick.png",
 					"crafting_table.png",
+					"furnace.png",
 				}
 				// Player.
 				, "player.png"
