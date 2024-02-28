@@ -174,7 +174,8 @@ public class WindowManager
 			// Draw the inventory of the ground or selected block.
 			if (null != blockInventory)
 			{
-				Runnable thisButton = _drawBlockInventory(client, blockInventory, glX, glY);
+				String inventoryName = (_WindowMode.CRAFTING_TABLE == _mode) ? "Table" : "Floor";
+				Runnable thisButton = _drawBlockInventory(client, blockInventory, inventoryName, glX, glY);
 				if (null != thisButton)
 				{
 					button = thisButton;
@@ -213,7 +214,7 @@ public class WindowManager
 				};
 			}
 			return onClick;
-		}, 0.65f, 0.05f);
+		}, 0.55f, 0.05f);
 		_RenderTuple<Items> transfer1 = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
 			_drawBackground(left, bottom, right, top, isMouseOver);
 			_drawLabel(left, bottom, right, top, "1");
@@ -249,10 +250,10 @@ public class WindowManager
 			}
 			return onClick;
 		}, 0.1f, 0.05f);
-		return _drawTableWindow("Inventory", 0.0f, 0.0f, 1.0f, 0.9f, glX, glY, 0.1f, 0.05f, entityInventory.items.values(), List.of(itemRender, transfer1, transferAll));
+		return _drawTableWindow("Inventory", 0.05f, 0.05f, 0.95f, 0.95f, glX, glY, 0.1f, 0.05f, entityInventory.items.values(), List.of(itemRender, transfer1, transferAll));
 	}
 
-	private Runnable _drawBlockInventory(ClientLogic client, Inventory blockInventory, float glX, float glY)
+	private Runnable _drawBlockInventory(ClientLogic client, Inventory blockInventory, String inventoryName, float glX, float glY)
 	{
 		_RenderTuple<Items> itemRender = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
 			Item item = value.type();
@@ -297,7 +298,7 @@ public class WindowManager
 			}
 			return onClick;
 		}, 0.1f, 0.05f);
-		return _drawTableWindow("Inventory", -1.0f, -1.0f, 1.0f, -0.2f, glX, glY, 0.1f, 0.05f, blockInventory.items.values(), List.of(itemRender, transfer1, transferAll));
+		return _drawTableWindow(inventoryName, -0.95f, -0.95f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.items.values(), List.of(itemRender, transfer1, transferAll));
 	}
 
 	private Runnable _drawCraftingPanel(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
@@ -355,7 +356,7 @@ public class WindowManager
 			}
 			return onClick;
 		}, 0.65f, 0.05f);
-		return _drawTableWindow("Crafting", -1.0f, 0.0f, 0.0f, 0.9f, glX, glY, 0.1f, 0.05f, List.of(Craft.values()), List.of(itemRender));
+		return _drawTableWindow("Crafting", -0.95f, 0.05f, -0.05f, 0.95f, glX, glY, 0.1f, 0.05f, List.of(Craft.values()), List.of(itemRender));
 	}
 
 	public void setEntity(Entity entity)
@@ -552,7 +553,16 @@ public class WindowManager
 	private <T> Runnable _drawTableWindow(String title, float leftX, float bottomY, float rightX, float topY, float glX, float glY, float rowHeight, float rowSpace, Collection<T> values, List<_RenderTuple<T>> columns)
 	{
 		Runnable onClick = null;
-		float yOffset = topY;
+		// Draw the window outline and create a default catch runnable to block the background.
+		_drawBackground(leftX, bottomY, rightX, topY, false);
+		if ((leftX <= glX) && (glX <= rightX) && (bottomY <= glY) && (glY <= topY))
+		{
+			onClick = () -> {};
+		}
+		// Draw the title.
+		_drawLabel(leftX, topY - 0.1f, leftX + 0.5f, topY, title.toUpperCase());
+		
+		float yOffset = topY - (rowHeight + rowSpace);
 		for (T value : values)
 		{
 			float xOffset = leftX;
