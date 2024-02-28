@@ -2,6 +2,8 @@ package com.jeffdisher.october.plains;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Collection;
+import java.util.List;
 import java.util.function.Function;
 
 import com.badlogic.gdx.graphics.GL20;
@@ -161,170 +163,199 @@ public class WindowManager
 		if ((_WindowMode.NONE != _mode) && (null != _entity))
 		{
 			// Draw the entity inventory.
-			float baseX = 0.0f;
-			float baseY = 0.8f;
 			Inventory entityInventory = _entity.inventory();
 			Inventory blockInventory = (_mode == _WindowMode.FLOOR)
 					? _currentBlockInventory()
 					: _selectedBlockInventory()
 			;
-			for (Items items : entityInventory.items.values())
-			{
-				Item item = items.type();
-				int count = items.count();
-				boolean shouldHighlight = _isOverButton(baseX, baseY, baseX + 0.7f, baseY + 0.1f, glX, glY);
-				_drawItem(item, count, baseX, baseY, baseX + 0.7f, baseY + 0.1f, shouldHighlight, NO_PROGRESS);
-				if (shouldHighlight)
-				{
-					button = () -> {
-						// If this already was selected, clear it.
-						if (_entity.selectedItem() == item)
-						{
-							client.setSelectedItem(null);
-						}
-						else
-						{
-							client.setSelectedItem(item);
-						}
-					};
-				}
-				
-				// Now, draw the transfer buttons.
-				float xferX = baseX + 0.75f;
-				shouldHighlight = _isOverButton(xferX, baseY, xferX + 0.1f, baseY + 0.1f, glX, glY);
-				_drawBackground(xferX, baseY, xferX + 0.1f, baseY + 0.1f, shouldHighlight);
-				_drawLabel(xferX, baseY, xferX + 0.1f, baseY + 0.1f, "1");
-				if (shouldHighlight)
-				{
-					button = () -> {
-						AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
-						client.dropItemsInTile(location, item, 1);
-					};
-				}
-				xferX += 0.15f;
-				shouldHighlight = _isOverButton(xferX, baseY, xferX + 0.1f, baseY + 0.1f, glX, glY);
-				_drawBackground(xferX, baseY, xferX + 0.1f, baseY + 0.1f, shouldHighlight);
-				_drawLabel(xferX, baseY, xferX + 0.1f, baseY + 0.1f, "All");
-				if (shouldHighlight)
-				{
-					button = () -> {
-						// Find out how many can fit in the block.
-						int inventoryCapacity = (_WindowMode.CRAFTING_TABLE == _mode) ? InventoryAspect.CAPACITY_CRAFTING_TABLE : InventoryAspect.CAPACITY_AIR;
-						MutableInventory checker = new MutableInventory((null != blockInventory) ? blockInventory : Inventory.start(inventoryCapacity).finish());
-						int max = checker.maxVacancyForItem(item);
-						int toDrop = Math.min(count, max);
-						if (toDrop > 0)
-						{
-							AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
-							client.dropItemsInTile(location, item, toDrop);
-						}
-					};
-				}
-				baseY -= 0.15f;
-			}
+			
+			button = _drawEntityInventory(client, entityInventory, blockInventory, glX, glY);
 			
 			// Draw the inventory of the ground or selected block.
 			if (null != blockInventory)
 			{
-				baseX = -1.0f;
-				baseY = -0.2f;
-				for (Items items : blockInventory.items.values())
+				Runnable thisButton = _drawBlockInventory(client, blockInventory, glX, glY);
+				if (null != thisButton)
 				{
-					Item item = items.type();
-					int count = items.count();
-					// We never highlight the label, just the buttons.
-					_drawItem(item, count, baseX, baseY, baseX + 0.7f, baseY + 0.1f, false, NO_PROGRESS);
-					float xferX = baseX + 0.75f;
-					boolean shouldHighlight = _isOverButton(xferX, baseY, xferX + 0.1f, baseY + 0.1f, glX, glY);
-					_drawBackground(xferX, baseY, xferX + 0.1f, baseY + 0.1f, shouldHighlight);
-					_drawLabel(xferX, baseY, xferX + 0.1f, baseY + 0.1f, "1");
-					if (shouldHighlight)
-					{
-						button = () -> {
-							AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
-							client.pickUpItemsFromTile(location, item, 1);
-						};
-					}
-					xferX += 0.15f;
-					shouldHighlight = _isOverButton(xferX, baseY, xferX + 0.1f, baseY + 0.1f, glX, glY);
-					_drawBackground(xferX, baseY, xferX + 0.1f, baseY + 0.1f, shouldHighlight);
-					_drawLabel(xferX, baseY, xferX + 0.1f, baseY + 0.1f, "All");
-					if (shouldHighlight)
-					{
-						button = () -> {
-							// Find out how many we can hold.
-							MutableInventory checker = new MutableInventory(_entity.inventory());
-							int max = checker.maxVacancyForItem(item);
-							int toPickUp = Math.min(count, max);
-							if (toPickUp > 0)
-							{
-								AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
-								client.pickUpItemsFromTile(location, item, toPickUp);
-							}
-						};
-					}
-					baseY -= 0.15f;
+					button = thisButton;
 				}
 			}
 			
 			// Draw the crafting panel.
-			// Note that the crafting panel will act a bit differently whether it is the player's inventory or a crafting table.
-			baseX = -1.0f;
-			baseY = 0.8f;
-			CraftOperation crafting;
-			Inventory craftingInventory;
-			if (_WindowMode.CRAFTING_TABLE == _mode)
+			Runnable thisButton = _drawCraftingPanel(client, entityInventory, blockInventory, glX, glY);
+			if (null != thisButton)
 			{
-				// We are looking at the crafting table so grab its crafting aspect.
-				crafting = _selectedBlockCrafting();
-				craftingInventory = blockInventory;
-			}
-			else
-			{
-				// This is the player's inventory so use their operation.
-				crafting = (null != _entity) ? _entity.localCraftOperation() : null;
-				craftingInventory = entityInventory;
-			}
-			for (Craft craft : Craft.values())
-			{
-				// We will only check the highlight if this is something we even could craft.
-				// Note that this needs to handle 
-				boolean canCraft = (null != craftingInventory) ? craft.canApply(craftingInventory) : false;
-				boolean shouldHighlight = canCraft && _isOverButton(baseX, baseY, baseX + 0.5f, baseY + 0.1f, glX, glY);
-				// Check to see if this is something we are currently crafting.
-				float progressBar = 0.0f;
-				if ((null != crafting) && (crafting.selectedCraft() == craft))
-				{
-					progressBar = (float)crafting.completedMillis() / (float)craft.millisPerCraft;
-				}
-				_drawItem(craft.output.type(), craft.output.count(), baseX, baseY, baseX + 0.7f, baseY + 0.1f, shouldHighlight, progressBar);
-				if (shouldHighlight)
-				{
-					if (_WindowMode.CRAFTING_TABLE == _mode)
-					{
-						// Craft in table.
-						button = () -> {
-							if (craft.canApply(craftingInventory))
-							{
-								client.beginCraftInBlock(_openInventoryLocation, craft);
-							}
-						};
-					}
-					else
-					{
-						// Craft in inventory.
-						button = () -> {
-							if (craft.canApply(craftingInventory))
-							{
-								client.beginCraft(craft);
-							}
-						};
-					}
-				}
-				baseY -= 0.15f;
+				button = thisButton;
 			}
 		}
 		return button;
+	}
+
+	private Runnable _drawEntityInventory(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
+	{
+		_RenderTuple<Items> itemRender = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
+			Item item = value.type();
+			int count = value.count();
+			_drawItem(item, count, left, bottom, right, top, isMouseOver, NO_PROGRESS);
+			Runnable onClick = null;
+			if (isMouseOver)
+			{
+				onClick = () -> {
+					// If this already was selected, clear it.
+					if (_entity.selectedItem() == item)
+					{
+						client.setSelectedItem(null);
+					}
+					else
+					{
+						client.setSelectedItem(item);
+					}
+				};
+			}
+			return onClick;
+		}, 0.65f, 0.05f);
+		_RenderTuple<Items> transfer1 = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
+			_drawBackground(left, bottom, right, top, isMouseOver);
+			_drawLabel(left, bottom, right, top, "1");
+			Runnable onClick = null;
+			if (isMouseOver)
+			{
+				onClick = () -> {
+					AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
+					client.dropItemsInTile(location, value.type(), 1);
+				};
+			}
+			return onClick;
+		}, 0.1f, 0.05f);
+		_RenderTuple<Items> transferAll = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
+			_drawBackground(left, bottom, right, top, isMouseOver);
+			_drawLabel(left, bottom, right, top, "All");
+			Runnable onClick = null;
+			if (isMouseOver)
+			{
+				onClick = () -> {
+					// Find out how many can fit in the block.
+					int inventoryCapacity = (_WindowMode.CRAFTING_TABLE == _mode) ? InventoryAspect.CAPACITY_CRAFTING_TABLE : InventoryAspect.CAPACITY_AIR;
+					MutableInventory checker = new MutableInventory((null != blockInventory) ? blockInventory : Inventory.start(inventoryCapacity).finish());
+					Item item = value.type();
+					int max = checker.maxVacancyForItem(item);
+					int toDrop = Math.min(value.count(), max);
+					if (toDrop > 0)
+					{
+						AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
+						client.dropItemsInTile(location, item, toDrop);
+					}
+				};
+			}
+			return onClick;
+		}, 0.1f, 0.05f);
+		return _drawTableWindow("Inventory", 0.0f, 0.0f, 1.0f, 0.9f, glX, glY, 0.1f, 0.05f, entityInventory.items.values(), List.of(itemRender, transfer1, transferAll));
+	}
+
+	private Runnable _drawBlockInventory(ClientLogic client, Inventory blockInventory, float glX, float glY)
+	{
+		_RenderTuple<Items> itemRender = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
+			Item item = value.type();
+			int count = value.count();
+			// We never highlight the label, just the buttons.
+			_drawItem(item, count, left, bottom, right, top, false, NO_PROGRESS);
+			return null;
+		}, 0.65f, 0.05f);
+		_RenderTuple<Items> transfer1 = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
+			_drawBackground(left, bottom, right, top, isMouseOver);
+			_drawLabel(left, bottom, right, top, "1");
+			Runnable onClick = null;
+			if (isMouseOver)
+			{
+				onClick = () -> {
+					Item item = value.type();
+					AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
+					client.pickUpItemsFromTile(location, item, 1);
+				};
+			}
+			return onClick;
+		}, 0.1f, 0.05f);
+		_RenderTuple<Items> transferAll = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
+			_drawBackground(left, bottom, right, top, isMouseOver);
+			_drawLabel(left, bottom, right, top, "All");
+			Runnable onClick = null;
+			if (isMouseOver)
+			{
+				onClick = () -> {
+					// Find out how many we can hold.
+					Item item = value.type();
+					int count = value.count();
+					MutableInventory checker = new MutableInventory(_entity.inventory());
+					int max = checker.maxVacancyForItem(item);
+					int toPickUp = Math.min(count, max);
+					if (toPickUp > 0)
+					{
+						AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
+						client.pickUpItemsFromTile(location, item, toPickUp);
+					}
+				};
+			}
+			return onClick;
+		}, 0.1f, 0.05f);
+		return _drawTableWindow("Inventory", -1.0f, -1.0f, 1.0f, -0.2f, glX, glY, 0.1f, 0.05f, blockInventory.items.values(), List.of(itemRender, transfer1, transferAll));
+	}
+
+	private Runnable _drawCraftingPanel(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
+	{
+		// Note that the crafting panel will act a bit differently whether it is the player's inventory or a crafting table.
+		CraftOperation crafting;
+		Inventory craftingInventory;
+		if (_WindowMode.CRAFTING_TABLE == _mode)
+		{
+			// We are looking at the crafting table so grab its crafting aspect.
+			crafting = _selectedBlockCrafting();
+			craftingInventory = blockInventory;
+		}
+		else
+		{
+			// This is the player's inventory so use their operation.
+			crafting = (null != _entity) ? _entity.localCraftOperation() : null;
+			craftingInventory = entityInventory;
+		}
+		_RenderTuple<Craft> itemRender = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Craft craft) -> {
+			// We will only check the highlight if this is something we even could craft.
+			// Note that this needs to handle 
+			boolean canCraft = (null != craftingInventory) ? craft.canApply(craftingInventory) : false;
+			boolean shouldHighlight = canCraft && isMouseOver;
+			// Check to see if this is something we are currently crafting.
+			float progressBar = 0.0f;
+			if ((null != crafting) && (crafting.selectedCraft() == craft))
+			{
+				progressBar = (float)crafting.completedMillis() / (float)craft.millisPerCraft;
+			}
+			_drawItem(craft.output.type(), craft.output.count(), left, bottom, right, top, shouldHighlight, progressBar);
+			Runnable onClick = null;
+			if (shouldHighlight)
+			{
+				if (_WindowMode.CRAFTING_TABLE == _mode)
+				{
+					// Craft in table.
+					onClick = () -> {
+						if (craft.canApply(craftingInventory))
+						{
+							client.beginCraftInBlock(_openInventoryLocation, craft);
+						}
+					};
+				}
+				else
+				{
+					// Craft in inventory.
+					onClick = () -> {
+						if (craft.canApply(craftingInventory))
+						{
+							client.beginCraft(craft);
+						}
+					};
+				}
+			}
+			return onClick;
+		}, 0.65f, 0.05f);
+		return _drawTableWindow("Crafting", -1.0f, 0.0f, 0.0f, 0.9f, glX, glY, 0.1f, 0.05f, List.of(Craft.values()), List.of(itemRender));
 	}
 
 	public void setEntity(Entity entity)
@@ -459,11 +490,6 @@ public class WindowManager
 		_drawLabel(left + 0.1f, bottom, right, top, name);
 	}
 
-	private static boolean _isOverButton(float left, float bottom, float right, float top, float glX, float glY)
-	{
-		return ((left <= glX) && (glX <= right) && (bottom <= glY) && (glY <= top));
-	}
-
 	private Inventory _currentBlockInventory()
 	{
 		AbsoluteLocation block = GeometryHelpers.getCentreAtFeet(_entity);
@@ -523,6 +549,30 @@ public class WindowManager
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 	}
 
+	private <T> Runnable _drawTableWindow(String title, float leftX, float bottomY, float rightX, float topY, float glX, float glY, float rowHeight, float rowSpace, Collection<T> values, List<_RenderTuple<T>> columns)
+	{
+		Runnable onClick = null;
+		float yOffset = topY;
+		for (T value : values)
+		{
+			float xOffset = leftX;
+			for (_RenderTuple<T> renderer : columns)
+			{
+				float bottom = yOffset - rowHeight;
+				float right = xOffset + renderer.width;
+				boolean isMouseOver = ((xOffset <= glX) && (glX <= right) && (bottom <= glY) && (glY <= yOffset));
+				Runnable runnable = renderer.draw.render(xOffset, bottom, right, yOffset, isMouseOver, value);
+				if (null != runnable)
+				{
+					onClick = runnable;
+				}
+				xOffset = right + renderer.spacing;
+			}
+			yOffset -= (rowHeight + rowSpace);
+		}
+		return onClick;
+	}
+
 
 	private static enum _WindowMode
 	{
@@ -532,5 +582,14 @@ public class WindowManager
 		FLOOR,
 		// We want to see our inventory and a crafting table.
 		CRAFTING_TABLE,
+	}
+
+	private static record _RenderTuple<T>(_ValueRenderer<T> draw, float width, float spacing)
+	{
+	}
+
+	private interface _ValueRenderer<T>
+	{
+		Runnable render(float left, float bottom, float right, float top, boolean isMouseOver, T value);
 	}
 }
