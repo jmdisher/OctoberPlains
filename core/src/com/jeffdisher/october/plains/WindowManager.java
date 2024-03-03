@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 
 import com.badlogic.gdx.graphics.GL20;
@@ -306,17 +307,20 @@ public class WindowManager
 		// Note that the crafting panel will act a bit differently whether it is the player's inventory or a crafting table.
 		CraftOperation crafting;
 		Inventory craftingInventory;
+		Set<Craft.Classification> classifications;
 		if (_WindowMode.CRAFTING_TABLE == _mode)
 		{
 			// We are looking at the crafting table so grab its crafting aspect.
 			crafting = _selectedBlockCrafting();
 			craftingInventory = blockInventory;
+			classifications = Set.of(Craft.Classification.TRIVIAL, Craft.Classification.COMMON);
 		}
 		else
 		{
 			// This is the player's inventory so use their operation.
 			crafting = (null != _entity) ? _entity.localCraftOperation() : null;
 			craftingInventory = entityInventory;
+			classifications = Set.of(Craft.Classification.TRIVIAL);
 		}
 		_RenderTuple<Craft> itemRender = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Craft craft) -> {
 			// We will only check the highlight if this is something we even could craft.
@@ -356,7 +360,7 @@ public class WindowManager
 			}
 			return onClick;
 		}, 0.65f, 0.05f);
-		return _drawTableWindow("Crafting", -0.95f, 0.05f, -0.05f, 0.95f, glX, glY, 0.1f, 0.05f, List.of(Craft.values()), List.of(itemRender));
+		return _drawTableWindow("Crafting", -0.95f, 0.05f, -0.05f, 0.95f, glX, glY, 0.1f, 0.05f, Craft.craftsForClassifications(classifications), List.of(itemRender));
 	}
 
 	public void setEntity(Entity entity)
