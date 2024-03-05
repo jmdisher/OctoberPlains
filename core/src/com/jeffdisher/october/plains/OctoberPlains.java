@@ -151,6 +151,10 @@ public class OctoberPlains extends ApplicationAdapter
 		{
 			_windowManager.toggleInventory();
 		}
+		else if (Gdx.input.isKeyJustPressed(Keys.F))
+		{
+			_windowManager.toggleFuelInventory();
+		}
 		else if (Gdx.input.isButtonPressed(0))
 		{
 			// See if they have a button.

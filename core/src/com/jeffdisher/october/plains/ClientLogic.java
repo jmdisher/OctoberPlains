@@ -9,7 +9,9 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
+import com.jeffdisher.october.aspects.FuelAspect;
 import com.jeffdisher.october.aspects.InventoryAspect;
+import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.data.CuboidData;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.mutations.EntityChangeJump;
@@ -29,6 +31,7 @@ import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
+import com.jeffdisher.october.types.FuelState;
 import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
 import com.jeffdisher.october.types.Items;
@@ -192,37 +195,77 @@ public class ClientLogic
 		}
 	}
 
-	public void pickUpItemsFromTile(AbsoluteLocation location, Item type, int count)
+	public void pullItemsFromTileInventory(AbsoluteLocation location, Item type, int count, boolean useFuel)
 	{
 		IReadOnlyCuboidData cuboid = _cuboids.get(location.getCuboidAddress());
 		// For now, we shouldn't see not-yet-loaded cuboids here.
 		Assert.assertTrue(null != cuboid);
-		Inventory inventory = cuboid.getDataSpecial(AspectRegistry.INVENTORY, location.getBlockAddress());
+		BlockAddress blockAddress = location.getBlockAddress();
+		Inventory inventory;
+		byte inventoryAspect;
+		if (useFuel)
+		{
+			FuelState fuel = cuboid.getDataSpecial(AspectRegistry.FUELED, blockAddress);
+			inventory = (null != fuel)
+					? fuel.fuelInventory()
+					: null
+			;
+			inventoryAspect = Inventory.INVENTORY_ASPECT_FUEL;
+		}
+		else
+		{
+			inventory = cuboid.getDataSpecial(AspectRegistry.INVENTORY, blockAddress);
+			inventoryAspect = Inventory.INVENTORY_ASPECT_INVENTORY;
+		}
 		// This must exist to be calling this.
 		Assert.assertTrue(null != inventory);
 		// This must be a valid request.
 		Assert.assertTrue(inventory.items.get(type).count() >= count);
 		
-		MutationEntityRequestItemPickUp request = new MutationEntityRequestItemPickUp(location, new Items(type, count));
+		MutationEntityRequestItemPickUp request = new MutationEntityRequestItemPickUp(location, new Items(type, count), inventoryAspect);
 		long currentTimeMillis = System.currentTimeMillis();
 		_client.sendAction(request, currentTimeMillis);
 	}
 
-	public void dropItemsInTile(AbsoluteLocation location, Item type, int count)
+	public void pushItemsToTileInventory(AbsoluteLocation location, Item type, int count, boolean useFuel)
 	{
 		IReadOnlyCuboidData cuboid = _cuboids.get(location.getCuboidAddress());
 		// For now, we shouldn't see not-yet-loaded cuboids here.
 		Assert.assertTrue(null != cuboid);
-		// Make sure that these can fit in the tile.
 		BlockAddress blockAddress = location.getBlockAddress();
-		short blockNumber = cuboid.getData15(AspectRegistry.BLOCK, blockAddress);
-		if ((ItemRegistry.AIR.number() == blockNumber) || (ItemRegistry.CRAFTING_TABLE.number() == blockNumber))
+		BlockProxy proxy = new BlockProxy(blockAddress, cuboid);
+		// Make sure that these can fit in the tile.
+		Inventory targetInventory;
+		byte inventoryAspect;
+		if (useFuel)
 		{
-			Inventory existing = cuboid.getDataSpecial(AspectRegistry.INVENTORY, blockAddress);
-			MutableInventory inv = new MutableInventory((null != existing) ? existing : Inventory.start(InventoryAspect.CAPACITY_AIR).finish());
+			// If we are pushing to the fuel slot, make sure that this is a valid type.
+			if (FuelAspect.millisOfFuel(type) > 0)
+			{
+				FuelState fuel = proxy.getFuel();
+				targetInventory = (null != fuel)
+						? fuel.fuelInventory()
+						: null
+				;
+			}
+			else
+			{
+				targetInventory = null;
+			}
+			inventoryAspect = Inventory.INVENTORY_ASPECT_FUEL;
+		}
+		else
+		{
+			targetInventory = proxy.getInventory();
+			inventoryAspect = Inventory.INVENTORY_ASPECT_INVENTORY;
+		}
+		
+		if (null != targetInventory)
+		{
+			MutableInventory inv = new MutableInventory(targetInventory);
 			if (inv.maxVacancyForItem(type) >= count)
 			{
-				MutationEntityPushItems push = new MutationEntityPushItems(location, new Items(type, count));
+				MutationEntityPushItems push = new MutationEntityPushItems(location, new Items(type, count), inventoryAspect);
 				long currentTimeMillis = System.currentTimeMillis();
 				_client.sendAction(push, currentTimeMillis);
 			}
