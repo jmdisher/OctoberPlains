@@ -312,12 +312,14 @@ public class WindowManager
 		CraftOperation crafting;
 		Inventory craftingInventory;
 		Set<Craft.Classification> classifications;
+		boolean canManuallyCraft;
 		if (_WindowMode.CRAFTING_TABLE_INVENTORY == _mode)
 		{
 			// We are looking at the crafting table so grab its crafting aspect.
 			crafting = _selectedBlockCrafting();
 			craftingInventory = blockInventory;
 			classifications = Set.of(Craft.Classification.TRIVIAL, Craft.Classification.COMMON);
+			canManuallyCraft = true;
 		}
 		else if (_WindowMode.FLOOR == _mode)
 		{
@@ -325,19 +327,29 @@ public class WindowManager
 			crafting = (null != _entity) ? _entity.localCraftOperation() : null;
 			craftingInventory = entityInventory;
 			classifications = Set.of(Craft.Classification.TRIVIAL);
+			canManuallyCraft = true;
+		}
+		else if ((_WindowMode.FURNACE_INVENTORY == _mode) || (_WindowMode.FUEL == _mode))
+		{
+			// For now, nothing else will show crafting operations.
+			crafting = _selectedBlockCrafting();
+			craftingInventory = blockInventory;
+			// We will render these possible options, just for progress, since we won't let them click.
+			classifications = Set.of(Craft.Classification.SPECIAL_FURNACE);
+			canManuallyCraft = false;
 		}
 		else
 		{
-			// For now, nothing else will show crafting operations.
-			crafting = null;
-			craftingInventory = blockInventory;
-			// Using empty classifications will mean none are rendered.
-			classifications = Set.of();
+			// Handle this case once it is created.
+			throw Assert.unreachable();
 		}
 		_RenderTuple<Craft> itemRender = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Craft craft) -> {
 			// We will only check the highlight if this is something we even could craft.
 			// Note that this needs to handle 
-			boolean canCraft = (null != craftingInventory) ? craft.canApply(craftingInventory) : false;
+			boolean canCraft = canManuallyCraft
+					? ((null != craftingInventory) ? craft.canApply(craftingInventory) : false)
+					: false
+			;
 			boolean shouldHighlight = canCraft && isMouseOver;
 			// Check to see if this is something we are currently crafting.
 			float progressBar = 0.0f;
