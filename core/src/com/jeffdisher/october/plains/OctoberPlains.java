@@ -50,6 +50,13 @@ public class OctoberPlains extends ApplicationAdapter
 					"crafting_table.png",
 					"furnace.png",
 				}
+				, new String[] {
+					"air.png",
+					"break1.png",
+					"break2.png",
+					"break3.png",
+					"active.png",
+				}
 				// Player.
 				, "player.png"
 				// Debris.

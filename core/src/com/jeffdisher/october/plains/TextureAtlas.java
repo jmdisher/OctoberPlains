@@ -17,6 +17,7 @@ public class TextureAtlas
 {
 	public static TextureAtlas loadAtlas(GL20 gl
 			, String[] names
+			, String[] secondaryNames
 			, String playerTextureName
 			, String debrisTextureName
 	) throws IOException
@@ -27,25 +28,42 @@ public class TextureAtlas
 		combinedNames[names.length] = playerTextureName;
 		combinedNames[names.length + 1] = debrisTextureName;
 		
-		// We essentially just want the base2 logarithm of the array length rounded to the nearest power of 2.
-		// (a faster and generalizable algorithm using leading zeros could be used but is less obvious than this, for now)
-		int texturesPerRow = 1;
-		if (combinedNames.length > 1)
-		{
-			texturesPerRow = 2;
-			if (combinedNames.length > 4)
-			{
-				texturesPerRow = 4;
-				if (combinedNames.length > 16)
-				{
-					texturesPerRow = 8;
-					Assert.assertTrue(combinedNames.length <= 64);
-				}
-			}
-		}
+		int texturesPerRow = _texturesPerRow(combinedNames.length);
 		
 		// We will assume a fixed texture size of 32-square.
 		int eachTextureEdge = 32;
+		int texture = _createTextureAtlas(gl, combinedNames, texturesPerRow, eachTextureEdge);
+		int secondaryTexturesPerRow = _texturesPerRow(secondaryNames.length);
+		int secondaryTexture = _createTextureAtlas(gl, secondaryNames, secondaryTexturesPerRow, eachTextureEdge);
+		int indexOfPlayer = names.length;
+		int indexOfDebris = indexOfPlayer + 1;
+		return new TextureAtlas(texture, secondaryTexture, texturesPerRow, secondaryTexturesPerRow, indexOfPlayer, indexOfDebris);
+	}
+
+
+	private static int _texturesPerRow(int textureCount)
+	{
+		// We essentially just want the base2 logarithm of the array length rounded to the nearest power of 2.
+		// (a faster and generalizable algorithm using leading zeros could be used but is less obvious than this, for now)
+		int texturesPerRow = 1;
+		if (textureCount > 1)
+		{
+			texturesPerRow = 2;
+			if (textureCount > 4)
+			{
+				texturesPerRow = 4;
+				if (textureCount > 16)
+				{
+					texturesPerRow = 8;
+					Assert.assertTrue(textureCount <= 64);
+				}
+			}
+		}
+		return texturesPerRow;
+	}
+
+	private static int _createTextureAtlas(GL20 gl, String[] imageNames, int texturesPerRow, int eachTextureEdge) throws IOException
+	{
 		int width = texturesPerRow * eachTextureEdge;
 		int height = texturesPerRow * eachTextureEdge;
 		
@@ -55,10 +73,10 @@ public class TextureAtlas
 		textureBufferData.order(ByteOrder.nativeOrder());
 		
 		// Load all the images and walk across them to fill the buffer.
-		BufferedImage loadedTextures[] = new BufferedImage[combinedNames.length];
-		for (int i = 0; i < combinedNames.length; ++i)
+		BufferedImage loadedTextures[] = new BufferedImage[imageNames.length];
+		for (int i = 0; i < imageNames.length; ++i)
 		{
-			String name = combinedNames[i];
+			String name = imageNames[i];
 			
 			// TODO:  Change this when we have more than one texture and need to actually build the atlas.
 			FileHandle unknownTextureFile = Gdx.files.internal(name);
@@ -103,23 +121,27 @@ public class TextureAtlas
 		gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_WRAP_S, GL20.GL_CLAMP_TO_EDGE);
 		gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_WRAP_T, GL20.GL_CLAMP_TO_EDGE);
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
-		int indexOfPlayer = names.length;
-		int indexOfDebris = indexOfPlayer + 1;
-		return new TextureAtlas(texture, texturesPerRow, indexOfPlayer, indexOfDebris);
+		return texture;
 	}
 
 
 	public final int texture;
+	public final int secondaryTexture;
 	public final float coordinateSize;
+	public final float secondaryCoordinateSize;
 	private final int _texturesPerRow;
+	private final int _secondaryTexturesPerRow;
 	private final int _indexOfPlayer;
 	private final int _indexOfDebris;
 
-	private TextureAtlas(int texture, int texturesPerRow, int indexOfPlayer, int indexOfDebris)
+	private TextureAtlas(int texture, int secondaryTexture, int texturesPerRow, int secondaryTexturesPerRow, int indexOfPlayer, int indexOfDebris)
 	{
 		this.texture = texture;
+		this.secondaryTexture = secondaryTexture;
 		this.coordinateSize = 1.0f / (float)texturesPerRow;
+		this.secondaryCoordinateSize = 1.0f / (float)secondaryTexturesPerRow;
 		_texturesPerRow = texturesPerRow;
+		_secondaryTexturesPerRow = secondaryTexturesPerRow;
 		_indexOfPlayer = indexOfPlayer;
 		_indexOfDebris = indexOfDebris;
 	}
@@ -135,6 +157,22 @@ public class TextureAtlas
 		Assert.assertTrue(index < _indexOfPlayer);
 		return _baseOfTexture(index);
 	}
+
+	/**
+	 * Returns the UV base coordinates of the secondary texture with the given index.
+	 * 
+	 * @param index The index of the texture, relative to the load order.
+	 * @return {u, v} of texture base coordinates.
+	 */
+	public float[] baseOfSecondaryTexture(int index)
+	{
+		int row = index / _secondaryTexturesPerRow;
+		int column = index % _secondaryTexturesPerRow;
+		float u = this.secondaryCoordinateSize * (float)column;
+		float v = this.secondaryCoordinateSize * (float)row;
+		return new float[] {u, v};
+	}
+
 
 	public float[] baseOfPlayerTexture()
 	{
