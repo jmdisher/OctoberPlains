@@ -190,7 +190,7 @@ public class OctoberPlains extends ApplicationAdapter
 		else
 		{
 			// See if we have a crafting table open.
-			AbsoluteLocation craftingTable = _windowManager.getOpenCraftingTable();
+			AbsoluteLocation craftingTable = _windowManager.getActiveCraftingTable();
 			if (null != craftingTable)
 			{
 				// Try to continue anything happening here.

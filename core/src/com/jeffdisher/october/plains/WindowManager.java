@@ -447,14 +447,17 @@ public class WindowManager
 
 	/**
 	 * Used by the caller to determine if the idle operation should be crafting in a block or not so this ONLY returns
-	 * non-null if a crafting table is open.
+	 * non-null if a crafting table is open AND there is an active crafting operation.
 	 * 
-	 * @return The location of the open block, only if it is a crafting table.
+	 * @return The location of the open block, only if it is a crafting table with an active crafting operation.
 	 */
-	public AbsoluteLocation getOpenCraftingTable()
+	public AbsoluteLocation getActiveCraftingTable()
 	{
 		AbsoluteLocation location = null;
-		if ((null != _openInventoryLocation) && (ItemRegistry.CRAFTING_TABLE == _blockLoader.apply(_openInventoryLocation).getItem()))
+		if ((null != _openInventoryLocation)
+				&& (ItemRegistry.CRAFTING_TABLE == _blockLoader.apply(_openInventoryLocation).getItem())
+				&& (null != _blockLoader.apply(_openInventoryLocation).getCrafting())
+		)
 		{
 			location = _openInventoryLocation;
 		}
