@@ -169,7 +169,7 @@ public class ClientLogic
 	{
 		// Make sure that this is a block we can break and there is nothing currently in progress.
 		short blockNumber = _cuboids.get(blockLocation.getCuboidAddress()).getData15(AspectRegistry.BLOCK, blockLocation.getBlockAddress());
-		Item type = ItemRegistry.BLOCKS_BY_TYPE[blockNumber];
+		Item type = ItemRegistry.ITEMS_BY_TYPE[blockNumber];
 		long currentTimeMillis = System.currentTimeMillis();
 		if (ItemRegistry.AIR != type)
 		{

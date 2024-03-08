@@ -13,6 +13,7 @@ import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.registries.Craft;
 import com.jeffdisher.october.registries.ItemRegistry;
 import com.jeffdisher.october.types.AbsoluteLocation;
+import com.jeffdisher.october.types.Block;
 import com.jeffdisher.october.types.CraftOperation;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.FuelState;
@@ -152,7 +153,7 @@ public class WindowManager
 			int absY = Math.abs(_openInventoryLocation.y() - Math.round(_entity.location().y()));
 			int absZ = Math.abs(_openInventoryLocation.z() - Math.round(_entity.location().z()));
 			boolean isLocationClose = ((absX <= 2) && (absY <= 2) && (absZ <= 2));
-			boolean isCorrectType = _mode.isCorrectBlock(_blockLoader.apply(_openInventoryLocation).getItem());
+			boolean isCorrectType = _mode.isCorrectBlock(_blockLoader.apply(_openInventoryLocation).getBlock());
 			if (!isLocationClose || !isCorrectType)
 			{
 				_mode = _WindowMode.NONE;
@@ -425,7 +426,7 @@ public class WindowManager
 		BlockProxy proxy = _blockLoader.apply(block);
 		// Currently, this is only relevant for crafting table blocks.
 		boolean didOpen = false;
-		Item item = proxy.getItem();
+		Item item = proxy.getBlock().asItem();
 		if (ItemRegistry.CRAFTING_TABLE == item)
 		{
 			// Enter crafting table mode at this block.
@@ -455,7 +456,7 @@ public class WindowManager
 	{
 		AbsoluteLocation location = null;
 		if ((null != _openInventoryLocation)
-				&& (ItemRegistry.CRAFTING_TABLE == _blockLoader.apply(_openInventoryLocation).getItem())
+				&& (ItemRegistry.CRAFTING_TABLE == _blockLoader.apply(_openInventoryLocation).getBlock().asItem())
 				&& (null != _blockLoader.apply(_openInventoryLocation).getCrafting())
 		)
 		{
@@ -674,7 +675,7 @@ public class WindowManager
 		else
 		{
 			BlockProxy proxy = _blockLoader.apply(_openInventoryLocation);
-			Item type = proxy.getItem();
+			Item type = proxy.getBlock().asItem();
 			if (ItemRegistry.CRAFTING_TABLE == type)
 			{
 				name = "Crafting Table";
@@ -721,17 +722,17 @@ public class WindowManager
 					|| (this == FUEL)
 			;
 		}
-		public boolean isCorrectBlock(Item item)
+		public boolean isCorrectBlock(Block block)
 		{
 			boolean isCorrect;
 			switch (this)
 			{
 			case CRAFTING_TABLE_INVENTORY:
-				isCorrect = (ItemRegistry.CRAFTING_TABLE == item);
+				isCorrect = (ItemRegistry.CRAFTING_TABLE == block.asItem());
 				break;
 			case FURNACE_INVENTORY:
 			case FUEL:
-				isCorrect = (ItemRegistry.FURNACE == item);
+				isCorrect = (ItemRegistry.FURNACE == block.asItem());
 				break;
 				default:
 					// We shouldn't be asking in this case.

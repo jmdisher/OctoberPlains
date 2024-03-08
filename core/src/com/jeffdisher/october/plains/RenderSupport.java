@@ -481,7 +481,7 @@ public class RenderSupport
 				else if (damage > 0)
 				{
 					// We will favour showing cracks at a low damage, so the feedback is obvious
-					float damaged = (float) damage / (float)ItemRegistry.BLOCKS_BY_TYPE[blockValue].toughness();
+					float damaged = (float) damage / (float)ItemRegistry.ITEMS_BY_TYPE[blockValue].toughness();
 					if (damaged > 0.6f)
 					{
 						secondaryIndex = 3;
