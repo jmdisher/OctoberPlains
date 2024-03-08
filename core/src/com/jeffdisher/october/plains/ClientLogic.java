@@ -10,9 +10,7 @@ import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
 import com.jeffdisher.october.aspects.FuelAspect;
-import com.jeffdisher.october.aspects.InventoryAspect;
 import com.jeffdisher.october.data.BlockProxy;
-import com.jeffdisher.october.data.CuboidData;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.mutations.EntityChangeJump;
 import com.jeffdisher.october.mutations.MutationEntityPushItems;
@@ -37,7 +35,6 @@ import com.jeffdisher.october.types.Item;
 import com.jeffdisher.october.types.Items;
 import com.jeffdisher.october.types.MutableInventory;
 import com.jeffdisher.october.utils.Assert;
-import com.jeffdisher.october.worldgen.CuboidGenerator;
 
 
 public class ClientLogic
@@ -86,9 +83,8 @@ public class ClientLogic
 				{
 					Assert.assertTrue(worldDirectory.mkdirs());
 				}
-				// We will preload the initial starting area but that will be built on top of a standard flat world.
+				// We will just use the flat world generator since it should be populated with what we need for testing.
 				ResourceLoader loader = new ResourceLoader(worldDirectory, new FlatWorldGenerator());
-				_preload(loader);
 				_server = new ServerProcess(PORT, ServerRunner.DEFAULT_MILLIS_PER_TICK, loader, () -> System.currentTimeMillis());
 				_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, "client");
 			}
@@ -298,36 +294,6 @@ public class ClientLogic
 		{
 			_server.stop();
 		}
-	}
-
-
-	private static void _preload(ResourceLoader loader)
-	{
-		// We will drop some logs on the ground to make craft testing possible before we add a more interesting world generator.
-		CuboidData cuboid000 = _generateColumnCuboid(new CuboidAddress((short)0, (short)0, (short)0));
-		Inventory starting = Inventory.start(InventoryAspect.CAPACITY_AIR)
-				.add(ItemRegistry.LOG, 5)
-				.finish();
-		cuboid000.setDataSpecial(AspectRegistry.INVENTORY, new BlockAddress((byte)0, (byte)0, (byte)0), starting);
-		
-		// We will also add in some basic cuboids with a few "columns", just so that there is something we can use for navigation when testing.
-		loader.preload(cuboid000);
-		loader.preload(_generateColumnCuboid(new CuboidAddress((short)0, (short)-1, (short)0)));
-		loader.preload(_generateColumnCuboid(new CuboidAddress((short)-1, (short)-1, (short)0)));
-		loader.preload(_generateColumnCuboid(new CuboidAddress((short)-1, (short)0, (short)0)));
-	}
-
-	private static CuboidData _generateColumnCuboid(CuboidAddress address)
-	{
-		CuboidData cuboid = CuboidGenerator.createFilledCuboid(address, ItemRegistry.AIR);
-		
-		// Create some columns.
-		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte) 1, (byte) 1, (byte)0), ItemRegistry.STONE.number());
-		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte) 1, (byte)30, (byte)0), ItemRegistry.STONE.number());
-		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte)30, (byte)30, (byte)0), ItemRegistry.STONE.number());
-		cuboid.setData15(AspectRegistry.BLOCK, new BlockAddress((byte)30, (byte) 1, (byte)0), ItemRegistry.STONE.number());
-		
-		return cuboid;
 	}
 
 

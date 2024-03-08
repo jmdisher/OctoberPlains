@@ -49,6 +49,10 @@ public class OctoberPlains extends ApplicationAdapter
 					"stone_brick.png",
 					"crafting_table.png",
 					"furnace.png",
+					"charcoal.png",
+					"coal_ore.png",
+					"iron_ore.png",
+					"dirt.png",
 				}
 				, new String[] {
 					"air.png",
