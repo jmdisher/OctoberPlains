@@ -55,7 +55,7 @@ public class RenderSupport
 
 	private Entity _thisEntity;
 	private final Map<Integer, Entity> _otherEntitiesById;
-	private final Map<CuboidAddress, int[]> _layerTextureMeshes;
+	private final Map<CuboidAddress, _CuboidMeshes> _layerTextureMeshes;
 
 	public RenderSupport(GL20 gl, TextureAtlas textureAtlas)
 	{
@@ -143,9 +143,8 @@ public class RenderSupport
 		{
 			selectedCuboid = selectedLocation.getCuboidAddress();
 			
-			int[] meshLayers = _layerTextureMeshes.get(selectedCuboid);
 			// This may not be here if the server hasn't sent it yet.
-			selectedBlock = (null != meshLayers)
+			selectedBlock = _layerTextureMeshes.containsKey(selectedCuboid)
 					? selectedLocation.getBlockAddress()
 					: null
 			;
@@ -184,12 +183,17 @@ public class RenderSupport
 					AbsoluteLocation offsetLocation = entityBlockLocation.getRelative(xOffset, yOffset, zOffset);
 					CuboidAddress address = offsetLocation.getCuboidAddress();
 					
-					int[] meshLayers = _layerTextureMeshes.get(address);
+					_CuboidMeshes cuboidTextures = _layerTextureMeshes.get(address);
 					// This may not be here if the server hasn't sent it yet.
-					if (null != meshLayers)
+					if (null != cuboidTextures)
 					{
 						byte zLayer = offsetLocation.getBlockAddress().z();
-						int buffer = meshLayers[zLayer];
+						if (0 == cuboidTextures.buffersByZ[zLayer])
+						{
+							// We need to populate this layer.
+							cuboidTextures.buffersByZ[zLayer] = _defineLayerTextureBuffer(_gl, _textureAtlas, cuboidTextures.data, zLayer);
+						}
+						int buffer = cuboidTextures.buffersByZ[zLayer];
 						
 						// Be sure to position the camera above the entity, so calculate the offset where we will draw this layer.
 						float xCamera = TILE_EDGE_SIZE * ((float)(address.x() * CUBOID_EDGE_TILE_COUNT) - x);
@@ -252,32 +256,16 @@ public class RenderSupport
 
 	public void setOneCuboid(IReadOnlyCuboidData cuboid)
 	{
-		// Generate all 32 layers.
-		// See if they already exist.
-		int[] layers = _layerTextureMeshes.get(cuboid.getCuboidAddress());
-		if (null == layers)
-		{
-			layers = new int[32];
-			for (int i = 0; i < layers.length; ++i)
-			{
-				layers[i] = _gl.glGenBuffer();
-			}
-			_layerTextureMeshes.put(cuboid.getCuboidAddress(), layers);
-		}
-		for (byte zLayer = 0; zLayer < 32; ++zLayer)
-		{
-			layers[zLayer] = _defineLayerTextureBuffer(_gl, _textureAtlas, cuboid, zLayer);
-		}
+		// TODO:  This needs to be more precise - don't regenerate the whole cuboid and all aspects.
+		CuboidAddress address = cuboid.getCuboidAddress();
+		_cleanUpCuboid(address);
+		// Add the empty mesh container (these will be lazily populated).
+		_layerTextureMeshes.put(address, new _CuboidMeshes(cuboid));
 	}
 
 	public void removeCuboid(CuboidAddress address)
 	{
-		int[] layers = _layerTextureMeshes.remove(address);
-		Assert.assertTrue(null != layers);
-		for (int layer : layers)
-		{
-			_gl.glDeleteBuffer(layer);
-		}
+		_cleanUpCuboid(address);
 	}
 
 	public void setOtherEntity(Entity entity)
@@ -556,5 +544,35 @@ public class RenderSupport
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
 		_gl.glUniform1i(_uTexture0, 0);
 		_gl.glUniform1f(_uScale, 1.0f);
+	}
+
+	private void _cleanUpCuboid(CuboidAddress address)
+	{
+		_CuboidMeshes cuboidTextures = _layerTextureMeshes.remove(address);
+		if (null != cuboidTextures)
+		{
+			// Clear any existing buffers.
+			int[] layers = cuboidTextures.buffersByZ;
+			for (int layer : layers)
+			{
+				if (0 != layer)
+				{
+					_gl.glDeleteBuffer(layer);
+				}
+			}
+		}
+	}
+
+
+	private static class _CuboidMeshes
+	{
+		private final IReadOnlyCuboidData data;
+		private final int[] buffersByZ;
+		
+		public _CuboidMeshes(IReadOnlyCuboidData data)
+		{
+			this.data = data;
+			this.buffersByZ = new int[32];
+		}
 	}
 }
