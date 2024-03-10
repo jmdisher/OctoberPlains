@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import com.badlogic.gdx.graphics.GL20;
+import com.jeffdisher.october.aspects.FuelAspect;
 import com.jeffdisher.october.aspects.InventoryAspect;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.registries.Craft;
@@ -183,6 +184,19 @@ public class WindowManager
 				if (null != thisButton)
 				{
 					button = thisButton;
+				}
+				
+				// If there is an active fuel aspect to this (no matter the display node, draw it).
+				if (null != _openInventoryLocation)
+				{
+					FuelState fuel = _blockLoader.apply(_openInventoryLocation).getFuel();
+					if ((null != fuel) && (null != fuel.currentFuel()))
+					{
+						Item current = fuel.currentFuel();
+						float progressBar = (float)fuel.millisFueled() / (float)FuelAspect.millisOfFuel(current);
+						// TODO:  We really need a better solution than these hard-coded positions, everywhere.
+						_drawItem(current, 1, -0.45f, - 0.15f, 0.0f, -0.05f, false, progressBar);
+					}
 				}
 			}
 			
