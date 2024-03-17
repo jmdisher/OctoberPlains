@@ -23,7 +23,6 @@ import com.jeffdisher.october.process.ClientProcess;
 import com.jeffdisher.october.process.ServerProcess;
 import com.jeffdisher.october.registries.AspectRegistry;
 import com.jeffdisher.october.registries.Craft;
-import com.jeffdisher.october.registries.ItemRegistry;
 import com.jeffdisher.october.server.ServerRunner;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.BlockAddress;
@@ -163,13 +162,12 @@ public class ClientLogic
 
 	public void hitBlock(AbsoluteLocation blockLocation)
 	{
-		// Make sure that this is a block we can break and there is nothing currently in progress.
-		short blockNumber = _cuboids.get(blockLocation.getCuboidAddress()).getData15(AspectRegistry.BLOCK, blockLocation.getBlockAddress());
-		Item type = ItemRegistry.ITEMS_BY_TYPE[blockNumber];
+		// Make sure that this is a block we can break.
+		BlockProxy proxy = new BlockProxy(blockLocation.getBlockAddress(), _cuboids.get(blockLocation.getCuboidAddress()));
 		long currentTimeMillis = System.currentTimeMillis();
-		if (ItemRegistry.AIR != type)
+		if (!proxy.getBlock().canBeReplaced())
 		{
-			// Damage the block.
+			// This block is not the kind which can be replaced, meaning it can potentially be broken.
 			_client.hitBlock(blockLocation, currentTimeMillis);
 		}
 		else
