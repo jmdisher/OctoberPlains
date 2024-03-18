@@ -56,6 +56,9 @@ public class ClientLogic
 	private Entity _thisEntity;
 	private final Map<CuboidAddress, IReadOnlyCuboidData> _cuboids;
 
+	// Local state information to avoid redundant events, etc.
+	private boolean _didJump;
+
 	public ClientLogic(Consumer<Entity> thisEntityConsumer
 			, Consumer<Entity> otherEntityConsumer
 			, IntConsumer unloadEntityConsumer
@@ -147,11 +150,21 @@ public class ClientLogic
 		_client.moveHorizontal(-INCREMENT, 0.0f, currentTimeMillis);
 	}
 
-	public void jump()
+	public boolean jump()
 	{
-		EntityChangeJump jumpChange = new EntityChangeJump();
-		long currentTimeMillis = System.currentTimeMillis();
-		_client.sendAction(jumpChange, currentTimeMillis);
+		// We can only jump if we are on the ground.
+		// TODO:  This is is the same approach used in SpatialHelpers._isBlockAligned() so it could have the same rounding failure.
+		float z = _thisEntity.location().z();
+		boolean didJump = false;
+		if (!_didJump && (z == (float)Math.round(z)))
+		{
+			EntityChangeJump jumpChange = new EntityChangeJump();
+			long currentTimeMillis = System.currentTimeMillis();
+			_client.sendAction(jumpChange, currentTimeMillis);
+			didJump = true;
+			_didJump = true;
+		}
+		return didJump;
 	}
 
 	public void doNothing()
@@ -295,6 +308,13 @@ public class ClientLogic
 	}
 
 
+	private void _setEntity(Entity thisEntity)
+	{
+		_thisEntity = thisEntity;
+		_didJump = false;
+	}
+
+
 	private class _ClientListener implements ClientProcess.IListener
 	{
 		private int _assignedLocalEntityId;
@@ -337,7 +357,7 @@ public class ClientLogic
 		{
 			if (_assignedLocalEntityId == entity.id())
 			{
-				_thisEntity = entity;
+				_setEntity(entity);
 				_thisEntityConsumer.accept(entity);
 			}
 			else
@@ -350,7 +370,7 @@ public class ClientLogic
 		{
 			if (_assignedLocalEntityId == entity.id())
 			{
-				_thisEntity = entity;
+				_setEntity(entity);
 				_thisEntityConsumer.accept(entity);
 			}
 			else

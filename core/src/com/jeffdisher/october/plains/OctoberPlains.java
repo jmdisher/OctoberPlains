@@ -140,12 +140,28 @@ public class OctoberPlains extends ApplicationAdapter
 		// Draw any active windows over the scene and get the capture for anything we which can receive click events.
 		Runnable clickButtonCapture = _windowManager.drawWindowsWithButtonCapture(_client, glX, glY);
 		
-		// Handle inputs - we will only allow a single direction at a time.
-		if (Gdx.input.isKeyJustPressed(Keys.SPACE))
+		// Handle inputs - we can handle some UI events at the same time as moving but only one move at a time.
+		boolean didJump = false;
+		if (Gdx.input.isKeyPressed(Keys.SPACE))
 		{
-			_client.jump();
+			// We let them hold down the space key to make this experience seem more natural.
+			didJump = _client.jump();
 		}
-		if (Gdx.input.isKeyPressed(Keys.DPAD_UP) || Gdx.input.isKeyPressed(Keys.W))
+		if (Gdx.input.isKeyJustPressed(Keys.I))
+		{
+			_windowManager.toggleInventory();
+		}
+		if (Gdx.input.isKeyJustPressed(Keys.F))
+		{
+			_windowManager.toggleFuelInventory();
+		}
+		
+		// We will only allow a single direction movement at a time.
+		if (didJump)
+		{
+			// Do nothing - we just prevent other movements.
+		}
+		else if (Gdx.input.isKeyPressed(Keys.DPAD_UP) || Gdx.input.isKeyPressed(Keys.W))
 		{
 			_client.stepNorth();
 		}
@@ -160,14 +176,6 @@ public class OctoberPlains extends ApplicationAdapter
 		else if (Gdx.input.isKeyPressed(Keys.DPAD_LEFT) || Gdx.input.isKeyPressed(Keys.A))
 		{
 			_client.stepWest();
-		}
-		else if (Gdx.input.isKeyJustPressed(Keys.I))
-		{
-			_windowManager.toggleInventory();
-		}
-		else if (Gdx.input.isKeyJustPressed(Keys.F))
-		{
-			_windowManager.toggleFuelInventory();
 		}
 		else if (Gdx.input.isButtonPressed(0))
 		{
