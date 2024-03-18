@@ -46,6 +46,7 @@ public class RenderSupport
 	private int _program;
 	private int _uOffset;
 	private int _uScale;
+	private int _uSceneScale;
 	private int _uTexture0;
 	private int _uTexture1;
 	private int _uLayerBrightness;
@@ -57,6 +58,7 @@ public class RenderSupport
 	private Entity _thisEntity;
 	private final Map<Integer, Entity> _otherEntitiesById;
 	private final Map<CuboidAddress, _CuboidMeshes> _layerTextureMeshes;
+	private float _currentSceneScale;
 
 	public RenderSupport(GL20 gl, TextureAtlas textureAtlas)
 	{
@@ -75,13 +77,14 @@ public class RenderSupport
 						+ "attribute vec2 aTexture1;\n"
 						+ "uniform vec2 uOffset;\n"
 						+ "uniform float uScale;\n"
+						+ "uniform float uSceneScale;\n"
 						+ "varying vec2 vTexture0;\n"
 						+ "varying vec2 vTexture1;\n"
 						+ "void main()\n"
 						+ "{\n"
 						+ "	vTexture0 = aTexture0;\n"
 						+ "	vTexture1 = aTexture1;\n"
-						+ "	gl_Position = vec4((uScale * aPosition.x) + uOffset.x, (uScale * aPosition.y) + uOffset.y, 0.0, 1.0);\n"
+						+ "	gl_Position = vec4(uSceneScale * ((uScale * aPosition.x) + uOffset.x), uSceneScale * ((uScale * aPosition.y) + uOffset.y), 0.0, 1.0);\n"
 						+ "}\n"
 				, "#version 100\n"
 						+ "precision mediump float;\n"
@@ -108,6 +111,7 @@ public class RenderSupport
 		);
 		_uOffset = _gl.glGetUniformLocation(_program, "uOffset");
 		_uScale = _gl.glGetUniformLocation(_program, "uScale");
+		_uSceneScale = _gl.glGetUniformLocation(_program, "uSceneScale");
 		_uTexture0 = _gl.glGetUniformLocation(_program, "uTexture0");
 		_uTexture1 = _gl.glGetUniformLocation(_program, "uTexture1");
 		_uLayerBrightness = _gl.glGetUniformLocation(_program, "uLayerBrightness");
@@ -122,6 +126,7 @@ public class RenderSupport
 		
 		_otherEntitiesById = new HashMap<>();
 		_layerTextureMeshes = new HashMap<>();
+		_currentSceneScale = 1.0f;
 	}
 
 	/**
@@ -168,6 +173,7 @@ public class RenderSupport
 		// Set any starting uniform values.
 		_gl.glUniform4f(_uColourBias, 0.0f, 0.0f, 0.0f, 0.0f);
 		_gl.glUniform1f(_uScale, 1.0f);
+		_gl.glUniform1f(_uSceneScale, _currentSceneScale);
 		
 		// We want to render 9 tiles with 3 layers:  3x3x3, centred around the entity location.
 		// (technically 4 tiles with 3 layers would be enough but that would require some extra logic)
@@ -279,6 +285,24 @@ public class RenderSupport
 		Entity old = _otherEntitiesById.remove(entityId);
 		// This must have already been here.
 		Assert.assertTrue(null != old);
+	}
+
+	public void changeZoom(float degree)
+	{
+		_currentSceneScale += degree;
+		if (_currentSceneScale < 1.0f)
+		{
+			_currentSceneScale = 1.0f;
+		}
+		else if (_currentSceneScale > 4.0f)
+		{
+			_currentSceneScale = 4.0f;
+		}
+	}
+
+	public float getZoom()
+	{
+		return _currentSceneScale;
 	}
 
 

@@ -6,6 +6,7 @@ import java.net.InetSocketAddress;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
+import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.types.AbsoluteLocation;
@@ -111,6 +112,32 @@ public class OctoberPlains extends ApplicationAdapter
 				, _serverSocketAddress
 		);
 		_client.finishStartup();
+		
+		// Setup additional input handling.
+		Gdx.input.setInputProcessor(new InputAdapter() {
+			@Override
+			public boolean scrolled(float amountX, float amountY)
+			{
+				// We will only handle the cases where the amountY is non-zero.
+				boolean didHandle = false;
+				if (0.0f != amountY)
+				{
+					if (amountY < 0.0f)
+					{
+						// Scroll up
+						_renderer.changeZoom(0.1f);
+					}
+					else
+					{
+						// Scroll down
+						_renderer.changeZoom(-0.1f);
+					}
+					didHandle = true;
+				}
+				return didHandle;
+			}
+			
+		});
 	}
 
 	@Override
@@ -132,7 +159,9 @@ public class OctoberPlains extends ApplicationAdapter
 					? -1
 					: 0
 		;
-		AbsoluteLocation selection = _mouseHandler.getXyzTile(glX, glY, zOffset);
+		// The mouse handling for the tiles needs to know the renderer zoom level (overlay UI doesn't).
+		float rendererZoom = _renderer.getZoom();
+		AbsoluteLocation selection = _mouseHandler.getXyzTile(glX / rendererZoom, glY / rendererZoom, zOffset);
 		
 		// Draw the scene.
 		_renderer.renderScene(selection);
