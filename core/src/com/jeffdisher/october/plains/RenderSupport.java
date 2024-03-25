@@ -203,7 +203,18 @@ public class RenderSupport
 						if (0 == cuboidTextures.buffersByZ[zLayer])
 						{
 							// We need to populate this layer.
-							cuboidTextures.buffersByZ[zLayer] = _defineLayerTextureBuffer(_gl, _textureAtlas, cuboidTextures.data, zLayer);
+							// If this is the top layer, we also need to find the cuboid above it since that is where we will get the light values (since we are looking down).
+							IReadOnlyCuboidData upperCuboid = null;
+							if (31 == zLayer)
+							{
+								_CuboidMeshes upperMesh = _layerTextureMeshes.get(address.getRelative(0, 0, 1));
+								// This still might be unknown.
+								if (null != upperMesh)
+								{
+									upperCuboid = upperMesh.data;
+								}
+							}
+							cuboidTextures.buffersByZ[zLayer] = _defineLayerTextureBuffer(_gl, _textureAtlas, cuboidTextures.data, upperCuboid, zLayer);
 						}
 						int buffer = cuboidTextures.buffersByZ[zLayer];
 						
@@ -275,6 +286,15 @@ public class RenderSupport
 		_cleanUpCuboid(address);
 		// Add the empty mesh container (these will be lazily populated).
 		_layerTextureMeshes.put(address, new _CuboidMeshes(cuboid));
+		
+		// We need to remove the layer below this, as well, since a cuboid light can influence the light at the top of the cuboid below it.
+		CuboidAddress address0 = address.getRelative(0, 0, -1);
+		_CuboidMeshes above = _layerTextureMeshes.get(address0);
+		if (null != above)
+		{
+			_cleanUpCuboid(address0);
+			_layerTextureMeshes.put(address0, new _CuboidMeshes(above.data));
+		}
 	}
 
 	public void removeCuboid(CuboidAddress address)
@@ -454,7 +474,7 @@ public class RenderSupport
 		return commonMesh;
 	}
 
-	private static int _defineLayerTextureBuffer(GL20 gl, TextureAtlas atlas, IReadOnlyCuboidData cuboid, byte zLayer)
+	private static int _defineLayerTextureBuffer(GL20 gl, TextureAtlas atlas, IReadOnlyCuboidData cuboid, IReadOnlyCuboidData aboveCuboid, byte zLayer)
 	{
 		// The texture buffer just has the 2 sets of textures:  the main atlas and the secondary atlas.
 		int singleVertexSize = 0
@@ -542,8 +562,12 @@ public class RenderSupport
 				float[] br1 = new float[]{textureBase1U + textureSize1, textureBase1V + textureSize1};
 				float[] bl1 = new float[]{textureBase1U, textureBase1V + textureSize1};
 				
-				// TODO:  Plumb the lighting data into here.
-				float lightMultiplier = 1.0f;
+				// We also want the light level of the block above this (since we are looking down at the layer).
+				byte light = (31 != zLayer)
+						? cuboid.getData7(AspectRegistry.LIGHT, new BlockAddress(blockAddress.x(), blockAddress.y(), (byte)(blockAddress.z() + 1)))
+						: (null != aboveCuboid) ? aboveCuboid.getData7(AspectRegistry.LIGHT, new BlockAddress(blockAddress.x(), blockAddress.y(), (byte)0)) : 0
+				;
+				float lightMultiplier = 0.5f + (((float)light) / 15.0f);
 				
 				textureBuffer.put(bl0);
 				textureBuffer.put(bl1);
