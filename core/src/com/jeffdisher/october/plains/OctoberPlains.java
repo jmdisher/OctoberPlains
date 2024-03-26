@@ -59,6 +59,8 @@ public class OctoberPlains extends ApplicationAdapter
 					"water_weak.png",
 					"lantern.png",
 					"iron_ingot.png",
+					"sapling.png",
+					"leaf.png",
 				}
 				, new String[] {
 					"air.png",
