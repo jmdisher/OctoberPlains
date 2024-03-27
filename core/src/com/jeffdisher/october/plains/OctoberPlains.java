@@ -18,6 +18,7 @@ public class OctoberPlains extends ApplicationAdapter
 {
 	private final MouseHandler _mouseHandler = new MouseHandler(Math.round(1.0f / RenderSupport.TILE_EDGE_SIZE));
 	private final WorldCache _worldCache = new WorldCache();
+	private final String _clientName;
 	private final InetSocketAddress _serverSocketAddress;
 
 	private TextureAtlas _textureAtlas;
@@ -29,7 +30,9 @@ public class OctoberPlains extends ApplicationAdapter
 	public OctoberPlains(String[] commandLineArgs)
 	{
 		// See if we want to be single-player or connecting to a server.
-		_serverSocketAddress = _parseServerSocketAddress(commandLineArgs);
+		_CommandLineOptions options = _parseServerSocketAddress(commandLineArgs);
+		_clientName = options.clientName;
+		_serverSocketAddress = options.serverAddress;
 	}
 
 	@Override
@@ -118,6 +121,7 @@ public class OctoberPlains extends ApplicationAdapter
 					// Notify the renderer to drop this from video memory.
 					_renderer.removeCuboid(address);
 				}
+				, _clientName
 				, _serverSocketAddress
 		);
 		_client.finishStartup();
@@ -264,25 +268,26 @@ public class OctoberPlains extends ApplicationAdapter
 	}
 
 
-	private static InetSocketAddress _parseServerSocketAddress(String[] commandLineArgs)
+	private static _CommandLineOptions _parseServerSocketAddress(String[] commandLineArgs)
 	{
 		// Check the first arg for the mode.
-		InetSocketAddress serverAddress;
+		_CommandLineOptions options;
 		// (we probably want to handle this parsing and validation elsewhere or differently but this will get us going without over-designing).
 		if (commandLineArgs.length >= 1)
 		{
 			if ("--single".equals(commandLineArgs[0]))
 			{
-				serverAddress = null;
+				options = new _CommandLineOptions("Local", null);
 			}
 			else if ("--multi".equals(commandLineArgs[0]))
 			{
-				if (3 == commandLineArgs.length)
+				if (4 == commandLineArgs.length)
 				{
-					String host = commandLineArgs[1];
-					int port = Integer.parseInt(commandLineArgs[2]);
+					String clientName = commandLineArgs[1];
+					String host = commandLineArgs[2];
+					int port = Integer.parseInt(commandLineArgs[3]);
 					System.out.println("Resolving host: " + host);
-					serverAddress = new InetSocketAddress(host, port);
+					options = new _CommandLineOptions(clientName, new InetSocketAddress(host, port));
 				}
 				else
 				{
@@ -298,7 +303,7 @@ public class OctoberPlains extends ApplicationAdapter
 		{
 			throw _usageError();
 		}
-		return serverAddress;
+		return options;
 	}
 
 	private static RuntimeException _usageError()
@@ -307,4 +312,9 @@ public class OctoberPlains extends ApplicationAdapter
 		System.exit(1);
 		return null;
 	}
+
+
+	private static record _CommandLineOptions(String clientName
+			, InetSocketAddress serverAddress
+	) {}
 }

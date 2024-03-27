@@ -64,6 +64,7 @@ public class ClientLogic
 			, IntConsumer unloadEntityConsumer
 			, Consumer<IReadOnlyCuboidData> changedCuboidConsumer
 			, Consumer<CuboidAddress> removedCuboidConsumer
+			, String clientName
 			, InetSocketAddress serverAddress
 	)
 	{
@@ -88,13 +89,13 @@ public class ClientLogic
 				// We will just use the flat world generator since it should be populated with what we need for testing.
 				ResourceLoader loader = new ResourceLoader(worldDirectory, new FlatWorldGenerator());
 				_server = new ServerProcess(PORT, ServerRunner.DEFAULT_MILLIS_PER_TICK, loader, () -> System.currentTimeMillis());
-				_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, "client");
+				_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, clientName);
 			}
 			else
 			{
 				System.out.println("Connecting to server: " + serverAddress);
 				_server = null;
-				_client = new ClientProcess(new _ClientListener(), serverAddress.getAddress(), serverAddress.getPort(), "client");
+				_client = new ClientProcess(new _ClientListener(), serverAddress.getAddress(), serverAddress.getPort(), clientName);
 			}
 		}
 		catch (IOException e)
