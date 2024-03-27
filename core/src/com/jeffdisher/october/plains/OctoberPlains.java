@@ -61,6 +61,11 @@ public class OctoberPlains extends ApplicationAdapter
 					"iron_ingot.png",
 					"sapling.png",
 					"leaf.png",
+					"wheat_seed.png",
+					"wheat_item.png",
+					"wheat_seedling.png",
+					"wheat_young.png",
+					"wheat_mature.png",
 				}
 				, new String[] {
 					"air.png",
