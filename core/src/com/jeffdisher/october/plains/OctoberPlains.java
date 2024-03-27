@@ -226,7 +226,7 @@ public class OctoberPlains extends ApplicationAdapter
 			{
 				clickButtonCapture.run();
 			}
-			if (null != selection)
+			if ((null != selection) && (null == clickButtonCapture))
 			{
 				// As long as they are holding the left button, hit the block.
 				_client.hitBlock(selection);
@@ -234,7 +234,7 @@ public class OctoberPlains extends ApplicationAdapter
 		}
 		else if (Gdx.input.isButtonJustPressed(1))
 		{
-			if (null != selection)
+			if ((null != selection) && (null == clickButtonCapture))
 			{
 				// If we right-click on a crafting table, open that UI, otherwise we will place the selected block.
 				if (!_windowManager.didOpenInventory(selection))
