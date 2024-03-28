@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
+import com.jeffdisher.october.aspects.BlockAspect;
 import com.jeffdisher.october.aspects.FuelAspect;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
@@ -179,7 +180,7 @@ public class ClientLogic
 		// Make sure that this is a block we can break.
 		BlockProxy proxy = new BlockProxy(blockLocation.getBlockAddress(), _cuboids.get(blockLocation.getCuboidAddress()));
 		long currentTimeMillis = System.currentTimeMillis();
-		if (!proxy.getBlock().canBeReplaced())
+		if (!BlockAspect.canBeReplaced(proxy.getBlock()))
 		{
 			// This block is not the kind which can be replaced, meaning it can potentially be broken.
 			_client.hitBlock(blockLocation, currentTimeMillis);
