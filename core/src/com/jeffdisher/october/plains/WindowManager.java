@@ -8,13 +8,14 @@ import java.util.Set;
 import java.util.function.Function;
 
 import com.badlogic.gdx.graphics.GL20;
+import com.jeffdisher.october.aspects.BlockAspect;
+import com.jeffdisher.october.aspects.CraftAspect;
 import com.jeffdisher.october.aspects.FuelAspect;
 import com.jeffdisher.october.aspects.InventoryAspect;
 import com.jeffdisher.october.data.BlockProxy;
-import com.jeffdisher.october.registries.Craft;
-import com.jeffdisher.october.registries.ItemRegistry;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.Block;
+import com.jeffdisher.october.types.Craft;
 import com.jeffdisher.october.types.CraftOperation;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.FuelState;
@@ -362,7 +363,7 @@ public class WindowManager
 			// We will only check the highlight if this is something we even could craft.
 			// Note that this needs to handle 
 			boolean canCraft = canManuallyCraft
-					? ((null != craftingInventory) ? craft.canApply(craftingInventory) : false)
+					? ((null != craftingInventory) ? CraftAspect.canApply(craft, craftingInventory) : false)
 					: false
 			;
 			boolean shouldHighlight = canCraft && isMouseOver;
@@ -380,7 +381,7 @@ public class WindowManager
 				{
 					// Craft in table.
 					onClick = () -> {
-						if (craft.canApply(craftingInventory))
+						if (CraftAspect.canApply(craft, craftingInventory))
 						{
 							client.beginCraftInBlock(_openInventoryLocation, craft);
 						}
@@ -390,7 +391,7 @@ public class WindowManager
 				{
 					// Craft in inventory.
 					onClick = () -> {
-						if (craft.canApply(craftingInventory))
+						if (CraftAspect.canApply(craft, craftingInventory))
 						{
 							client.beginCraft(craft);
 						}
@@ -399,7 +400,7 @@ public class WindowManager
 			}
 			return onClick;
 		}, 0.65f, 0.05f);
-		return _drawTableWindow("Crafting", -0.95f, 0.05f, -0.05f, 0.95f, glX, glY, 0.1f, 0.05f, Craft.craftsForClassifications(classifications), List.of(itemRender));
+		return _drawTableWindow("Crafting", -0.95f, 0.05f, -0.05f, 0.95f, glX, glY, 0.1f, 0.05f, CraftAspect.craftsForClassifications(classifications), List.of(itemRender));
 	}
 
 	public void setEntity(Entity entity)
@@ -433,28 +434,28 @@ public class WindowManager
 		}
 	}
 
-	public boolean didOpenInventory(AbsoluteLocation block)
+	public boolean didOpenInventory(AbsoluteLocation blockLocation)
 	{
 		// See if there is an inventory we can open at the given block location.
 		// NOTE:  We don't use this mechanism to talk about air blocks, only actual blocks.
-		BlockProxy proxy = _blockLoader.apply(block);
+		BlockProxy proxy = _blockLoader.apply(blockLocation);
 		// Currently, this is only relevant for crafting table blocks.
 		boolean didOpen = false;
-		Item item = proxy.getBlock().asItem();
-		if (ItemRegistry.CRAFTING_TABLE == item)
+		Block block = proxy.getBlock();
+		if (BlockAspect.CRAFTING_TABLE == block)
 		{
 			// Enter crafting table mode at this block.
 			_mode = _WindowMode.CRAFTING_TABLE_INVENTORY;
 			// We store the location symbolically, instead of directly storing the inventory, since it can change or be destroyed.
-			_openInventoryLocation = block;
+			_openInventoryLocation = blockLocation;
 			didOpen = true;
 		}
-		else if (ItemRegistry.FURNACE == item)
+		else if (BlockAspect.FURNACE == block)
 		{
 			// Enter furnace mode at this block.
 			_mode = _WindowMode.FURNACE_INVENTORY;
 			// We store the location symbolically, instead of directly storing the inventory, since it can change or be destroyed.
-			_openInventoryLocation = block;
+			_openInventoryLocation = blockLocation;
 			didOpen = true;
 		}
 		return didOpen;
@@ -470,7 +471,7 @@ public class WindowManager
 	{
 		AbsoluteLocation location = null;
 		if ((null != _openInventoryLocation)
-				&& (ItemRegistry.CRAFTING_TABLE == _blockLoader.apply(_openInventoryLocation).getBlock().asItem())
+				&& (BlockAspect.CRAFTING_TABLE == _blockLoader.apply(_openInventoryLocation).getBlock())
 				&& (null != _blockLoader.apply(_openInventoryLocation).getCrafting())
 		)
 		{
@@ -689,12 +690,12 @@ public class WindowManager
 		else
 		{
 			BlockProxy proxy = _blockLoader.apply(_openInventoryLocation);
-			Item type = proxy.getBlock().asItem();
-			if (ItemRegistry.CRAFTING_TABLE == type)
+			Block block = proxy.getBlock();
+			if (BlockAspect.CRAFTING_TABLE == block)
 			{
 				name = "Crafting Table";
 			}
-			else if (ItemRegistry.FURNACE == type)
+			else if (BlockAspect.FURNACE == block)
 			{
 				if (fuelMode)
 				{
@@ -742,11 +743,11 @@ public class WindowManager
 			switch (this)
 			{
 			case CRAFTING_TABLE_INVENTORY:
-				isCorrect = (ItemRegistry.CRAFTING_TABLE == block.asItem());
+				isCorrect = (BlockAspect.CRAFTING_TABLE == block);
 				break;
 			case FURNACE_INVENTORY:
 			case FUEL:
-				isCorrect = (ItemRegistry.FURNACE == block.asItem());
+				isCorrect = (BlockAspect.FURNACE == block);
 				break;
 				default:
 					// We shouldn't be asking in this case.

@@ -9,10 +9,10 @@ import java.util.Map;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
+import com.jeffdisher.october.aspects.AspectRegistry;
+import com.jeffdisher.october.aspects.BlockAspect;
 import com.jeffdisher.october.aspects.DamageAspect;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
-import com.jeffdisher.october.registries.AspectRegistry;
-import com.jeffdisher.october.registries.ItemRegistry;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
@@ -538,7 +538,7 @@ public class RenderSupport
 				else if (damage > 0)
 				{
 					// We will favour showing cracks at a low damage, so the feedback is obvious
-					float damaged = (float) damage / (float)DamageAspect.getToughness(ItemRegistry.ITEMS_BY_TYPE[blockValue]);
+					float damaged = (float) damage / (float)DamageAspect.getToughness(BlockAspect.BLOCKS_BY_TYPE[blockValue]);
 					if (damaged > 0.6f)
 					{
 						secondaryIndex = 3;
