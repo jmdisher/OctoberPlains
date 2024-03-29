@@ -308,7 +308,7 @@ public class OctoberPlains extends ApplicationAdapter
 
 	private static RuntimeException _usageError()
 	{
-		System.err.println("Args:  (--single)|(--multi host port)");
+		System.err.println("Args:  (--single)|(--multi user_name host port)");
 		System.exit(1);
 		return null;
 	}
