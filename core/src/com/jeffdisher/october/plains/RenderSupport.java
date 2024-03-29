@@ -10,8 +10,7 @@ import java.util.Map;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.aspects.AspectRegistry;
-import com.jeffdisher.october.aspects.BlockAspect;
-import com.jeffdisher.october.aspects.DamageAspect;
+import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.BlockAddress;
@@ -40,6 +39,7 @@ public class RenderSupport
 	// -vertex shader will move the rendering location by x/y uniform and pass through the texture u/v coordinates attribute
 	// -fragment shader will sample the referenced texture coordinates and apply an alpha value
 	// These shaders will be used for both rendering the layers and also the entities, just using different uniforms.
+	private final Environment _environment;
 	private final GL20 _gl;
 	private final TextureAtlas _textureAtlas;
 	
@@ -60,8 +60,9 @@ public class RenderSupport
 	private final Map<CuboidAddress, _CuboidMeshes> _layerTextureMeshes;
 	private float _currentSceneScale;
 
-	public RenderSupport(GL20 gl, TextureAtlas textureAtlas)
+	public RenderSupport(Environment environment, GL20 gl, TextureAtlas textureAtlas)
 	{
+		_environment = environment;
 		_gl = gl;
 		_textureAtlas = textureAtlas;
 		
@@ -214,7 +215,7 @@ public class RenderSupport
 									upperCuboid = upperMesh.data;
 								}
 							}
-							cuboidTextures.buffersByZ[zLayer] = _defineLayerTextureBuffer(_gl, _textureAtlas, cuboidTextures.data, upperCuboid, zLayer);
+							cuboidTextures.buffersByZ[zLayer] = _defineLayerTextureBuffer(_environment, _gl, _textureAtlas, cuboidTextures.data, upperCuboid, zLayer);
 						}
 						int buffer = cuboidTextures.buffersByZ[zLayer];
 						
@@ -474,7 +475,13 @@ public class RenderSupport
 		return commonMesh;
 	}
 
-	private static int _defineLayerTextureBuffer(GL20 gl, TextureAtlas atlas, IReadOnlyCuboidData cuboid, IReadOnlyCuboidData aboveCuboid, byte zLayer)
+	private static int _defineLayerTextureBuffer(Environment environment
+			, GL20 gl
+			, TextureAtlas atlas
+			, IReadOnlyCuboidData cuboid
+			, IReadOnlyCuboidData aboveCuboid
+			, byte zLayer
+	)
 	{
 		// The texture buffer just has the 2 sets of textures:  the main atlas and the secondary atlas.
 		int singleVertexSize = 0
@@ -538,7 +545,7 @@ public class RenderSupport
 				else if (damage > 0)
 				{
 					// We will favour showing cracks at a low damage, so the feedback is obvious
-					float damaged = (float) damage / (float)DamageAspect.getToughness(BlockAspect.BLOCKS_BY_TYPE[blockValue]);
+					float damaged = (float) damage / (float)environment.damage.getToughness(environment.blocks.BLOCKS_BY_TYPE[blockValue]);
 					if (damaged > 0.6f)
 					{
 						secondaryIndex = 3;

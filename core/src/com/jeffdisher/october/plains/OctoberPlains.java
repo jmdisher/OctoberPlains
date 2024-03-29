@@ -8,6 +8,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.graphics.GL20;
+import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.CuboidAddress;
@@ -21,6 +22,7 @@ public class OctoberPlains extends ApplicationAdapter
 	private final String _clientName;
 	private final InetSocketAddress _serverSocketAddress;
 
+	private Environment _environment;
 	private TextureAtlas _textureAtlas;
 	private RenderSupport _renderer;
 	private WindowManager _windowManager;
@@ -38,6 +40,9 @@ public class OctoberPlains extends ApplicationAdapter
 	@Override
 	public void create ()
 	{
+		// Start up the shared environment.
+		_environment = Environment.createSharedInstance();
+		
 		// Get the GLES20 context.
 		GL20 gl = Gdx.graphics.getGL20();
 		
@@ -90,15 +95,16 @@ public class OctoberPlains extends ApplicationAdapter
 		}
 		
 		// Create the generic render support class.
-		_renderer = new RenderSupport(gl, _textureAtlas);
+		_renderer = new RenderSupport(_environment, gl, _textureAtlas);
 		
 		// Create the window manager.
-		_windowManager = new WindowManager(gl, _textureAtlas, (AbsoluteLocation location) -> {
+		_windowManager = new WindowManager(_environment, gl, _textureAtlas, (AbsoluteLocation location) -> {
 			return _worldCache.readBlock(location);
 		});
 		
 		// At this point, we can also create the basic OctoberProject client and testing environment.
-		_client = new ClientLogic((Entity entity) -> {
+		_client = new ClientLogic(_environment
+				, (Entity entity) -> {
 					_renderer.setThisEntity(entity);
 					_mouseHandler.setCentreLocation(entity.location());
 					_windowManager.setEntity(entity);
@@ -265,6 +271,10 @@ public class OctoberPlains extends ApplicationAdapter
 	public void dispose ()
 	{
 		_client.disconnect();
+		
+		// Tear-down the shared environment.
+		Environment.clearSharedInstance();
+		_environment = null;
 	}
 
 

@@ -8,9 +8,8 @@ import java.util.Set;
 import java.util.function.Function;
 
 import com.badlogic.gdx.graphics.GL20;
-import com.jeffdisher.october.aspects.BlockAspect;
 import com.jeffdisher.october.aspects.CraftAspect;
-import com.jeffdisher.october.aspects.FuelAspect;
+import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.aspects.InventoryAspect;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.types.AbsoluteLocation;
@@ -33,6 +32,7 @@ public class WindowManager
 {
 	public static final float NO_PROGRESS = 0.0f;
 
+	private final Environment _environment;
 	private final GL20 _gl;
 	private final TextureAtlas _atlas;
 	private final Function<AbsoluteLocation, BlockProxy> _blockLoader;
@@ -56,8 +56,9 @@ public class WindowManager
 	private _WindowMode _mode;
 	private AbsoluteLocation _openInventoryLocation;
 
-	public WindowManager(GL20 gl, TextureAtlas atlas, Function<AbsoluteLocation, BlockProxy> blockLoader)
+	public WindowManager(Environment environment, GL20 gl, TextureAtlas atlas, Function<AbsoluteLocation, BlockProxy> blockLoader)
 	{
+		_environment = environment;
 		_gl = gl;
 		_atlas = atlas;
 		_blockLoader = blockLoader;
@@ -155,7 +156,7 @@ public class WindowManager
 			int absY = Math.abs(_openInventoryLocation.y() - Math.round(_entity.location().y()));
 			int absZ = Math.abs(_openInventoryLocation.z() - Math.round(_entity.location().z()));
 			boolean isLocationClose = ((absX <= 2) && (absY <= 2) && (absZ <= 2));
-			boolean isCorrectType = _mode.isCorrectBlock(_blockLoader.apply(_openInventoryLocation).getBlock());
+			boolean isCorrectType = _mode.isCorrectBlock(_environment, _blockLoader.apply(_openInventoryLocation).getBlock());
 			if (!isLocationClose || !isCorrectType)
 			{
 				_mode = _WindowMode.NONE;
@@ -194,7 +195,7 @@ public class WindowManager
 					if ((null != fuel) && (null != fuel.currentFuel()))
 					{
 						Item current = fuel.currentFuel();
-						float progressBar = (float)fuel.millisFueled() / (float)FuelAspect.millisOfFuel(current);
+						float progressBar = (float)fuel.millisFueled() / (float)_environment.fuel.millisOfFuel(current);
 						// TODO:  We really need a better solution than these hard-coded positions, everywhere.
 						_drawItem(current, 1, -0.45f, - 0.15f, 0.0f, -0.05f, false, progressBar);
 					}
@@ -400,7 +401,7 @@ public class WindowManager
 			}
 			return onClick;
 		}, 0.65f, 0.05f);
-		return _drawTableWindow("Crafting", -0.95f, 0.05f, -0.05f, 0.95f, glX, glY, 0.1f, 0.05f, CraftAspect.craftsForClassifications(classifications), List.of(itemRender));
+		return _drawTableWindow("Crafting", -0.95f, 0.05f, -0.05f, 0.95f, glX, glY, 0.1f, 0.05f, _environment.crafting.craftsForClassifications(classifications), List.of(itemRender));
 	}
 
 	public void setEntity(Entity entity)
@@ -442,7 +443,7 @@ public class WindowManager
 		// Currently, this is only relevant for crafting table blocks.
 		boolean didOpen = false;
 		Block block = proxy.getBlock();
-		if (BlockAspect.CRAFTING_TABLE == block)
+		if (_environment.blocks.CRAFTING_TABLE == block)
 		{
 			// Enter crafting table mode at this block.
 			_mode = _WindowMode.CRAFTING_TABLE_INVENTORY;
@@ -450,7 +451,7 @@ public class WindowManager
 			_openInventoryLocation = blockLocation;
 			didOpen = true;
 		}
-		else if (BlockAspect.FURNACE == block)
+		else if (_environment.blocks.FURNACE == block)
 		{
 			// Enter furnace mode at this block.
 			_mode = _WindowMode.FURNACE_INVENTORY;
@@ -471,7 +472,7 @@ public class WindowManager
 	{
 		AbsoluteLocation location = null;
 		if ((null != _openInventoryLocation)
-				&& (BlockAspect.CRAFTING_TABLE == _blockLoader.apply(_openInventoryLocation).getBlock())
+				&& (_environment.blocks.CRAFTING_TABLE == _blockLoader.apply(_openInventoryLocation).getBlock())
 				&& (null != _blockLoader.apply(_openInventoryLocation).getCrafting())
 		)
 		{
@@ -691,11 +692,11 @@ public class WindowManager
 		{
 			BlockProxy proxy = _blockLoader.apply(_openInventoryLocation);
 			Block block = proxy.getBlock();
-			if (BlockAspect.CRAFTING_TABLE == block)
+			if (_environment.blocks.CRAFTING_TABLE == block)
 			{
 				name = "Crafting Table";
 			}
-			else if (BlockAspect.FURNACE == block)
+			else if (_environment.blocks.FURNACE == block)
 			{
 				if (fuelMode)
 				{
@@ -737,17 +738,17 @@ public class WindowManager
 					|| (this == FUEL)
 			;
 		}
-		public boolean isCorrectBlock(Block block)
+		public boolean isCorrectBlock(Environment environment, Block block)
 		{
 			boolean isCorrect;
 			switch (this)
 			{
 			case CRAFTING_TABLE_INVENTORY:
-				isCorrect = (BlockAspect.CRAFTING_TABLE == block);
+				isCorrect = (environment.blocks.CRAFTING_TABLE == block);
 				break;
 			case FURNACE_INVENTORY:
 			case FUEL:
-				isCorrect = (BlockAspect.FURNACE == block);
+				isCorrect = (environment.blocks.FURNACE == block);
 				break;
 				default:
 					// We shouldn't be asking in this case.

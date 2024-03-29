@@ -10,8 +10,7 @@ import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
 import com.jeffdisher.october.aspects.AspectRegistry;
-import com.jeffdisher.october.aspects.BlockAspect;
-import com.jeffdisher.october.aspects.FuelAspect;
+import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.mutations.EntityChangeJump;
@@ -45,6 +44,7 @@ public class ClientLogic
 	public static final float INCREMENT = 0.05f;
 	public static final int PORT = 5678;
 
+	private final Environment _environment;
 	private final Consumer<Entity> _thisEntityConsumer;
 	private final Consumer<Entity> _otherEntityConsumer;
 	private final IntConsumer _unloadEntityConsumer;
@@ -60,7 +60,8 @@ public class ClientLogic
 	// Local state information to avoid redundant events, etc.
 	private boolean _didJump;
 
-	public ClientLogic(Consumer<Entity> thisEntityConsumer
+	public ClientLogic(Environment environment
+			, Consumer<Entity> thisEntityConsumer
 			, Consumer<Entity> otherEntityConsumer
 			, IntConsumer unloadEntityConsumer
 			, Consumer<IReadOnlyCuboidData> changedCuboidConsumer
@@ -69,6 +70,7 @@ public class ClientLogic
 			, InetSocketAddress serverAddress
 	)
 	{
+		_environment = environment;
 		_thisEntityConsumer = thisEntityConsumer;
 		_otherEntityConsumer = otherEntityConsumer;
 		_unloadEntityConsumer = unloadEntityConsumer;
@@ -180,7 +182,7 @@ public class ClientLogic
 		// Make sure that this is a block we can break.
 		BlockProxy proxy = new BlockProxy(blockLocation.getBlockAddress(), _cuboids.get(blockLocation.getCuboidAddress()));
 		long currentTimeMillis = System.currentTimeMillis();
-		if (!BlockAspect.canBeReplaced(proxy.getBlock()))
+		if (!_environment.blocks.canBeReplaced(proxy.getBlock()))
 		{
 			// This block is not the kind which can be replaced, meaning it can potentially be broken.
 			_client.hitBlock(blockLocation, currentTimeMillis);
@@ -249,7 +251,7 @@ public class ClientLogic
 		if (useFuel)
 		{
 			// If we are pushing to the fuel slot, make sure that this is a valid type.
-			if (FuelAspect.millisOfFuel(type) > 0)
+			if (_environment.fuel.millisOfFuel(type) > 0)
 			{
 				FuelState fuel = proxy.getFuel();
 				targetInventory = (null != fuel)
