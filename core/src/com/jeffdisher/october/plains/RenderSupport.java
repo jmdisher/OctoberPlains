@@ -9,7 +9,6 @@ import java.util.Map;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
-import com.jeffdisher.october.aspects.AspectRegistry;
 import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.types.AbsoluteLocation;
@@ -17,7 +16,6 @@ import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.EntityLocation;
-import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.utils.Assert;
 
 
@@ -39,9 +37,9 @@ public class RenderSupport
 	// -vertex shader will move the rendering location by x/y uniform and pass through the texture u/v coordinates attribute
 	// -fragment shader will sample the referenced texture coordinates and apply an alpha value
 	// These shaders will be used for both rendering the layers and also the entities, just using different uniforms.
-	private final Environment _environment;
 	private final GL20 _gl;
 	private final TextureAtlas _textureAtlas;
+	private final LayerManager _layerManager;
 	
 	private int _program;
 	private int _uOffset;
@@ -57,14 +55,13 @@ public class RenderSupport
 
 	private Entity _thisEntity;
 	private final Map<Integer, Entity> _otherEntitiesById;
-	private final Map<CuboidAddress, _CuboidMeshes> _layerTextureMeshes;
 	private float _currentSceneScale;
 
 	public RenderSupport(Environment environment, GL20 gl, TextureAtlas textureAtlas)
 	{
-		_environment = environment;
 		_gl = gl;
 		_textureAtlas = textureAtlas;
+		_layerManager = new LayerManager(environment, gl, textureAtlas);
 		
 		// We want to honour alpha channels.
 		_gl.glEnable(GL20.GL_BLEND);
@@ -131,7 +128,6 @@ public class RenderSupport
 		_layerMeshBuffer = _defineLayerMeshBuffer(_gl);
 		
 		_otherEntitiesById = new HashMap<>();
-		_layerTextureMeshes = new HashMap<>();
 		_currentSceneScale = 1.0f;
 	}
 
@@ -156,7 +152,7 @@ public class RenderSupport
 			selectedCuboid = selectedLocation.getCuboidAddress();
 			
 			// This may not be here if the server hasn't sent it yet.
-			selectedBlock = _layerTextureMeshes.containsKey(selectedCuboid)
+			selectedBlock = _layerManager.containsCuboid(selectedCuboid)
 					? selectedLocation.getBlockAddress()
 					: null
 			;
@@ -195,30 +191,11 @@ public class RenderSupport
 				{
 					AbsoluteLocation offsetLocation = entityBlockLocation.getRelative(xOffset, yOffset, zOffset);
 					CuboidAddress address = offsetLocation.getCuboidAddress();
+					byte zLayer = offsetLocation.getBlockAddress().z();
 					
-					_CuboidMeshes cuboidTextures = _layerTextureMeshes.get(address);
-					// This may not be here if the server hasn't sent it yet.
-					if (null != cuboidTextures)
+					int buffer = _layerManager.getOrBakeLayer(address, zLayer);
+					if (0 != buffer)
 					{
-						byte zLayer = offsetLocation.getBlockAddress().z();
-						if (0 == cuboidTextures.buffersByZ[zLayer])
-						{
-							// We need to populate this layer.
-							// If this is the top layer, we also need to find the cuboid above it since that is where we will get the light values (since we are looking down).
-							IReadOnlyCuboidData upperCuboid = null;
-							if (31 == zLayer)
-							{
-								_CuboidMeshes upperMesh = _layerTextureMeshes.get(address.getRelative(0, 0, 1));
-								// This still might be unknown.
-								if (null != upperMesh)
-								{
-									upperCuboid = upperMesh.data;
-								}
-							}
-							cuboidTextures.buffersByZ[zLayer] = _defineLayerTextureBuffer(_environment, _gl, _textureAtlas, cuboidTextures.data, upperCuboid, zLayer);
-						}
-						int buffer = cuboidTextures.buffersByZ[zLayer];
-						
 						// Be sure to position the camera above the entity, so calculate the offset where we will draw this layer.
 						float xCamera = TILE_EDGE_SIZE * ((float)(address.x() * CUBOID_EDGE_TILE_COUNT) - x);
 						float yCamera = TILE_EDGE_SIZE * ((float)(address.y() * CUBOID_EDGE_TILE_COUNT) - y);
@@ -282,25 +259,12 @@ public class RenderSupport
 
 	public void setOneCuboid(IReadOnlyCuboidData cuboid)
 	{
-		// TODO:  This needs to be more precise - don't regenerate the whole cuboid and all aspects.
-		CuboidAddress address = cuboid.getCuboidAddress();
-		_cleanUpCuboid(address);
-		// Add the empty mesh container (these will be lazily populated).
-		_layerTextureMeshes.put(address, new _CuboidMeshes(cuboid));
-		
-		// We need to remove the layer below this, as well, since a cuboid light can influence the light at the top of the cuboid below it.
-		CuboidAddress address0 = address.getRelative(0, 0, -1);
-		_CuboidMeshes above = _layerTextureMeshes.get(address0);
-		if (null != above)
-		{
-			_cleanUpCuboid(address0);
-			_layerTextureMeshes.put(address0, new _CuboidMeshes(above.data));
-		}
+		_layerManager.storeCuboid(cuboid);
 	}
 
 	public void removeCuboid(CuboidAddress address)
 	{
-		_cleanUpCuboid(address);
+		_layerManager.removeCuboid(address);
 	}
 
 	public void setOtherEntity(Entity entity)
@@ -475,142 +439,6 @@ public class RenderSupport
 		return commonMesh;
 	}
 
-	private static int _defineLayerTextureBuffer(Environment environment
-			, GL20 gl
-			, TextureAtlas atlas
-			, IReadOnlyCuboidData cuboid
-			, IReadOnlyCuboidData aboveCuboid
-			, byte zLayer
-	)
-	{
-		// The texture buffer just has the 2 sets of textures:  the main atlas and the secondary atlas.
-		int singleVertexSize = 0
-				// UV texture coordinates for main texture atlas.
-				+ (2 * Float.BYTES)
-				// UV texture coordinates for secondary texture atlas.
-				+ (2 * Float.BYTES)
-				// A float for the light multiplier.
-				+ Float.BYTES
-		;
-		int singleLayerSizeBytes = 1
-				// tiles per layer
-				* (CUBOID_EDGE_TILE_COUNT * CUBOID_EDGE_TILE_COUNT)
-				// triangles per tile
-				* 2
-				// vertices per triangle
-				* 3
-				// Bytes per vertex.
-				* singleVertexSize
-		;
-		ByteBuffer singleLayerData = ByteBuffer.allocateDirect(singleLayerSizeBytes);
-		singleLayerData.order(ByteOrder.nativeOrder());
-		// Populate the common mesh.
-		FloatBuffer textureBuffer = singleLayerData.asFloatBuffer();
-		float textureSize0 = atlas.coordinateSize;
-		float textureSize1 = atlas.secondaryCoordinateSize;
-		for (int y = 0; y < CUBOID_EDGE_TILE_COUNT; ++y)
-		{
-			for (int x = 0; x < CUBOID_EDGE_TILE_COUNT; ++x)
-			{
-				BlockAddress blockAddress = new BlockAddress((byte)x, (byte)y, zLayer);
-				short blockValue = cuboid.getData15(AspectRegistry.BLOCK, blockAddress);
-				
-				// Note that we generally just map the block values directly but there is a special case of an air block with an inventory (debris).
-				Inventory inventory = (0 == blockValue)
-						? cuboid.getDataSpecial(AspectRegistry.INVENTORY, blockAddress)
-						: null
-				;
-				float[] uv0 = (null == inventory)
-						? atlas.baseOfTexture(blockValue)
-						: atlas.baseOfDebrisTexture()
-				;
-				float textureBase0U = uv0[0];
-				float textureBase0V = uv0[1];
-				
-				// NOTE:  We invert the textures here (probably not ideal).
-				float[] tl0 = new float[]{textureBase0U, textureBase0V};
-				float[] tr0 = new float[]{textureBase0U + textureSize0, textureBase0V};
-				float[] br0 = new float[]{textureBase0U + textureSize0, textureBase0V + textureSize0};
-				float[] bl0 = new float[]{textureBase0U, textureBase0V + textureSize0};
-				
-				// Handle the secondary texture to blend in.
-				boolean isCrafting = (null != cuboid.getDataSpecial(AspectRegistry.CRAFTING, blockAddress));
-				short damage = cuboid.getData15(AspectRegistry.DAMAGE, blockAddress);
-				// TODO:  Fix how we organize this since we are just hard-coding indices.
-				int secondaryIndex = 0;
-				if (isCrafting)
-				{
-					secondaryIndex = 4;
-				}
-				else if (damage > 0)
-				{
-					// We will favour showing cracks at a low damage, so the feedback is obvious
-					float damaged = (float) damage / (float)environment.damage.getToughness(environment.blocks.BLOCKS_BY_TYPE[blockValue]);
-					if (damaged > 0.6f)
-					{
-						secondaryIndex = 3;
-					}
-					else if (damaged > 0.3f)
-					{
-						secondaryIndex = 2;
-					}
-					else
-					{
-						secondaryIndex = 1;
-					}
-				}
-				float[] uv1 = atlas.baseOfSecondaryTexture(secondaryIndex);
-				float textureBase1U = uv1[0];
-				float textureBase1V = uv1[1];
-				
-				// NOTE:  We invert the textures here (probably not ideal).
-				float[] tl1 = new float[]{textureBase1U, textureBase1V};
-				float[] tr1 = new float[]{textureBase1U + textureSize1, textureBase1V};
-				float[] br1 = new float[]{textureBase1U + textureSize1, textureBase1V + textureSize1};
-				float[] bl1 = new float[]{textureBase1U, textureBase1V + textureSize1};
-				
-				// We also want the light level of the block above this (since we are looking down at the layer).
-				byte light = (31 != zLayer)
-						? cuboid.getData7(AspectRegistry.LIGHT, new BlockAddress(blockAddress.x(), blockAddress.y(), (byte)(blockAddress.z() + 1)))
-						: (null != aboveCuboid) ? aboveCuboid.getData7(AspectRegistry.LIGHT, new BlockAddress(blockAddress.x(), blockAddress.y(), (byte)0)) : 0
-				;
-				float lightMultiplier = 0.5f + (((float)light) / 15.0f);
-				
-				textureBuffer.put(bl0);
-				textureBuffer.put(bl1);
-				textureBuffer.put(lightMultiplier);
-				textureBuffer.put(br0);
-				textureBuffer.put(br1);
-				textureBuffer.put(lightMultiplier);
-				textureBuffer.put(tr0);
-				textureBuffer.put(tr1);
-				textureBuffer.put(lightMultiplier);
-				
-				textureBuffer.put(bl0);
-				textureBuffer.put(bl1);
-				textureBuffer.put(lightMultiplier);
-				textureBuffer.put(tr0);
-				textureBuffer.put(tr1);
-				textureBuffer.put(lightMultiplier);
-				textureBuffer.put(tl0);
-				textureBuffer.put(tl1);
-				textureBuffer.put(lightMultiplier);
-			}
-		}
-		((java.nio.Buffer) singleLayerData).position(0);
-		
-		int commonTextures = gl.glGenBuffer();
-		gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, commonTextures);
-		gl.glBufferData(GL20.GL_ARRAY_BUFFER, singleLayerSizeBytes, singleLayerData.asFloatBuffer(), GL20.GL_DYNAMIC_DRAW);
-		gl.glEnableVertexAttribArray(1);
-		gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 5 * Float.BYTES, 0);
-		gl.glEnableVertexAttribArray(2);
-		gl.glVertexAttribPointer(2, 2, GL20.GL_FLOAT, false, 5 * Float.BYTES, 2 * Float.BYTES);
-		gl.glEnableVertexAttribArray(3);
-		gl.glVertexAttribPointer(3, 1, GL20.GL_FLOAT, false, 5 * Float.BYTES, 4 * Float.BYTES);
-		return commonTextures;
-	}
-
 	private void _drawEntity(float xOffset, float yOffset, float scale)
 	{
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
@@ -637,35 +465,5 @@ public class RenderSupport
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
 		_gl.glUniform1i(_uTexture0, 0);
 		_gl.glUniform1f(_uScale, 1.0f);
-	}
-
-	private void _cleanUpCuboid(CuboidAddress address)
-	{
-		_CuboidMeshes cuboidTextures = _layerTextureMeshes.remove(address);
-		if (null != cuboidTextures)
-		{
-			// Clear any existing buffers.
-			int[] layers = cuboidTextures.buffersByZ;
-			for (int layer : layers)
-			{
-				if (0 != layer)
-				{
-					_gl.glDeleteBuffer(layer);
-				}
-			}
-		}
-	}
-
-
-	private static class _CuboidMeshes
-	{
-		private final IReadOnlyCuboidData data;
-		private final int[] buffersByZ;
-		
-		public _CuboidMeshes(IReadOnlyCuboidData data)
-		{
-			this.data = data;
-			this.buffersByZ = new int[32];
-		}
 	}
 }
