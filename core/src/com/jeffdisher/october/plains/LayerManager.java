@@ -23,11 +23,31 @@ import com.jeffdisher.october.utils.Assert;
 public class LayerManager
 {
 	public static final int CUBOID_EDGE_TILE_COUNT = 32;
+	// The texture buffer just has the 2 sets of textures:  the main atlas and the secondary atlas.
+	public static final int SINGLE_VERTEX_BUFFER_BYTES = 0
+			// UV texture coordinates for main texture atlas.
+			+ (2 * Float.BYTES)
+			// UV texture coordinates for secondary texture atlas.
+			+ (2 * Float.BYTES)
+			// A float for the light multiplier.
+			+ Float.BYTES
+	;
+	public static final int SINGLE_LAYER_TOTAL_BUFFER_BYTES = 1
+			// tiles per layer
+			* (CUBOID_EDGE_TILE_COUNT * CUBOID_EDGE_TILE_COUNT)
+			// triangles per tile
+			* 2
+			// vertices per triangle
+			* 3
+			// Bytes per vertex.
+			* SINGLE_VERTEX_BUFFER_BYTES
+	;
 
 	private final Environment _environment;
 	private final GL20 _gl;
 	private final TextureAtlas _textureAtlas;
 	private final Map<CuboidAddress, _CuboidMeshes> _layerTextureMeshes;
+	private final ByteBuffer _scratchGraphicsBuffer;
 
 	public LayerManager(Environment environment, GL20 gl, TextureAtlas textureAtlas)
 	{
@@ -35,6 +55,8 @@ public class LayerManager
 		_gl = gl;
 		_textureAtlas = textureAtlas;
 		_layerTextureMeshes = new HashMap<>();
+		_scratchGraphicsBuffer = ByteBuffer.allocateDirect(SINGLE_LAYER_TOTAL_BUFFER_BYTES);
+		_scratchGraphicsBuffer.order(ByteOrder.nativeOrder());
 	}
 
 	public boolean containsCuboid(CuboidAddress address)
@@ -97,29 +119,9 @@ public class LayerManager
 			, byte zLayer
 	)
 	{
-		// The texture buffer just has the 2 sets of textures:  the main atlas and the secondary atlas.
-		int singleVertexSize = 0
-				// UV texture coordinates for main texture atlas.
-				+ (2 * Float.BYTES)
-				// UV texture coordinates for secondary texture atlas.
-				+ (2 * Float.BYTES)
-				// A float for the light multiplier.
-				+ Float.BYTES
-		;
-		int singleLayerSizeBytes = 1
-				// tiles per layer
-				* (CUBOID_EDGE_TILE_COUNT * CUBOID_EDGE_TILE_COUNT)
-				// triangles per tile
-				* 2
-				// vertices per triangle
-				* 3
-				// Bytes per vertex.
-				* singleVertexSize
-		;
-		ByteBuffer singleLayerData = ByteBuffer.allocateDirect(singleLayerSizeBytes);
-		singleLayerData.order(ByteOrder.nativeOrder());
 		// Populate the common mesh.
-		FloatBuffer textureBuffer = singleLayerData.asFloatBuffer();
+		((java.nio.Buffer) _scratchGraphicsBuffer).position(0);
+		FloatBuffer textureBuffer = _scratchGraphicsBuffer.asFloatBuffer();
 		float textureSize0 = _textureAtlas.coordinateSize;
 		float textureSize1 = _textureAtlas.secondaryCoordinateSize;
 		for (int y = 0; y < CUBOID_EDGE_TILE_COUNT; ++y)
@@ -211,11 +213,11 @@ public class LayerManager
 				textureBuffer.put(lightMultiplier);
 			}
 		}
-		((java.nio.Buffer) singleLayerData).position(0);
+		((java.nio.Buffer) _scratchGraphicsBuffer).position(0);
 		
 		int commonTextures = _gl.glGenBuffer();
 		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, commonTextures);
-		_gl.glBufferData(GL20.GL_ARRAY_BUFFER, singleLayerSizeBytes, singleLayerData.asFloatBuffer(), GL20.GL_DYNAMIC_DRAW);
+		_gl.glBufferData(GL20.GL_ARRAY_BUFFER, SINGLE_LAYER_TOTAL_BUFFER_BYTES, _scratchGraphicsBuffer.asFloatBuffer(), GL20.GL_DYNAMIC_DRAW);
 		_gl.glEnableVertexAttribArray(1);
 		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 5 * Float.BYTES, 0);
 		_gl.glEnableVertexAttribArray(2);
