@@ -6,29 +6,48 @@ import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.IntBuffer;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 
 import com.badlogic.gdx.graphics.GL20;
+import com.jeffdisher.october.utils.Assert;
 
 
 /**
  * We currently store all text as individual textures in graphics memory (these may be combined or done a different way
  * in the future).  This manager tracks those textures and provides facility for rendering new ones.
+ * This texture memory is periodically reclaimed if it gets too full.
  */
 public class TextManager
 {
 	public static final int TEXT_TEXTURE_WIDTH_PIXELS = 1024;
 	public static final int TEXT_TEXTURE_HEIGHT_PIXELS = 64;
+	/**
+	 * We will only try to purge unused text values if there are more than this many.
+	 */
+	public static final int TEXT_CACHE_TARGET_SIZE = 100;
+	/**
+	 * This is the largest number of textures we will try to purge in a single purge call (allows buffer reuse since it
+	 * is off-heap).
+	 */
+	public static final int TEXT_CACHE_MAX_PURGE_PER_ATTEMPT = 64;
 
 	private final GL20 _gl;
 	private final Map<String, Integer> _textTextures;
+
+	// Variables related to texture purging.
+	private Set<String> _recentlyUsed;
+	private final IntBuffer _purgeBuffer;
 
 	public TextManager(GL20 gl)
 	{
 		_gl = gl;
 		_textTextures = new HashMap<>();
-		
+		_purgeBuffer = ByteBuffer.allocateDirect(Integer.BYTES * TEXT_CACHE_MAX_PURGE_PER_ATTEMPT).asIntBuffer();
 		// The graphics system either does some lazy loading or heavily depends on JIT since the first call is at least 10x the cost of later ones.
 		// Hence, just draw "something" and ignore the result.
 		_writtenImage("");
@@ -38,14 +57,65 @@ public class TextManager
 	{
 		if (!_textTextures.containsKey(string))
 		{
-			// For now, we lazily populate the map and leave it forever.  In the future, this will need to be bounded with an LRU, or something.
+			// Lazily generate the texture and store it in the map.
 			int labelTexture = _gl.glGenTexture();
 			_gl.glBindTexture(GL20.GL_TEXTURE_2D, labelTexture);
 			_gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, TEXT_TEXTURE_WIDTH_PIXELS, TEXT_TEXTURE_HEIGHT_PIXELS, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, null);
 			_renderTextToImage(labelTexture, string);
 			_textTextures.put(string, labelTexture);
 		}
+		if (null != _recentlyUsed)
+		{
+			// If we are sampling active textures, add this one.
+			_recentlyUsed.add(string);
+		}
 		return _textTextures.get(string);
+	}
+
+	/**
+	 * Called periodically to allow the text manage to purge unused textures.
+	 */
+	public void allowTexturePurge()
+	{
+		if (null != _recentlyUsed)
+		{
+			// Texture sampling is active so purge anything we didn't see and disable sampling.
+			int unreferencedCount = _textTextures.size() - _recentlyUsed.size();
+			if (unreferencedCount > 0)
+			{
+				_purgeBuffer.clear();
+				int purgeCount = 0;
+				
+				Iterator<String> iter = _textTextures.keySet().iterator();
+				while (iter.hasNext())
+				{
+					String key = iter.next();
+					if (!_recentlyUsed.contains(key))
+					{
+						// This hasn't been referenced since sampling.
+						int toPurge = _textTextures.get(key);
+						Assert.assertTrue(_purgeBuffer.hasRemaining());
+						_purgeBuffer.put(toPurge);
+						purgeCount += 1;
+						iter.remove();
+					}
+					
+					// Make sure we still have purge buffer space.
+					if (purgeCount >= TEXT_CACHE_MAX_PURGE_PER_ATTEMPT)
+					{
+						break;
+					}
+				}
+				_gl.glDeleteTextures(purgeCount, _purgeBuffer);
+			}
+			
+			_recentlyUsed = null;
+		}
+		else if (_textTextures.size() > TEXT_CACHE_TARGET_SIZE)
+		{
+			// We want to try to purge text elements so start sampling what we use.
+			_recentlyUsed = new HashSet<>();
+		}
 	}
 
 

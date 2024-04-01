@@ -218,6 +218,10 @@ public class WindowManager
 				}
 			}
 		}
+		
+		// Allow any periodic cleanup.
+		_textManager.allowTexturePurge();
+		
 		return button;
 	}
 
