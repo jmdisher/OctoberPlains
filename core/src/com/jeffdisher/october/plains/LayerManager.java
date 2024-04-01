@@ -70,7 +70,7 @@ public class LayerManager
 		CuboidAddress address = cuboid.getCuboidAddress();
 		_cleanUpCuboid(address);
 		// We also need to clear out the z-31 layer of the cuboid below this, since the lighting may have changed.
-		_CuboidMeshes below = _layerTextureMeshes.get(address.getRelative(1, 1, -1));
+		_CuboidMeshes below = _layerTextureMeshes.get(address.getRelative(0, 0, -1));
 		if (null != below)
 		{
 			int existing = below.buffersByZ[31];
