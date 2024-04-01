@@ -231,7 +231,12 @@ public class WindowManager
 		float labelMargin = 0.80f;
 		float valueMargin = labelMargin + labelWidth;
 		
-		// For now, just draw the z-level on the bottom-right of the screen (since this is something we found improved orientation in play-testing).
+		_drawLabel(labelMargin, -0.90f, labelMargin + labelWidth, -0.85f, "Health");
+		_drawLabel(valueMargin, -0.90f, valueMargin + labelWidth, -0.85f, Byte.toString(thisEntity.health()));
+		
+		_drawLabel(labelMargin, -0.95f, labelMargin + labelWidth, -0.90f, "Food");
+		_drawLabel(valueMargin, -0.95f, valueMargin + labelWidth, -0.90f, Byte.toString(thisEntity.food()));
+		
 		_drawLabel(labelMargin, -1.0f, labelMargin + labelWidth, -0.95f, "z-level");
 		String zLevel = String.format("%.2f", thisEntity.location().z());
 		_drawLabel(valueMargin, -1.0f, valueMargin + labelWidth, -0.95f, zLevel);
