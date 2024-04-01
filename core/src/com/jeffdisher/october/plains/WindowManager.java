@@ -149,6 +149,12 @@ public class WindowManager
 			_drawItem(selectedItem, count, -0.3f, -0.9f, 0.3f, -0.8f, false, NO_PROGRESS);
 		}
 		
+		// Draw other on-screen meta-data related to the state of the entity.
+		if (null != _entity)
+		{
+			_drawEntityMetaData(_entity);
+		}
+		
 		// Handle the case where we might need to close the inventory window if the block was destroyed or we are too far away.
 		if (_mode.usesBlock())
 		{
@@ -213,6 +219,18 @@ public class WindowManager
 			}
 		}
 		return button;
+	}
+
+	private void _drawEntityMetaData(Entity thisEntity)
+	{
+		float labelWidth = 0.1f;
+		float labelMargin = 0.80f;
+		float valueMargin = labelMargin + labelWidth;
+		
+		// For now, just draw the z-level on the bottom-right of the screen (since this is something we found improved orientation in play-testing).
+		_drawLabel(labelMargin, -1.0f, labelMargin + labelWidth, -0.95f, "z-level");
+		String zLevel = String.format("%.2f", thisEntity.location().z());
+		_drawLabel(valueMargin, -1.0f, valueMargin + labelWidth, -0.95f, zLevel);
 	}
 
 	private Runnable _drawEntityInventory(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
