@@ -138,6 +138,9 @@ public class RenderSupport
 	 */
 	public void renderScene(AbsoluteLocation selectedLocation)
 	{
+		// Process any background layer baking.
+		_layerManager.completeBackgroundBakeRequest();
+		
 		// We render this relative to the entity, so figure out where it is.
 		EntityLocation entityLocation = _thisEntity.location();
 		AbsoluteLocation entityBlockLocation = entityLocation.getBlockLocation();
@@ -193,7 +196,7 @@ public class RenderSupport
 					CuboidAddress address = offsetLocation.getCuboidAddress();
 					byte zLayer = offsetLocation.getBlockAddress().z();
 					
-					int buffer = _layerManager.getOrBakeLayer(address, zLayer);
+					int buffer = _layerManager.getBakedLayer(address, zLayer);
 					if (0 != buffer)
 					{
 						// Be sure to position the camera above the entity, so calculate the offset where we will draw this layer.
@@ -295,6 +298,15 @@ public class RenderSupport
 	public float getZoom()
 	{
 		return _currentSceneScale;
+	}
+
+	/**
+	 * Shuts down any resources associated with the scene renderer.
+	 */
+	public void shutdown()
+	{
+		// The layer manager actually runs a background thread for the layer baking so shut it down.
+		_layerManager.shutdown();
 	}
 
 

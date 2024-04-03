@@ -4,7 +4,9 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Queue;
 
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.aspects.AspectRegistry;
@@ -19,6 +21,8 @@ import com.jeffdisher.october.utils.Assert;
 /**
  * This class contains the logic for allocating, building, and deleting the "layers" of the main scene.  A layer is a
  * single z-level within a cuboid.
+ * Note that the actual data buffers describing a layer are constructed in a background thread, only uploaded to the GPU
+ * on the main thread.  A fixed number of scratch buffers are used to facilitate this.
  */
 public class LayerManager
 {
@@ -42,12 +46,24 @@ public class LayerManager
 			// Bytes per vertex.
 			* SINGLE_VERTEX_BUFFER_BYTES
 	;
+	/**
+	 * The number of scratch buffers we will use for background layer baking.  More will result in fewer skipped frames
+	 * of data being copied to the GPU but will result in more memory usage and more wasted CPU time drawing these
+	 * potentially useless data elements.
+	 */
+	public static final int SCRATCH_BUFFER_COUNT = 4;
 
 	private final Environment _environment;
 	private final GL20 _gl;
 	private final TextureAtlas _textureAtlas;
 	private final Map<CuboidAddress, _CuboidMeshes> _layerTextureMeshes;
-	private final ByteBuffer _scratchGraphicsBuffer;
+	private final Queue<ByteBuffer> _scratchGraphicsBuffers;
+
+	// Objects related to the handoff.
+	private boolean _keepRunning;
+	private final Queue<_RenderRequest> _requests;
+	private final Queue<_RenderRequest> _responses;
+	private final Thread _background;
 
 	public LayerManager(Environment environment, GL20 gl, TextureAtlas textureAtlas)
 	{
@@ -55,8 +71,22 @@ public class LayerManager
 		_gl = gl;
 		_textureAtlas = textureAtlas;
 		_layerTextureMeshes = new HashMap<>();
-		_scratchGraphicsBuffer = ByteBuffer.allocateDirect(SINGLE_LAYER_TOTAL_BUFFER_BYTES);
-		_scratchGraphicsBuffer.order(ByteOrder.nativeOrder());
+		_scratchGraphicsBuffers = new LinkedList<>();
+		for (int i = 0; i < SCRATCH_BUFFER_COUNT; ++i)
+		{
+			ByteBuffer buffer = ByteBuffer.allocateDirect(SINGLE_LAYER_TOTAL_BUFFER_BYTES);
+			buffer.order(ByteOrder.nativeOrder());
+			_scratchGraphicsBuffers.offer(buffer);
+		}
+		
+		// Setup the background processing thread.
+		_keepRunning = true;
+		_requests = new LinkedList<>();
+		_responses = new LinkedList<>();
+		_background = new Thread(() -> _backgroundMain()
+				, "Layer Baking Thread"
+		);
+		_background.start();
 	}
 
 	public boolean containsCuboid(CuboidAddress address)
@@ -68,41 +98,66 @@ public class LayerManager
 	{
 		// This could be new or a replacement so see if we need to clean anything up.
 		CuboidAddress address = cuboid.getCuboidAddress();
-		_cleanUpCuboid(address);
-		// We also need to clear out the z-31 layer of the cuboid below this, since the lighting may have changed.
+		// Note that we don't actually delete any of the old buffers - just reset their generation so they will be regenerated in the background.
+		_CuboidMeshes cuboidTextures = _layerTextureMeshes.get(address);
+		if (null != cuboidTextures)
+		{
+			// This already exists so just update the data and increment the generation number so it is re-baked in the background.
+			cuboidTextures.data = cuboid;
+			cuboidTextures.dataGeneration += 1;
+		}
+		else
+		{
+			// This is new so just add it.
+			_layerTextureMeshes.put(address, new _CuboidMeshes(cuboid));
+		}
+		
+		// We also need to the z-31 layer of the cuboid below this for rebake, since the lighting may have changed.
 		_CuboidMeshes below = _layerTextureMeshes.get(address.getRelative(0, 0, -1));
 		if (null != below)
 		{
 			int existing = below.buffersByZ[31];
 			if (0 != existing)
 			{
-				_gl.glDeleteBuffer(existing);
-				below.buffersByZ[31] = 0;
+				// 0 is not a valid generation number so this will cause a background re-bake.
+				below.bufferGeneration[31] = 0;
 			}
 		}
-		_layerTextureMeshes.put(address, new _CuboidMeshes(cuboid));
 	}
 
-	public int getOrBakeLayer(CuboidAddress address, byte zLayer)
+	public int getBakedLayer(CuboidAddress address, byte zLayer)
 	{
 		int buffer = 0;
+		
+		// First, see if this is even a loaded cuboid.
 		_CuboidMeshes cuboidTextures = _layerTextureMeshes.get(address);
 		if (null != cuboidTextures)
 		{
-			// We either already have this or we can come up with a baked version of it.
+			// Now, get the layer buffer object.
 			buffer = cuboidTextures.buffersByZ[zLayer];
-			if (0 == buffer)
+			
+			// If this is missing or stale, we want to issue a background request.
+			if ((0 == buffer) || (cuboidTextures.dataGeneration != cuboidTextures.bufferGeneration[zLayer]))
 			{
-				// This is missing so bake it now.
-				IReadOnlyCuboidData aboveCuboid = null;
-				if (31 == zLayer)
+				// We want to issue the background baking request so see if we have a scratch buffer.
+				ByteBuffer scratch = _scratchGraphicsBuffers.poll();
+				if (null != scratch)
 				{
-					_CuboidMeshes aboveTextures = _layerTextureMeshes.get(address.getRelative(0, 0, 1));
-					aboveCuboid = (null != aboveTextures) ? aboveTextures.data : null;
+					// We can issue the request so update the generation numbers to mark that it is happening and enqueue this.
+					cuboidTextures.bufferGeneration[zLayer] = cuboidTextures.dataGeneration;
+					IReadOnlyCuboidData aboveCuboid = null;
+					if (31 == zLayer)
+					{
+						_CuboidMeshes aboveTextures = _layerTextureMeshes.get(address.getRelative(0, 0, 1));
+						aboveCuboid = (null != aboveTextures) ? aboveTextures.data : null;
+					}
+					_RenderRequest request = new _RenderRequest(cuboidTextures.data
+							, aboveCuboid
+							, zLayer
+							, scratch
+					);
+					_enqueueRequest(request);
 				}
-				buffer = _defineLayerTextureBuffer(cuboidTextures.data, aboveCuboid, zLayer);
-				Assert.assertTrue(buffer > 0);
-				cuboidTextures.buffersByZ[zLayer] = buffer;
 			}
 		}
 		return buffer;
@@ -110,18 +165,121 @@ public class LayerManager
 
 	public void removeCuboid(CuboidAddress address)
 	{
-		_cleanUpCuboid(address);
+		_CuboidMeshes cuboidTextures = _layerTextureMeshes.remove(address);
+		if (null != cuboidTextures)
+		{
+			// Clear any existing buffers.
+			int[] layers = cuboidTextures.buffersByZ;
+			for (int layer : layers)
+			{
+				if (0 != layer)
+				{
+					_gl.glDeleteBuffer(layer);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Will check to see if any background layer bake requests have been completed and will upload the first one to the
+	 * GPU if any are found.
+	 */
+	public void completeBackgroundBakeRequest()
+	{
+		_RenderRequest response = _dequeueResponse();
+		if (null != response)
+		{
+			// Make sure that this is still here.
+			_CuboidMeshes cuboidTextures = _layerTextureMeshes.get(response.data.getCuboidAddress());
+			if (null != cuboidTextures)
+			{
+				int oldBuffer = cuboidTextures.buffersByZ[response.zLayer];
+				if (oldBuffer > 0)
+				{
+					_gl.glDeleteBuffer(oldBuffer);
+				}
+				int buffer = _uploadBufferData(response.scratchBuffer);
+				Assert.assertTrue(buffer > 0);
+				cuboidTextures.buffersByZ[response.zLayer] = buffer;
+			}
+			
+			// Salvage the scratch buffer.
+			_scratchGraphicsBuffers.add(response.scratchBuffer);
+		}
+	}
+
+	/**
+	 * Shuts down the background baking thread.
+	 */
+	public void shutdown()
+	{
+		synchronized(this)
+		{
+			_keepRunning = false;
+			this.notifyAll();
+		}
+		try
+		{
+			_background.join();
+		}
+		catch (InterruptedException e)
+		{
+			throw Assert.unexpected(e);
+		}
 	}
 
 
-	private int _defineLayerTextureBuffer(IReadOnlyCuboidData cuboid
+	private void _backgroundMain()
+	{
+		_RenderRequest request = _backgroundGetRequest(null);
+		while (null != request)
+		{
+			// Populate the buffer.
+			_backgroundDefineLayerTextureBuffer(request.data
+					, request.aboveCuboid
+					, request.zLayer
+					, request.scratchBuffer
+			);
+			
+			// Pass this back since the buffer is now full.
+			request = _backgroundGetRequest(request);
+		}
+	}
+
+	private synchronized _RenderRequest _backgroundGetRequest(_RenderRequest response)
+	{
+		if (null != response)
+		{
+			_responses.add(response);
+			// (We don't notify here since the foreground thread never waits on this response - just picks it up later)
+		}
+		while (_keepRunning && _requests.isEmpty())
+		{
+			try
+			{
+				this.wait();
+			}
+			catch (InterruptedException e)
+			{
+				// Interruption not used.
+				throw Assert.unexpected(e);
+			}
+		}
+		return _keepRunning
+				? _requests.poll()
+				: null
+		;
+	}
+
+	private void _backgroundDefineLayerTextureBuffer(IReadOnlyCuboidData cuboid
 			, IReadOnlyCuboidData aboveCuboid
 			, byte zLayer
+			, ByteBuffer bufferToFill
 	)
 	{
 		// Populate the common mesh.
-		((java.nio.Buffer) _scratchGraphicsBuffer).position(0);
-		FloatBuffer textureBuffer = _scratchGraphicsBuffer.asFloatBuffer();
+		((java.nio.Buffer) bufferToFill).position(0);
+		FloatBuffer textureBuffer = bufferToFill.asFloatBuffer();
 		float textureSize0 = _textureAtlas.coordinateSize;
 		float textureSize1 = _textureAtlas.secondaryCoordinateSize;
 		for (int y = 0; y < CUBOID_EDGE_TILE_COUNT; ++y)
@@ -213,11 +371,15 @@ public class LayerManager
 				textureBuffer.put(lightMultiplier);
 			}
 		}
-		((java.nio.Buffer) _scratchGraphicsBuffer).position(0);
+	}
+
+	private int _uploadBufferData(ByteBuffer buffer)
+	{
+		((java.nio.Buffer) buffer).position(0);
 		
 		int commonTextures = _gl.glGenBuffer();
 		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, commonTextures);
-		_gl.glBufferData(GL20.GL_ARRAY_BUFFER, SINGLE_LAYER_TOTAL_BUFFER_BYTES, _scratchGraphicsBuffer.asFloatBuffer(), GL20.GL_DYNAMIC_DRAW);
+		_gl.glBufferData(GL20.GL_ARRAY_BUFFER, SINGLE_LAYER_TOTAL_BUFFER_BYTES, buffer.asFloatBuffer(), GL20.GL_DYNAMIC_DRAW);
 		_gl.glEnableVertexAttribArray(1);
 		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 5 * Float.BYTES, 0);
 		_gl.glEnableVertexAttribArray(2);
@@ -227,33 +389,38 @@ public class LayerManager
 		return commonTextures;
 	}
 
-	private void _cleanUpCuboid(CuboidAddress address)
+	private synchronized void _enqueueRequest(_RenderRequest request)
 	{
-		_CuboidMeshes cuboidTextures = _layerTextureMeshes.remove(address);
-		if (null != cuboidTextures)
-		{
-			// Clear any existing buffers.
-			int[] layers = cuboidTextures.buffersByZ;
-			for (int layer : layers)
-			{
-				if (0 != layer)
-				{
-					_gl.glDeleteBuffer(layer);
-				}
-			}
-		}
+		_requests.add(request);
+		this.notifyAll();
+	}
+
+	private synchronized _RenderRequest _dequeueResponse()
+	{
+		return _responses.poll();
 	}
 
 
 	private static class _CuboidMeshes
 	{
-		private final IReadOnlyCuboidData data;
-		private final int[] buffersByZ;
+		public IReadOnlyCuboidData data;
+		public int dataGeneration;
+		public final int[] buffersByZ;
+		public final int[] bufferGeneration;
 		
 		public _CuboidMeshes(IReadOnlyCuboidData data)
 		{
 			this.data = data;
+			this.dataGeneration = 1;
 			this.buffersByZ = new int[32];
+			this.bufferGeneration = new int[32];
 		}
 	}
+
+	private static record _RenderRequest(IReadOnlyCuboidData data
+			, IReadOnlyCuboidData aboveCuboid
+			, byte zLayer
+			, ByteBuffer scratchBuffer
+	)
+	{}
 }

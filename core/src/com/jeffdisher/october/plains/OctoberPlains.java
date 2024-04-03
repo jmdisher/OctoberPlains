@@ -270,7 +270,11 @@ public class OctoberPlains extends ApplicationAdapter
 	@Override
 	public void dispose ()
 	{
+		// Disconnect from the server.
 		_client.disconnect();
+		
+		// Shut down anything the renderer has.
+		_renderer.shutdown();
 		
 		// Tear-down the shared environment.
 		Environment.clearSharedInstance();
