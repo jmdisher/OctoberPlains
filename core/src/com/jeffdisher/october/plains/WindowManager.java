@@ -286,7 +286,7 @@ public class WindowManager
 			{
 				onClick = () -> {
 					// Find out how many can fit in the block.
-					MutableInventory checker = new MutableInventory((null != blockInventory) ? blockInventory : Inventory.start(InventoryAspect.CAPACITY_AIR).finish());
+					MutableInventory checker = new MutableInventory((null != blockInventory) ? blockInventory : Inventory.start(InventoryAspect.CAPACITY_BLOCK_EMPTY).finish());
 					Item item = value.type();
 					int max = checker.maxVacancyForItem(item);
 					int toDrop = Math.min(value.count(), max);
