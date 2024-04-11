@@ -237,15 +237,31 @@ public class OctoberPlains extends ApplicationAdapter
 		}
 		else if (Gdx.input.isButtonPressed(0))
 		{
-			// See if they have a button.
-			if (Gdx.input.isButtonJustPressed(0) && (null != clickButtonCapture))
+			boolean isJustPressed = Gdx.input.isButtonJustPressed(0);
+			if (null != clickButtonCapture)
 			{
-				clickButtonCapture.run();
+				// The they clicked something in the window overlay so run it if the button was just pressed.
+				if (isJustPressed)
+				{
+					clickButtonCapture.run();
+				}
 			}
-			if ((null != selection) && (null == clickButtonCapture))
+			else
 			{
-				// As long as they are holding the left button, hit the block.
-				_client.hitBlock(selection);
+				// They aren't using the windows so see if there is anything else they could be doing.
+				if (null != selection)
+				{
+					// Whether they just pressed this or held it down, hit the block.
+					_client.hitBlock(selection);
+				}
+				else if (0 != selectedEntity)
+				{
+					// If they just clicked, we will record that they hit this entity.
+					if (isJustPressed)
+					{
+						_client.hitEntity(selectedEntity);
+					}
+				}
 			}
 		}
 		else if (Gdx.input.isButtonJustPressed(1))

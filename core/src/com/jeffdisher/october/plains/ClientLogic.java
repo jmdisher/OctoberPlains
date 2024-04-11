@@ -13,6 +13,7 @@ import com.jeffdisher.october.aspects.AspectRegistry;
 import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
+import com.jeffdisher.october.mutations.EntityChangeAttackEntity;
 import com.jeffdisher.october.mutations.EntityChangeJump;
 import com.jeffdisher.october.mutations.MutationEntityPushItems;
 import com.jeffdisher.october.mutations.MutationEntityRequestItemPickUp;
@@ -300,6 +301,13 @@ public class ClientLogic
 	{
 		long currentTimeMillis = System.currentTimeMillis();
 		_client.craftInBlock(block, craft, currentTimeMillis);
+	}
+
+	public void hitEntity(int selectedEntity)
+	{
+		EntityChangeAttackEntity attack = new EntityChangeAttackEntity(selectedEntity);
+		long currentTimeMillis = System.currentTimeMillis();
+		_client.sendAction(attack, currentTimeMillis);
 	}
 
 	public void disconnect()
