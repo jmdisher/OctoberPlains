@@ -134,9 +134,10 @@ public class RenderSupport
 	/**
 	 * Renders a single frame of the scene.
 	 * 
-	 * @param selectedLocation The block currently selected in the UI.
+	 * @param selectedEntity The ID of the entity currently under the mouse (0 if there isn't one).
+	 * @param selectedLocation The block currently under the mouse (can be null).
 	 */
-	public void renderScene(AbsoluteLocation selectedLocation)
+	public void renderScene(int selectedEntity, AbsoluteLocation selectedLocation)
 	{
 		// Process any background layer baking.
 		_layerManager.completeBackgroundBakeRequest();
@@ -249,7 +250,20 @@ public class RenderSupport
 					float xOffset = TILE_EDGE_SIZE * (location.x() - entityLocation.x());
 					float yOffset = TILE_EDGE_SIZE * (location.y() - entityLocation.y());
 					float scale = otherEntity.volume().width();
-					_drawEntity(xOffset, yOffset, scale);
+					
+					// See if this is the entity under the mouse.
+					if (otherEntity.id() == selectedEntity)
+					{
+						// Give it a red colour.
+						_gl.glUniform4f(_uColourBias, 1.0f, 0.0f, 0.0f, 1.0f);
+						_drawEntity(xOffset, yOffset, scale);
+						_gl.glUniform4f(_uColourBias, 0.0f, 0.0f, 0.0f, 0.0f);
+						
+					}
+					else
+					{
+						_drawEntity(xOffset, yOffset, scale);
+					}
 				}
 			}
 		}

@@ -110,10 +110,13 @@ public class OctoberPlains extends ApplicationAdapter
 					_windowManager.setEntity(entity);
 				}
 				, (Entity entity) -> {
+					// We notify both the renderer and the mouse handler about the entities.
 					_renderer.setOtherEntity(entity);
+					_mouseHandler.setOtherEntity(entity);
 				}
 				, (int entityId) -> {
 					_renderer.removeEntity(entityId);
+					_mouseHandler.removeOtherEntity(entityId);
 				}
 				, (IReadOnlyCuboidData cuboid) -> {
 					// Update our data cache.
@@ -180,10 +183,17 @@ public class OctoberPlains extends ApplicationAdapter
 		;
 		// The mouse handling for the tiles needs to know the renderer zoom level (overlay UI doesn't).
 		float rendererZoom = _renderer.getZoom();
-		AbsoluteLocation selection = _mouseHandler.getXyzTile(glX / rendererZoom, glY / rendererZoom, zOffset);
+		float zoomX = glX / rendererZoom;
+		float zoomY = glY / rendererZoom;
+		AbsoluteLocation selection = null;
+		int selectedEntity = _mouseHandler.entityUnderMouse(zoomX, zoomY);
+		if (0 == selectedEntity)
+		{
+			selection = _mouseHandler.getXyzTile(zoomX, zoomY, zOffset);
+		}
 		
 		// Draw the scene.
-		_renderer.renderScene(selection);
+		_renderer.renderScene(selectedEntity, selection);
 		
 		// Draw any active windows over the scene and get the capture for anything we which can receive click events.
 		Runnable clickButtonCapture = _windowManager.drawWindowsWithButtonCapture(_client, glX, glY);
