@@ -14,7 +14,9 @@ import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.mutations.EntityChangeAttackEntity;
+import com.jeffdisher.october.mutations.EntityChangeEatSelectedItem;
 import com.jeffdisher.october.mutations.EntityChangeJump;
+import com.jeffdisher.october.mutations.IMutationEntity;
 import com.jeffdisher.october.mutations.MutationEntityPushItems;
 import com.jeffdisher.october.mutations.MutationEntityRequestItemPickUp;
 import com.jeffdisher.october.mutations.MutationEntitySelectItem;
@@ -195,15 +197,26 @@ public class ClientLogic
 		}
 	}
 
-	public void placeBlock(AbsoluteLocation blockLocation)
+	public void runAction(AbsoluteLocation blockLocation)
 	{
-		// Make sure we have something selected.
-		if (null != _thisEntity.selectedItem())
+		// We need to check our selected item and see what "action" is associated with it.
+		Item item = _thisEntity.selectedItem();
+		if (null != item)
 		{
-			// The mutation will check proximity and collision.
-			MutationPlaceSelectedBlock place = new MutationPlaceSelectedBlock(blockLocation);
+			// Check which action makes sense (eat or place).
+			IMutationEntity change;
+			int foodValue = _environment.foods.foodValue(item);
+			if (foodValue > 0)
+			{
+				change = new EntityChangeEatSelectedItem();
+			}
+			else
+			{
+				// The mutation will check proximity and collision.
+				change = new MutationPlaceSelectedBlock(blockLocation);
+			}
 			long currentTimeMillis = System.currentTimeMillis();
-			_client.sendAction(place, currentTimeMillis);
+			_client.sendAction(change, currentTimeMillis);
 		}
 	}
 

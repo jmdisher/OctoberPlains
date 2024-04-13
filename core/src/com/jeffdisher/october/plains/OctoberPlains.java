@@ -242,11 +242,10 @@ public class OctoberPlains extends ApplicationAdapter
 		{
 			if ((null != selection) && (null == clickButtonCapture))
 			{
-				// If we right-click on a crafting table, open that UI, otherwise we will place the selected block.
+				// If we right-click on a crafting table, open that UI, apply right-click logic to the item, itself.
 				if (!_windowManager.didOpenInventory(selection))
 				{
-					// If they press right click, place our block (this will implicitly select stone).
-					_client.placeBlock(selection);
+					_client.runAction(selection);
 				}
 			}
 		}
