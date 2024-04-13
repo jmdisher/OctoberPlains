@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.Map;
 
 import javax.imageio.ImageIO;
@@ -37,7 +38,7 @@ public class TextureAtlas
 	};
 
 	public static TextureAtlas loadAtlas(GL20 gl
-			, String[] primaryNames
+			, Item[] primaryItems
 			, Map<Secondary, String> secondaryNameMap
 	) throws IOException
 	{
@@ -45,6 +46,12 @@ public class TextureAtlas
 		// We will assume a fixed texture size of 32-square.
 		int eachTextureEdge = 32;
 		
+		// Just grab the names of the items, assuming they are all PNGs:
+		String[] primaryNames = Arrays.stream(primaryItems).map(
+				(Item item) -> (item.id() + ".png")
+		).toArray(
+				(int size) -> new String[size]
+		);
 		int primaryTexturesPerRow = _texturesPerRow(primaryNames.length);
 		int primaryTexture = _createTextureAtlas(gl, primaryNames, primaryTexturesPerRow, eachTextureEdge);
 		

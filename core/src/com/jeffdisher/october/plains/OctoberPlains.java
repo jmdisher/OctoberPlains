@@ -51,32 +51,8 @@ public class OctoberPlains extends ApplicationAdapter
 		try
 		{
 			// These are resolved by index so they must be loaded in the same order as the item registry.
-			_textureAtlas = TextureAtlas.loadAtlas(gl, new String[] {
-					"air.png",
-					"stone.png",
-					"log.png",
-					"plank.png",
-					"stone_brick.png",
-					"crafting_table.png",
-					"furnace.png",
-					"charcoal.png",
-					"coal_ore.png",
-					"iron_ore.png",
-					"dirt.png",
-					"water_source.png",
-					"water_strong.png",
-					"water_weak.png",
-					"lantern.png",
-					"iron_ingot.png",
-					"sapling.png",
-					"leaf.png",
-					"wheat_seed.png",
-					"wheat_item.png",
-					"wheat_seedling.png",
-					"wheat_young.png",
-					"wheat_mature.png",
-				}
-				, Map.of(TextureAtlas.Secondary.NONE, "air.png"
+			_textureAtlas = TextureAtlas.loadAtlas(gl, _environment.items.ITEMS_BY_TYPE
+				, Map.of(TextureAtlas.Secondary.NONE, "op.air.png"
 						, TextureAtlas.Secondary.PLAYER, "player.png"
 						, TextureAtlas.Secondary.DEBRIS, "debris.png"
 						, TextureAtlas.Secondary.BREAK_LIGHT, "break1.png"
