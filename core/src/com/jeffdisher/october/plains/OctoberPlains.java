@@ -2,6 +2,7 @@ package com.jeffdisher.october.plains;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.Map;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
@@ -75,17 +76,14 @@ public class OctoberPlains extends ApplicationAdapter
 					"wheat_young.png",
 					"wheat_mature.png",
 				}
-				, new String[] {
-					"air.png",
-					"break1.png",
-					"break2.png",
-					"break3.png",
-					"active.png",
-				}
-				// Player.
-				, "player.png"
-				// Debris.
-				, "debris.png"
+				, Map.of(TextureAtlas.Secondary.NONE, "air.png"
+						, TextureAtlas.Secondary.PLAYER, "player.png"
+						, TextureAtlas.Secondary.DEBRIS, "debris.png"
+						, TextureAtlas.Secondary.BREAK_LIGHT, "break1.png"
+						, TextureAtlas.Secondary.BREAK_MEDIUM, "break2.png"
+						, TextureAtlas.Secondary.BREAK_HEAVY, "break3.png"
+						, TextureAtlas.Secondary.ACTIVE_STATION, "active.png"
+				)
 			);
 		}
 		catch (IOException e)

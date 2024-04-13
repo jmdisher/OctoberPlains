@@ -11,7 +11,9 @@ import java.util.Queue;
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.aspects.AspectRegistry;
 import com.jeffdisher.october.aspects.Environment;
+import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
+import com.jeffdisher.october.types.Block;
 import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Inventory;
@@ -280,24 +282,18 @@ public class LayerManager
 		// Populate the common mesh.
 		((java.nio.Buffer) bufferToFill).position(0);
 		FloatBuffer textureBuffer = bufferToFill.asFloatBuffer();
-		float textureSize0 = _textureAtlas.coordinateSize;
+		float textureSize0 = _textureAtlas.primaryCoordinateSize;
 		float textureSize1 = _textureAtlas.secondaryCoordinateSize;
 		for (int y = 0; y < CUBOID_EDGE_TILE_COUNT; ++y)
 		{
 			for (int x = 0; x < CUBOID_EDGE_TILE_COUNT; ++x)
 			{
 				BlockAddress blockAddress = new BlockAddress((byte)x, (byte)y, zLayer);
-				short blockValue = cuboid.getData15(AspectRegistry.BLOCK, blockAddress);
+				BlockProxy proxy = new BlockProxy(blockAddress, cuboid);
+				Block block = proxy.getBlock();
 				
-				// Note that we generally just map the block values directly but there is a special case of an air block with an inventory (debris).
-				Inventory inventory = (0 == blockValue)
-						? cuboid.getDataSpecial(AspectRegistry.INVENTORY, blockAddress)
-						: null
-				;
-				float[] uv0 = (null == inventory)
-						? _textureAtlas.baseOfTexture(blockValue)
-						: _textureAtlas.baseOfDebrisTexture()
-				;
+				// The primary texture is just based on whatever the item type is.
+				float[] uv0 = _textureAtlas.baseOfPrimaryTexture(block.item());
 				float textureBase0U = uv0[0];
 				float textureBase0V = uv0[1];
 				
@@ -308,32 +304,44 @@ public class LayerManager
 				float[] bl0 = new float[]{textureBase0U, textureBase0V + textureSize0};
 				
 				// Handle the secondary texture to blend in.
-				boolean isCrafting = (null != cuboid.getDataSpecial(AspectRegistry.CRAFTING, blockAddress));
-				short damage = cuboid.getData15(AspectRegistry.DAMAGE, blockAddress);
-				// TODO:  Fix how we organize this since we are just hard-coding indices.
-				int secondaryIndex = 0;
+				boolean isCrafting = (null != proxy.getCrafting());
+				short damage = proxy.getDamage();
+				// Note that we will get an empty inventory if an inventory is supported.
+				Inventory blockInventory = proxy.getInventory();
+				boolean hasDebrisInventory = _environment.blocks.permitsEntityMovement(block) && (null != blockInventory) && !blockInventory.items.isEmpty();
+				
+				// Apply the rules for how we prioritize secondary textures.
+				TextureAtlas.Secondary secondary;
 				if (isCrafting)
 				{
-					secondaryIndex = 4;
+					secondary = TextureAtlas.Secondary.ACTIVE_STATION;
+				}
+				else if (hasDebrisInventory)
+				{
+					secondary = TextureAtlas.Secondary.DEBRIS;
 				}
 				else if (damage > 0)
 				{
 					// We will favour showing cracks at a low damage, so the feedback is obvious
-					float damaged = (float) damage / (float)_environment.damage.getToughness(_environment.blocks.BLOCKS_BY_TYPE[blockValue]);
+					float damaged = (float) damage / (float)_environment.damage.getToughness(block);
 					if (damaged > 0.6f)
 					{
-						secondaryIndex = 3;
+						secondary = TextureAtlas.Secondary.BREAK_HEAVY;
 					}
 					else if (damaged > 0.3f)
 					{
-						secondaryIndex = 2;
+						secondary = TextureAtlas.Secondary.BREAK_MEDIUM;
 					}
 					else
 					{
-						secondaryIndex = 1;
+						secondary = TextureAtlas.Secondary.BREAK_LIGHT;
 					}
 				}
-				float[] uv1 = _textureAtlas.baseOfSecondaryTexture(secondaryIndex);
+				else
+				{
+					secondary = TextureAtlas.Secondary.NONE;
+				}
+				float[] uv1 = _textureAtlas.baseOfSecondaryTexture(secondary);
 				float textureBase1U = uv1[0];
 				float textureBase1V = uv1[1];
 				

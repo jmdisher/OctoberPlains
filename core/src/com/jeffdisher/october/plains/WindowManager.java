@@ -108,7 +108,7 @@ public class WindowManager
 		_uTextureScale = _gl.glGetUniformLocation(_program, "uTextureScale");
 		
 		// We need to create the vertex buffers for the tile and the label.
-		_atlasVertexBuffer = _defineCommonVertices(_gl, _atlas.coordinateSize);
+		_atlasVertexBuffer = _defineCommonVertices(_gl, _atlas.primaryCoordinateSize);
 		_unitVertexBuffer = _defineCommonVertices(_gl, 1.0f);
 		
 		// Create the background colour texture we will use (just one pixel allowing us to avoid creating a new shader).
@@ -545,7 +545,6 @@ public class WindowManager
 	private void _drawItem(Item selectedItem, int count, float left, float bottom, float right, float top, boolean shouldHighlight, float progressBar)
 	{
 		// We lazily create the label.
-		short number = selectedItem.number();
 		String name = selectedItem.name().toUpperCase();
 		
 		// Draw the background.
@@ -565,8 +564,8 @@ public class WindowManager
 		
 		// Draw the tile.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _atlas.texture);
-		float[] uv = _atlas.baseOfTexture(number);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _atlas.primaryTexture);
+		float[] uv = _atlas.baseOfPrimaryTexture(selectedItem);
 		float textureBaseU = uv[0];
 		float textureBaseV = uv[1];
 		_gl.glUniform1i(_uTexture, 0);

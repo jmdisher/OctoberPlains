@@ -122,7 +122,7 @@ public class RenderSupport
 		_uColourBias = _gl.glGetUniformLocation(_program, "uColourBias");
 		
 		// Define the entity mesh and texture.
-		_entityBuffer = _defineEntityBuffer(_gl, _textureAtlas);
+		_entityBuffer = _defineEntityBuffer(environment, _gl, _textureAtlas);
 		
 		// Define the layer mesh.
 		_layerMeshBuffer = _defineLayerMeshBuffer(_gl);
@@ -170,7 +170,7 @@ public class RenderSupport
 		
 		// Make sure that the texture atlas is active.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.primaryTexture);
 		_gl.glUniform1i(_uTexture0, 0);
 		_gl.glActiveTexture(GL20.GL_TEXTURE1);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.secondaryTexture);
@@ -356,14 +356,15 @@ public class RenderSupport
 		return shader;
 	}
 
-	private static int _defineEntityBuffer(GL20 gl, TextureAtlas atlas)
+	private static int _defineEntityBuffer(Environment env, GL20 gl, TextureAtlas atlas)
 	{
-		float textureSize0 = atlas.coordinateSize;
+		// We just draw the player and drawn over air.
+		float textureSize0 = atlas.primaryCoordinateSize;
 		float textureSize1 = atlas.secondaryCoordinateSize;
-		float[] uv0 = atlas.baseOfPlayerTexture();
+		float[] uv0 = atlas.baseOfPrimaryTexture(env.items.AIR);
 		float textureBase0U = uv0[0];
 		float textureBase0V = uv0[1];
-		float[] uv1 = atlas.baseOfSecondaryTexture(0);
+		float[] uv1 = atlas.baseOfSecondaryTexture(TextureAtlas.Secondary.PLAYER);
 		float textureBase1U = uv1[0];
 		float textureBase1V = uv1[1];
 		float lightMultiplier = 1.0f;
@@ -468,7 +469,7 @@ public class RenderSupport
 	private void _drawEntity(float xOffset, float yOffset, float scale)
 	{
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.primaryTexture);
 		_gl.glUniform1i(_uTexture0, 0);
 		_gl.glActiveTexture(GL20.GL_TEXTURE1);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.secondaryTexture);
@@ -488,7 +489,7 @@ public class RenderSupport
 		
 		// (we switch the atlas in and out since this will likely be a different sprite atlas, later).
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.texture);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.primaryTexture);
 		_gl.glUniform1i(_uTexture0, 0);
 		_gl.glUniform1f(_uScale, 1.0f);
 	}

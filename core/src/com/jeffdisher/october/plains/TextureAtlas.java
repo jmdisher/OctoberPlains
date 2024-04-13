@@ -4,40 +4,62 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Map;
 
 import javax.imageio.ImageIO;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.GL20;
+import com.jeffdisher.october.types.Item;
 import com.jeffdisher.october.utils.Assert;
 
 
+/**
+ * Maintains the high-level representation of the texture atlases.
+ * Note that there is a primary texture atlas (containing item textures, by number) and a secondary texture atlas
+ * (contains misc textures).
+ */
 public class TextureAtlas
 {
+	/**
+	 * The names of the special textures in the secondary atlas.
+	 */
+	public static enum Secondary
+	{
+		NONE,
+		PLAYER,
+		DEBRIS,
+		BREAK_LIGHT,
+		BREAK_MEDIUM,
+		BREAK_HEAVY,
+		ACTIVE_STATION,
+	};
+
 	public static TextureAtlas loadAtlas(GL20 gl
-			, String[] names
-			, String[] secondaryNames
-			, String playerTextureName
-			, String debrisTextureName
+			, String[] primaryNames
+			, Map<Secondary, String> secondaryNameMap
 	) throws IOException
 	{
-		// We store all the textures in the same atlas but some of them are special versus some looked up by index.
-		String[] combinedNames = new String[names.length + 2];
-		System.arraycopy(names, 0, combinedNames, 0, names.length);
-		combinedNames[names.length] = playerTextureName;
-		combinedNames[names.length + 1] = debrisTextureName;
-		
-		int texturesPerRow = _texturesPerRow(combinedNames.length);
-		
+		// We will create 2 texture atlases:  Primary holds the item graphics and secondary holds modifiers to blend on top.
 		// We will assume a fixed texture size of 32-square.
 		int eachTextureEdge = 32;
-		int texture = _createTextureAtlas(gl, combinedNames, texturesPerRow, eachTextureEdge);
+		
+		int primaryTexturesPerRow = _texturesPerRow(primaryNames.length);
+		int primaryTexture = _createTextureAtlas(gl, primaryNames, primaryTexturesPerRow, eachTextureEdge);
+		
+		String[] secondaryNames = new String[Secondary.values().length];
+		for (Secondary secondary : Secondary.values())
+		{
+			String secondaryName = secondaryNameMap.get(secondary);
+			// We don't allow missing textures - this would be a static error.
+			Assert.assertTrue(null != secondaryName);
+			secondaryNames[secondary.ordinal()] = secondaryName;
+		}
 		int secondaryTexturesPerRow = _texturesPerRow(secondaryNames.length);
 		int secondaryTexture = _createTextureAtlas(gl, secondaryNames, secondaryTexturesPerRow, eachTextureEdge);
-		int indexOfPlayer = names.length;
-		int indexOfDebris = indexOfPlayer + 1;
-		return new TextureAtlas(texture, secondaryTexture, texturesPerRow, secondaryTexturesPerRow, indexOfPlayer, indexOfDebris);
+		
+		return new TextureAtlas(primaryTexture, secondaryTexture, primaryTexturesPerRow, secondaryTexturesPerRow);
 	}
 
 
@@ -125,72 +147,52 @@ public class TextureAtlas
 	}
 
 
-	public final int texture;
+	public final int primaryTexture;
 	public final int secondaryTexture;
-	public final float coordinateSize;
+	public final float primaryCoordinateSize;
 	public final float secondaryCoordinateSize;
-	private final int _texturesPerRow;
+	private final int _primaryTexturesPerRow;
 	private final int _secondaryTexturesPerRow;
-	private final int _indexOfPlayer;
-	private final int _indexOfDebris;
 
-	private TextureAtlas(int texture, int secondaryTexture, int texturesPerRow, int secondaryTexturesPerRow, int indexOfPlayer, int indexOfDebris)
+	private TextureAtlas(int primaryTexture, int secondaryTexture, int primaryTexturesPerRow, int secondaryTexturesPerRow)
 	{
-		this.texture = texture;
+		this.primaryTexture = primaryTexture;
 		this.secondaryTexture = secondaryTexture;
-		this.coordinateSize = 1.0f / (float)texturesPerRow;
+		this.primaryCoordinateSize = 1.0f / (float)primaryTexturesPerRow;
 		this.secondaryCoordinateSize = 1.0f / (float)secondaryTexturesPerRow;
-		_texturesPerRow = texturesPerRow;
+		_primaryTexturesPerRow = primaryTexturesPerRow;
 		_secondaryTexturesPerRow = secondaryTexturesPerRow;
-		_indexOfPlayer = indexOfPlayer;
-		_indexOfDebris = indexOfDebris;
 	}
 
 	/**
 	 * Returns the UV base coordinates of the texture with the given index.
 	 * 
-	 * @param index The index of the texture, relative to the load order.
+	 * @param item The item to draw.
 	 * @return {u, v} of texture base coordinates.
 	 */
-	public float[] baseOfTexture(int index)
+	public float[] baseOfPrimaryTexture(Item item)
 	{
-		Assert.assertTrue(index < _indexOfPlayer);
-		return _baseOfTexture(index);
+		int index = item.number();
+		int row = index / _primaryTexturesPerRow;
+		int column = index % _primaryTexturesPerRow;
+		float u = this.primaryCoordinateSize * (float)column;
+		float v = this.primaryCoordinateSize * (float)row;
+		return new float[] {u, v};
 	}
 
 	/**
 	 * Returns the UV base coordinates of the secondary texture with the given index.
 	 * 
-	 * @param index The index of the texture, relative to the load order.
+	 * @param special The special texture to draw.
 	 * @return {u, v} of texture base coordinates.
 	 */
-	public float[] baseOfSecondaryTexture(int index)
+	public float[] baseOfSecondaryTexture(Secondary special)
 	{
+		int index = special.ordinal();
 		int row = index / _secondaryTexturesPerRow;
 		int column = index % _secondaryTexturesPerRow;
 		float u = this.secondaryCoordinateSize * (float)column;
 		float v = this.secondaryCoordinateSize * (float)row;
-		return new float[] {u, v};
-	}
-
-
-	public float[] baseOfPlayerTexture()
-	{
-		return _baseOfTexture(_indexOfPlayer);
-	}
-
-	public float[] baseOfDebrisTexture()
-	{
-		return _baseOfTexture(_indexOfDebris);
-	}
-
-
-	private float[] _baseOfTexture(int index)
-	{
-		int row = index / _texturesPerRow;
-		int column = index % _texturesPerRow;
-		float u = this.coordinateSize * (float)column;
-		float v = this.coordinateSize * (float)row;
 		return new float[] {u, v};
 	}
 }
