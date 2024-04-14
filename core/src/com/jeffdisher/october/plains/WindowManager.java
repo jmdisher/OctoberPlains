@@ -136,7 +136,7 @@ public class WindowManager
 		_mode = _WindowMode.NONE;
 	}
 
-	public Runnable drawWindowsWithButtonCapture(ClientLogic client, float glX, float glY)
+	public EventHandler drawWindowsWithButtonCapture(ClientLogic client, float glX, float glY)
 	{
 		// Enable our program
 		_gl.glUseProgram(_program);
@@ -172,7 +172,7 @@ public class WindowManager
 		
 		// See if we should show the inventory window.
 		// (note that the entity could only be null during start-up).
-		Runnable button = null;
+		EventHandler button = null;
 		if ((_WindowMode.NONE != _mode) && (null != _entity))
 		{
 			// Draw the entity inventory.
@@ -189,7 +189,7 @@ public class WindowManager
 				{
 					_drawHover(glX, glY, overItems.context.type().name());
 				}
-				button = overItems.onClick;
+				button = overItems.handler;
 			}
 			
 			// Draw the inventory of the ground or selected block.
@@ -203,7 +203,7 @@ public class WindowManager
 					{
 						_drawHover(glX, glY, thisButton.context.type().name());
 					}
-					button = thisButton.onClick;
+					button = thisButton.handler;
 				}
 				
 				// If there is an active fuel aspect to this (no matter the display node, draw it).
@@ -230,7 +230,7 @@ public class WindowManager
 					{
 						_drawHover(glX, glY, thisButton.context.output.type().name());
 					}
-					button = thisButton.onClick;
+					button = thisButton.handler;
 				}
 			}
 		}
@@ -701,7 +701,8 @@ public class WindowManager
 		_drawBackground(leftX, bottomY, rightX, topY, false);
 		if ((leftX <= glX) && (glX <= rightX) && (bottomY <= glY) && (glY <= topY))
 		{
-			onClick = new _MouseOver<>(null, () -> {});
+			Runnable runnable = () -> {};
+			onClick = new _MouseOver<>(null, new EventHandler(runnable, runnable, runnable));
 		}
 		// Draw the title.
 		_drawLabel(leftX, topY - 0.1f, leftX + 0.5f, topY, title.toUpperCase());
@@ -718,7 +719,7 @@ public class WindowManager
 				Runnable runnable = renderer.draw.render(xOffset, bottom, right, yOffset, isMouseOver, value);
 				if (null != runnable)
 				{
-					onClick = new _MouseOver<>(value, runnable);
+					onClick = new _MouseOver<>(value, new EventHandler(runnable, runnable, runnable));
 				}
 				xOffset = right + renderer.spacing;
 			}
@@ -776,6 +777,11 @@ public class WindowManager
 	}
 
 
+	public static record EventHandler(Runnable click
+			, Runnable rightClick
+			, Runnable shiftClick
+	) {}
+
 	private static enum _WindowMode
 	{
 		// No windows visible.
@@ -827,6 +833,6 @@ public class WindowManager
 	}
 
 	private static record _MouseOver<T>(T context
-			, Runnable onClick
+			, EventHandler handler
 	) {}
 }

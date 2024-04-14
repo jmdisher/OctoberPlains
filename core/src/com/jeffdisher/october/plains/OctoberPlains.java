@@ -170,7 +170,7 @@ public class OctoberPlains extends ApplicationAdapter
 		_renderer.renderScene(selectedEntity, selection);
 		
 		// Draw any active windows over the scene and get the capture for anything we which can receive click events.
-		Runnable clickButtonCapture = _windowManager.drawWindowsWithButtonCapture(_client, glX, glY);
+		WindowManager.EventHandler windowManagerEvent = _windowManager.drawWindowsWithButtonCapture(_client, glX, glY);
 		
 		// Handle inputs - we can handle some UI events at the same time as moving but only one move at a time.
 		boolean didJump = false;
@@ -212,12 +212,20 @@ public class OctoberPlains extends ApplicationAdapter
 		else if (Gdx.input.isButtonPressed(0))
 		{
 			boolean isJustPressed = Gdx.input.isButtonJustPressed(0);
-			if (null != clickButtonCapture)
+			if (null != windowManagerEvent)
 			{
 				// The they clicked something in the window overlay so run it if the button was just pressed.
 				if (isJustPressed)
 				{
-					clickButtonCapture.run();
+					boolean isShiftHeld = Gdx.input.isKeyPressed(Keys.SHIFT_LEFT);
+					if (isShiftHeld)
+					{
+						windowManagerEvent.shiftClick().run();
+					}
+					else
+					{
+						windowManagerEvent.click().run();
+					}
 				}
 			}
 			else
@@ -240,7 +248,11 @@ public class OctoberPlains extends ApplicationAdapter
 		}
 		else if (Gdx.input.isButtonJustPressed(1))
 		{
-			if ((null != selection) && (null == clickButtonCapture))
+			if (null != windowManagerEvent)
+			{
+				windowManagerEvent.rightClick().run();
+			}
+			else if (null != selection)
 			{
 				// If we right-click on a crafting table, open that UI, apply right-click logic to the item, itself.
 				if (!_windowManager.didOpenInventory(selection))
