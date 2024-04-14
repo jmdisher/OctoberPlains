@@ -598,7 +598,11 @@ public class WindowManager
 	{
 		AbsoluteLocation block = GeometryHelpers.getCentreAtFeet(_entity);
 		BlockProxy proxy = _blockLoader.apply(block);
-		return proxy.getInventory();
+		// Be wary that this may not yet be loaded.
+		return (null != proxy)
+				? proxy.getInventory()
+				: null
+		;
 	}
 
 	private Inventory _selectedBlockInventory(boolean fuelMode)
