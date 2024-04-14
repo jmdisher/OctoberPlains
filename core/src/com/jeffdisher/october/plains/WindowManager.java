@@ -264,10 +264,11 @@ public class WindowManager
 			Item item = value.type();
 			int count = value.count();
 			_drawItem(item, count, left, bottom, right, top, isMouseOver, NO_PROGRESS);
-			Runnable onClick = null;
+			EventHandler onClick = null;
 			if (isMouseOver)
 			{
-				onClick = () -> {
+				Runnable click = () -> {
+					// Select.
 					// If this already was selected, clear it.
 					if (_entity.selectedItem() == item)
 					{
@@ -278,44 +279,28 @@ public class WindowManager
 						client.setSelectedItem(item);
 					}
 				};
-			}
-			return onClick;
-		}, 0.55f, 0.05f);
-		_RenderTuple<Items> transfer1 = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
-			_drawBackground(left, bottom, right, top, isMouseOver);
-			_drawLabel(left, bottom, right, top, "1");
-			Runnable onClick = null;
-			if (isMouseOver)
-			{
-				onClick = () -> {
+				Runnable rightClick = () -> {
+					// Transfer 1.
 					AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
-					client.pushItemsToTileInventory(location, value.type(), 1, (_WindowMode.FUEL == _mode));
+					client.pushItemsToTileInventory(location, item, 1, (_WindowMode.FUEL == _mode));
 				};
-			}
-			return onClick;
-		}, 0.1f, 0.05f);
-		_RenderTuple<Items> transferAll = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
-			_drawBackground(left, bottom, right, top, isMouseOver);
-			_drawLabel(left, bottom, right, top, "All");
-			Runnable onClick = null;
-			if (isMouseOver)
-			{
-				onClick = () -> {
+				Runnable shiftClick = () -> {
+					// Transfer all.
 					// Find out how many can fit in the block.
 					MutableInventory checker = new MutableInventory((null != blockInventory) ? blockInventory : Inventory.start(InventoryAspect.CAPACITY_BLOCK_EMPTY).finish());
-					Item item = value.type();
 					int max = checker.maxVacancyForItem(item);
-					int toDrop = Math.min(value.count(), max);
+					int toDrop = Math.min(count, max);
 					if (toDrop > 0)
 					{
 						AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
 						client.pushItemsToTileInventory(location, item, toDrop, (_WindowMode.FUEL == _mode));
 					}
 				};
+				onClick = new EventHandler(click, rightClick, shiftClick);
 			}
 			return onClick;
-		}, 0.1f, 0.05f);
-		return _drawTableWindow("Inventory", 0.05f, 0.05f, 0.95f, 0.95f, glX, glY, 0.1f, 0.05f, entityInventory.items.values(), List.of(itemRender, transfer1, transferAll));
+		}, 0.55f, 0.05f);
+		return _drawTableWindow("Inventory", 0.05f, 0.05f, 0.95f, 0.95f, glX, glY, 0.1f, 0.05f, entityInventory.items.values(), List.of(itemRender));
 	}
 
 	private _MouseOver<Items> _drawBlockInventory(ClientLogic client, Inventory blockInventory, String inventoryName, float glX, float glY)
@@ -325,36 +310,21 @@ public class WindowManager
 			int count = value.count();
 			// We never highlight the label, just the buttons.
 			_drawItem(item, count, left, bottom, right, top, false, NO_PROGRESS);
-			// We want to return a runnable which does nothing, just so we get the hover effect.
-			return isMouseOver
-					? () -> {}
-					: null
-			;
-		}, 0.65f, 0.05f);
-		_RenderTuple<Items> transfer1 = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
-			_drawBackground(left, bottom, right, top, isMouseOver);
-			_drawLabel(left, bottom, right, top, "1");
-			Runnable onClick = null;
+			EventHandler onClick = null;
 			if (isMouseOver)
 			{
-				onClick = () -> {
-					Item item = value.type();
+				Runnable click = () -> {
+					// Select.
+					// Do nothing - this has no concept of selection.
+				};
+				Runnable rightClick = () -> {
+					// Transfer 1.
 					AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
 					client.pullItemsFromTileInventory(location, item, 1, (_WindowMode.FUEL == _mode));
 				};
-			}
-			return onClick;
-		}, 0.1f, 0.05f);
-		_RenderTuple<Items> transferAll = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
-			_drawBackground(left, bottom, right, top, isMouseOver);
-			_drawLabel(left, bottom, right, top, "All");
-			Runnable onClick = null;
-			if (isMouseOver)
-			{
-				onClick = () -> {
+				Runnable shiftClick = () -> {
+					// Transfer all.
 					// Find out how many we can hold.
-					Item item = value.type();
-					int count = value.count();
 					MutableInventory checker = new MutableInventory(_entity.inventory());
 					int max = checker.maxVacancyForItem(item);
 					int toPickUp = Math.min(count, max);
@@ -364,10 +334,11 @@ public class WindowManager
 						client.pullItemsFromTileInventory(location, item, toPickUp, (_WindowMode.FUEL == _mode));
 					}
 				};
+				onClick = new EventHandler(click, rightClick, shiftClick);
 			}
 			return onClick;
-		}, 0.1f, 0.05f);
-		return _drawTableWindow(inventoryName, -0.95f, -0.95f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.items.values(), List.of(itemRender, transfer1, transferAll));
+		}, 0.65f, 0.05f);
+		return _drawTableWindow(inventoryName, -0.95f, -0.95f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.items.values(), List.of(itemRender));
 	}
 
 	private _MouseOver<Craft> _drawCraftingPanel(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
@@ -422,13 +393,14 @@ public class WindowManager
 				progressBar = (float)crafting.completedMillis() / (float)craft.millisPerCraft;
 			}
 			_drawItem(craft.output.type(), craft.output.count(), left, bottom, right, top, shouldHighlight, progressBar);
-			Runnable onClick = null;
+			EventHandler onClick = null;
 			if (shouldHighlight)
 			{
+				Runnable doCraft;
 				if (_WindowMode.CRAFTING_TABLE_INVENTORY == _mode)
 				{
 					// Craft in table.
-					onClick = () -> {
+					doCraft = () -> {
 						if (CraftAspect.canApply(craft, craftingInventory))
 						{
 							client.beginCraftInBlock(_openInventoryLocation, craft);
@@ -438,13 +410,15 @@ public class WindowManager
 				else
 				{
 					// Craft in inventory.
-					onClick = () -> {
+					doCraft = () -> {
 						if (CraftAspect.canApply(craft, craftingInventory))
 						{
 							client.beginCraft(craft);
 						}
 					};
 				}
+				// For now, at least, just treat all the events the same way.
+				onClick = new EventHandler(doCraft, doCraft, doCraft);
 			}
 			return onClick;
 		}, 0.65f, 0.05f);
@@ -716,10 +690,10 @@ public class WindowManager
 				float bottom = yOffset - rowHeight;
 				float right = xOffset + renderer.width;
 				boolean isMouseOver = ((xOffset <= glX) && (glX <= right) && (bottom <= glY) && (glY <= yOffset));
-				Runnable runnable = renderer.draw.render(xOffset, bottom, right, yOffset, isMouseOver, value);
-				if (null != runnable)
+				EventHandler handler = renderer.draw.render(xOffset, bottom, right, yOffset, isMouseOver, value);
+				if (null != handler)
 				{
-					onClick = new _MouseOver<>(value, new EventHandler(runnable, runnable, runnable));
+					onClick = new _MouseOver<>(value, handler);
 				}
 				xOffset = right + renderer.spacing;
 			}
@@ -829,7 +803,7 @@ public class WindowManager
 
 	private interface _ValueRenderer<T>
 	{
-		Runnable render(float left, float bottom, float right, float top, boolean isMouseOver, T value);
+		EventHandler render(float left, float bottom, float right, float top, boolean isMouseOver, T value);
 	}
 
 	private static record _MouseOver<T>(T context
