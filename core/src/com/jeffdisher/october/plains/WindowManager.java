@@ -182,16 +182,28 @@ public class WindowManager
 					: _selectedBlockInventory(_WindowMode.FUEL == _mode)
 			;
 			
-			button = _drawEntityInventory(client, entityInventory, blockInventory, glX, glY);
+			_MouseOver<Items> overItems = _drawEntityInventory(client, entityInventory, blockInventory, glX, glY);
+			if (null != overItems)
+			{
+				if (null != overItems.context)
+				{
+					_drawHover(glX, glY, overItems.context.type().name());
+				}
+				button = overItems.onClick;
+			}
 			
 			// Draw the inventory of the ground or selected block.
 			if (null != blockInventory)
 			{
 				String inventoryName = _getInventoryName(_WindowMode.FUEL == _mode);
-				Runnable thisButton = _drawBlockInventory(client, blockInventory, inventoryName, glX, glY);
+				_MouseOver<Items> thisButton = _drawBlockInventory(client, blockInventory, inventoryName, glX, glY);
 				if (null != thisButton)
 				{
-					button = thisButton;
+					if (null != thisButton.context)
+					{
+						_drawHover(glX, glY, thisButton.context.type().name());
+					}
+					button = thisButton.onClick;
 				}
 				
 				// If there is an active fuel aspect to this (no matter the display node, draw it).
@@ -211,10 +223,14 @@ public class WindowManager
 			// Draw the crafting panel.
 			if (_WindowMode.FUEL != _mode)
 			{
-				Runnable thisButton = _drawCraftingPanel(client, entityInventory, blockInventory, glX, glY);
+				_MouseOver<Craft> thisButton = _drawCraftingPanel(client, entityInventory, blockInventory, glX, glY);
 				if (null != thisButton)
 				{
-					button = thisButton;
+					if (null != thisButton.context)
+					{
+						_drawHover(glX, glY, thisButton.context.output.type().name());
+					}
+					button = thisButton.onClick;
 				}
 			}
 		}
@@ -242,7 +258,7 @@ public class WindowManager
 		_drawLabel(valueMargin, -1.0f, valueMargin + labelWidth, -0.95f, zLevel);
 	}
 
-	private Runnable _drawEntityInventory(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
+	private _MouseOver<Items> _drawEntityInventory(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
 	{
 		_RenderTuple<Items> itemRender = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
 			Item item = value.type();
@@ -302,14 +318,18 @@ public class WindowManager
 		return _drawTableWindow("Inventory", 0.05f, 0.05f, 0.95f, 0.95f, glX, glY, 0.1f, 0.05f, entityInventory.items.values(), List.of(itemRender, transfer1, transferAll));
 	}
 
-	private Runnable _drawBlockInventory(ClientLogic client, Inventory blockInventory, String inventoryName, float glX, float glY)
+	private _MouseOver<Items> _drawBlockInventory(ClientLogic client, Inventory blockInventory, String inventoryName, float glX, float glY)
 	{
 		_RenderTuple<Items> itemRender = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
 			Item item = value.type();
 			int count = value.count();
 			// We never highlight the label, just the buttons.
 			_drawItem(item, count, left, bottom, right, top, false, NO_PROGRESS);
-			return null;
+			// We want to return a runnable which does nothing, just so we get the hover effect.
+			return isMouseOver
+					? () -> {}
+					: null
+			;
 		}, 0.65f, 0.05f);
 		_RenderTuple<Items> transfer1 = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
 			_drawBackground(left, bottom, right, top, isMouseOver);
@@ -350,7 +370,7 @@ public class WindowManager
 		return _drawTableWindow(inventoryName, -0.95f, -0.95f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.items.values(), List.of(itemRender, transfer1, transferAll));
 	}
 
-	private Runnable _drawCraftingPanel(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
+	private _MouseOver<Craft> _drawCraftingPanel(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
 	{
 		// Note that the crafting panel will act a bit differently whether it is the player's inventory or a crafting table.
 		CraftOperation crafting;
@@ -674,14 +694,14 @@ public class WindowManager
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 	}
 
-	private <T> Runnable _drawTableWindow(String title, float leftX, float bottomY, float rightX, float topY, float glX, float glY, float rowHeight, float rowSpace, Collection<T> values, List<_RenderTuple<T>> columns)
+	private <T> _MouseOver<T> _drawTableWindow(String title, float leftX, float bottomY, float rightX, float topY, float glX, float glY, float rowHeight, float rowSpace, Collection<T> values, List<_RenderTuple<T>> columns)
 	{
-		Runnable onClick = null;
+		_MouseOver<T> onClick = null;
 		// Draw the window outline and create a default catch runnable to block the background.
 		_drawBackground(leftX, bottomY, rightX, topY, false);
 		if ((leftX <= glX) && (glX <= rightX) && (bottomY <= glY) && (glY <= topY))
 		{
-			onClick = () -> {};
+			onClick = new _MouseOver<>(null, () -> {});
 		}
 		// Draw the title.
 		_drawLabel(leftX, topY - 0.1f, leftX + 0.5f, topY, title.toUpperCase());
@@ -698,7 +718,7 @@ public class WindowManager
 				Runnable runnable = renderer.draw.render(xOffset, bottom, right, yOffset, isMouseOver, value);
 				if (null != runnable)
 				{
-					onClick = runnable;
+					onClick = new _MouseOver<>(value, runnable);
 				}
 				xOffset = right + renderer.spacing;
 			}
@@ -740,6 +760,19 @@ public class WindowManager
 			}
 		}
 		return name;
+	}
+
+	private void _drawHover(float glX, float glY, String name)
+	{
+		float labelHeight = 0.1f;
+		float labelWidth = 0.2f;
+		
+		float left = glX;
+		float bottom = glY - labelHeight;
+		float right = glX + labelWidth;
+		float top = glY;
+		_drawBackground(left, bottom, right, top, false);
+		_drawLabel(left, bottom, right, top, name.toUpperCase());
 	}
 
 
@@ -792,4 +825,8 @@ public class WindowManager
 	{
 		Runnable render(float left, float bottom, float right, float top, boolean isMouseOver, T value);
 	}
+
+	private static record _MouseOver<T>(T context
+			, Runnable onClick
+	) {}
 }
