@@ -3,7 +3,6 @@ package com.jeffdisher.october.plains;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -146,7 +145,7 @@ public class WindowManager
 		if (null != selectedItem)
 		{
 			int count = _entity.inventory().items.get(selectedItem).count();
-			_drawItem(selectedItem, count, -0.3f, -0.9f, 0.3f, -0.8f, false, NO_PROGRESS);
+			_drawItemWithLabel(selectedItem, count, -0.3f, -0.9f, 0.3f, -0.8f);
 		}
 		
 		// Draw other on-screen meta-data related to the state of the entity.
@@ -215,7 +214,7 @@ public class WindowManager
 						Item current = fuel.currentFuel();
 						float progressBar = (float)fuel.millisFueled() / (float)_environment.fuel.millisOfFuel(current);
 						// TODO:  We really need a better solution than these hard-coded positions, everywhere.
-						_drawItem(current, 1, -0.45f, - 0.15f, 0.0f, -0.05f, false, progressBar);
+						_drawItem(current, 1, -0.45f, - 0.15f, 0.1f, false, progressBar);
 					}
 				}
 			}
@@ -260,10 +259,10 @@ public class WindowManager
 
 	private _MouseOver<Items> _drawEntityInventory(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
 	{
-		_RenderTuple<Items> itemRender = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
+		_ValueRenderer<Items> itemRender = (float left, float bottom, float scale, boolean isMouseOver, Items value) -> {
 			Item item = value.type();
 			int count = value.count();
-			_drawItem(item, count, left, bottom, right, top, isMouseOver, NO_PROGRESS);
+			_drawItem(item, count, left, bottom, scale, isMouseOver, NO_PROGRESS);
 			EventHandler onClick = null;
 			if (isMouseOver)
 			{
@@ -299,17 +298,17 @@ public class WindowManager
 				onClick = new EventHandler(click, rightClick, shiftClick);
 			}
 			return onClick;
-		}, 0.55f, 0.05f);
-		return _drawTableWindow("Inventory", 0.05f, 0.05f, 0.95f, 0.95f, glX, glY, 0.1f, 0.05f, entityInventory.items.values(), List.of(itemRender));
+		};
+		return _drawTableWindow("Inventory", 0.05f, 0.05f, 0.95f, 0.95f, glX, glY, 0.1f, 0.05f, entityInventory.items.values(), itemRender);
 	}
 
 	private _MouseOver<Items> _drawBlockInventory(ClientLogic client, Inventory blockInventory, String inventoryName, float glX, float glY)
 	{
-		_RenderTuple<Items> itemRender = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Items value) -> {
+		_ValueRenderer<Items> itemRender = (float left, float bottom, float scale, boolean isMouseOver, Items value) -> {
 			Item item = value.type();
 			int count = value.count();
 			// We never highlight the label, just the buttons.
-			_drawItem(item, count, left, bottom, right, top, false, NO_PROGRESS);
+			_drawItem(item, count, left, bottom, scale, isMouseOver, NO_PROGRESS);
 			EventHandler onClick = null;
 			if (isMouseOver)
 			{
@@ -337,8 +336,8 @@ public class WindowManager
 				onClick = new EventHandler(click, rightClick, shiftClick);
 			}
 			return onClick;
-		}, 0.65f, 0.05f);
-		return _drawTableWindow(inventoryName, -0.95f, -0.95f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.items.values(), List.of(itemRender));
+		};
+		return _drawTableWindow(inventoryName, -0.95f, -0.95f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.items.values(), itemRender);
 	}
 
 	private _MouseOver<Craft> _drawCraftingPanel(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
@@ -378,7 +377,7 @@ public class WindowManager
 			// Handle this case once it is created.
 			throw Assert.unreachable();
 		}
-		_RenderTuple<Craft> itemRender = new _RenderTuple<>((float left, float bottom, float right, float top, boolean isMouseOver, Craft craft) -> {
+		_ValueRenderer<Craft> itemRender = (float left, float bottom, float scale, boolean isMouseOver, Craft craft) -> {
 			// We will only check the highlight if this is something we even could craft.
 			// Note that this needs to handle 
 			boolean canCraft = canManuallyCraft
@@ -392,7 +391,7 @@ public class WindowManager
 			{
 				progressBar = (float)crafting.completedMillis() / (float)craft.millisPerCraft;
 			}
-			_drawItem(craft.output.type(), craft.output.count(), left, bottom, right, top, shouldHighlight, progressBar);
+			_drawItem(craft.output.type(), craft.output.count(), left, bottom, scale, shouldHighlight, progressBar);
 			EventHandler onClick = null;
 			if (shouldHighlight)
 			{
@@ -421,8 +420,8 @@ public class WindowManager
 				onClick = new EventHandler(doCraft, doCraft, doCraft);
 			}
 			return onClick;
-		}, 0.65f, 0.05f);
-		return _drawTableWindow("Crafting", -0.95f, 0.05f, -0.05f, 0.95f, glX, glY, 0.1f, 0.05f, _environment.crafting.craftsForClassifications(classifications), List.of(itemRender));
+		};
+		return _drawTableWindow("Crafting", -0.95f, 0.05f, -0.05f, 0.95f, glX, glY, 0.1f, 0.05f, _environment.crafting.craftsForClassifications(classifications), itemRender);
 	}
 
 	public void setEntity(Entity entity)
@@ -536,10 +535,11 @@ public class WindowManager
 		return entityBuffer;
 	}
 
-	private void _drawItem(Item selectedItem, int count, float left, float bottom, float right, float top, boolean shouldHighlight, float progressBar)
+	private void _drawItem(Item selectedItem, int count, float left, float bottom, float scale, boolean shouldHighlight, float progressBar)
 	{
-		// We lazily create the label.
-		String name = selectedItem.name().toUpperCase();
+		// This basic item case is square so just build the top-right edges.
+		float right = left + scale;
+		float top = bottom + scale;
 		
 		// Draw the background.
 		if (progressBar > 0.0f)
@@ -553,6 +553,47 @@ public class WindowManager
 			// Just draw the normal background.
 			_drawBackground(left, bottom, right, top, shouldHighlight);
 		}
+		_gl.glActiveTexture(GL20.GL_TEXTURE0);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _atlas.primaryTexture);
+		float[] uv = _atlas.baseOfPrimaryTexture(selectedItem);
+		float textureBaseU = uv[0];
+		float textureBaseV = uv[1];
+		_gl.glUniform1i(_uTexture, 0);
+		_gl.glUniform2f(_uOffset, left, bottom);
+		// We want to just draw this square.
+		_gl.glUniform2f(_uScale, scale, scale);
+		_gl.glUniform2f(_uTextureBase, textureBaseU, textureBaseV);
+		_gl.glUniform2f(_uTextureScale, 1.0f, 1.0f);
+		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _atlasVertexBuffer);
+		_gl.glEnableVertexAttribArray(0);
+		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
+		_gl.glEnableVertexAttribArray(1);
+		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
+		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+		
+		// Draw the number in the corner.
+		_gl.glActiveTexture(GL20.GL_TEXTURE0);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textManager.lazilyLoadStringTexture(Integer.toString(count)));
+		_gl.glUniform1i(_uTexture, 0);
+		_gl.glUniform2f(_uOffset, left, bottom);
+		_gl.glUniform2f(_uScale, scale * 2.0f, scale * 0.5f);
+		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
+		_gl.glUniform2f(_uTextureScale, 0.5f, 1.0f);
+		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _unitVertexBuffer);
+		_gl.glEnableVertexAttribArray(0);
+		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
+		_gl.glEnableVertexAttribArray(1);
+		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
+		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+	}
+
+	private void _drawItemWithLabel(Item selectedItem, int count, float left, float bottom, float right, float top)
+	{
+		// We lazily create the label.
+		String name = selectedItem.name().toUpperCase();
+		
+		// Draw the background.
+		_drawBackground(left, bottom, right, top, false);
 		float xScale = (right - left);
 		float yScale = (top - bottom);
 		
@@ -672,7 +713,7 @@ public class WindowManager
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 	}
 
-	private <T> _MouseOver<T> _drawTableWindow(String title, float leftX, float bottomY, float rightX, float topY, float glX, float glY, float rowHeight, float rowSpace, Collection<T> values, List<_RenderTuple<T>> columns)
+	private <T> _MouseOver<T> _drawTableWindow(String title, float leftX, float bottomY, float rightX, float topY, float glX, float glY, float elementSize, float margin, Collection<T> values, _ValueRenderer<T> renderer)
 	{
 		_MouseOver<T> onClick = null;
 		// Draw the window outline and create a default catch runnable to block the background.
@@ -685,23 +726,36 @@ public class WindowManager
 		// Draw the title.
 		_drawLabel(leftX, topY - 0.1f, leftX + 0.5f, topY, title.toUpperCase());
 		
-		float yOffset = topY - (rowHeight + rowSpace);
+		// We want to draw these in a grid, in rows.  Leave space for margins.
+		float xSpace = rightX - leftX - (2.0f * margin);
+		// The size of each item is the margin before the element and the element itself.
+		float spacePerElement = elementSize + margin;
+		int itemsPerRow = (int) Math.round(Math.floor(xSpace / spacePerElement));
+		int xElement = 0;
+		int yElement = 0;
+		
+		float leftMargin = leftX + margin;
+		// Leave space for top margin and title.
+		float topMargin = topY - spacePerElement - margin;
 		for (T value : values)
 		{
-			float xOffset = leftX;
-			for (_RenderTuple<T> renderer : columns)
+			// Find the bottom-left of this item.
+			float left = leftMargin + (xElement * spacePerElement);
+			float bottom = topMargin - (yElement * spacePerElement) - elementSize;
+			float top = bottom + elementSize;
+			float right = left + elementSize;
+			boolean isMouseOver = ((left <= glX) && (glX <= right) && (bottom <= glY) && (glY <= top));
+			EventHandler handler = renderer.render(left, bottom, elementSize, isMouseOver, value);
+			if (null != handler)
 			{
-				float bottom = yOffset - rowHeight;
-				float right = xOffset + renderer.width;
-				boolean isMouseOver = ((xOffset <= glX) && (glX <= right) && (bottom <= glY) && (glY <= yOffset));
-				EventHandler handler = renderer.draw.render(xOffset, bottom, right, yOffset, isMouseOver, value);
-				if (null != handler)
-				{
-					onClick = new _MouseOver<>(value, handler);
-				}
-				xOffset = right + renderer.spacing;
+				onClick = new _MouseOver<>(value, handler);
 			}
-			yOffset -= (rowHeight + rowSpace);
+			xElement += 1;
+			if (xElement >= itemsPerRow)
+			{
+				xElement = 0;
+				yElement += 1;
+			}
 		}
 		return onClick;
 	}
@@ -801,13 +855,9 @@ public class WindowManager
 		}
 	}
 
-	private static record _RenderTuple<T>(_ValueRenderer<T> draw, float width, float spacing)
-	{
-	}
-
 	private interface _ValueRenderer<T>
 	{
-		EventHandler render(float left, float bottom, float right, float top, boolean isMouseOver, T value);
+		EventHandler render(float left, float bottom, float scale, boolean isMouseOver, T value);
 	}
 
 	private static record _MouseOver<T>(T context
