@@ -144,7 +144,7 @@ public class WindowManager
 		Item selectedItem = (null != _entity) ? _entity.selectedItem() : null;
 		if (null != selectedItem)
 		{
-			int count = _entity.inventory().items.get(selectedItem).count();
+			int count = _entity.inventory().getCount(selectedItem);
 			_drawItemWithLabel(selectedItem, count, -0.3f, -0.9f, 0.3f, -0.8f);
 		}
 		

@@ -245,7 +245,7 @@ public class ClientLogic
 		// This must exist to be calling this.
 		Assert.assertTrue(null != inventory);
 		// This must be a valid request.
-		Assert.assertTrue(inventory.items.get(type).count() >= count);
+		Assert.assertTrue(inventory.getCount(type) >= count);
 		
 		MutationEntityRequestItemPickUp request = new MutationEntityRequestItemPickUp(location, new Items(type, count), inventoryAspect);
 		long currentTimeMillis = System.currentTimeMillis();
