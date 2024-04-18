@@ -2,7 +2,7 @@ package com.jeffdisher.october.plains;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -299,7 +299,7 @@ public class WindowManager
 			}
 			return onClick;
 		};
-		return _drawTableWindow("Inventory", 0.05f, 0.05f, 0.95f, 0.95f, glX, glY, 0.1f, 0.05f, entityInventory.items.values(), itemRender);
+		return _drawTableWindow("Inventory", 0.05f, 0.05f, 0.95f, 0.95f, glX, glY, 0.1f, 0.05f, entityInventory.sortedItems(), itemRender);
 	}
 
 	private _MouseOver<Items> _drawBlockInventory(ClientLogic client, Inventory blockInventory, String inventoryName, float glX, float glY)
@@ -337,7 +337,7 @@ public class WindowManager
 			}
 			return onClick;
 		};
-		return _drawTableWindow(inventoryName, -0.95f, -0.95f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.items.values(), itemRender);
+		return _drawTableWindow(inventoryName, -0.95f, -0.95f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.sortedItems(), itemRender);
 	}
 
 	private _MouseOver<Craft> _drawCraftingPanel(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
@@ -713,7 +713,7 @@ public class WindowManager
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 	}
 
-	private <T> _MouseOver<T> _drawTableWindow(String title, float leftX, float bottomY, float rightX, float topY, float glX, float glY, float elementSize, float margin, Collection<T> values, _ValueRenderer<T> renderer)
+	private <T> _MouseOver<T> _drawTableWindow(String title, float leftX, float bottomY, float rightX, float topY, float glX, float glY, float elementSize, float margin, List<T> values, _ValueRenderer<T> renderer)
 	{
 		_MouseOver<T> onClick = null;
 		// Draw the window outline and create a default catch runnable to block the background.
