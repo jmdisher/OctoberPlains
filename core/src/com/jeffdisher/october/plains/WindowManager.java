@@ -141,7 +141,7 @@ public class WindowManager
 		_gl.glUseProgram(_program);
 		
 		// If there is an item selected, show it.
-		Item selectedItem = (null != _entity) ? _entity.selectedItem() : null;
+		Item selectedItem = (null != _entity) ? _entity.selectedItemKey() : null;
 		if (null != selectedItem)
 		{
 			int count = _entity.inventory().getCount(selectedItem);
@@ -269,7 +269,7 @@ public class WindowManager
 				Runnable click = () -> {
 					// Select.
 					// If this already was selected, clear it.
-					if (_entity.selectedItem() == item)
+					if (_entity.selectedItemKey() == item)
 					{
 						client.setSelectedItem(null);
 					}

@@ -200,7 +200,7 @@ public class ClientLogic
 	public void runAction(AbsoluteLocation blockLocation)
 	{
 		// We need to check our selected item and see what "action" is associated with it.
-		Item item = _thisEntity.selectedItem();
+		Item item = _thisEntity.selectedItemKey();
 		if (null != item)
 		{
 			// Check which action makes sense (eat or place).
