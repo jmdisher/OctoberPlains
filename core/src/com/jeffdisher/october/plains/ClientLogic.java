@@ -290,7 +290,7 @@ public class ClientLogic
 			MutableInventory inv = new MutableInventory(targetInventory);
 			if (inv.maxVacancyForItem(type) >= count)
 			{
-				MutationEntityPushItems push = new MutationEntityPushItems(location, new Items(type, count), inventoryAspect);
+				MutationEntityPushItems push = new MutationEntityPushItems(location, type, count, inventoryAspect);
 				long currentTimeMillis = System.currentTimeMillis();
 				_client.sendAction(push, currentTimeMillis);
 			}
