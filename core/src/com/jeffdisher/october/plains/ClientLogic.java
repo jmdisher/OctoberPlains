@@ -200,12 +200,12 @@ public class ClientLogic
 	public void runAction(AbsoluteLocation blockLocation)
 	{
 		// We need to check our selected item and see what "action" is associated with it.
-		Item item = _thisEntity.selectedItemKey();
-		if (null != item)
+		int selectedKey = _thisEntity.selectedItemKey();
+		if (Entity.NO_SELECTION != selectedKey)
 		{
 			// Check which action makes sense (eat or place).
 			IMutationEntity change;
-			int foodValue = _environment.foods.foodValue(item);
+			int foodValue = _environment.foods.foodValue(_thisEntity.inventory().getStackForKey(selectedKey).type());
 			if (foodValue > 0)
 			{
 				change = new EntityChangeEatSelectedItem();
@@ -290,16 +290,19 @@ public class ClientLogic
 			MutableInventory inv = new MutableInventory(targetInventory);
 			if (inv.maxVacancyForItem(type) >= count)
 			{
-				MutationEntityPushItems push = new MutationEntityPushItems(location, type, count, inventoryAspect);
+				int itemKey = _thisEntity.inventory().getIdOfStackableType(type);
+				// We must have this in order to get this far.
+				Assert.assertTrue(itemKey > 0);
+				MutationEntityPushItems push = new MutationEntityPushItems(location, itemKey, count, inventoryAspect);
 				long currentTimeMillis = System.currentTimeMillis();
 				_client.sendAction(push, currentTimeMillis);
 			}
 		}
 	}
 
-	public void setSelectedItem(Item item)
+	public void setSelectedItem(int itemKey)
 	{
-		MutationEntitySelectItem select = new MutationEntitySelectItem(item);
+		MutationEntitySelectItem select = new MutationEntitySelectItem(itemKey);
 		long currentTimeMillis = System.currentTimeMillis();
 		_client.sendAction(select, currentTimeMillis);
 	}

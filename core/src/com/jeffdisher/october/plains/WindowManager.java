@@ -141,11 +141,13 @@ public class WindowManager
 		_gl.glUseProgram(_program);
 		
 		// If there is an item selected, show it.
-		Item selectedItem = (null != _entity) ? _entity.selectedItemKey() : null;
-		if (null != selectedItem)
+		int selectedKey = (null != _entity) ? _entity.selectedItemKey() : Entity.NO_SELECTION;
+		if (Entity.NO_SELECTION != selectedKey)
 		{
-			int count = _entity.inventory().getCount(selectedItem);
-			_drawItemWithLabel(selectedItem, count, -0.3f, -0.9f, 0.3f, -0.8f);
+			Items stack = _entity.inventory().getStackForKey(selectedKey);
+			// This must be there if selected.
+			Assert.assertTrue(null != stack);
+			_drawItemWithLabel(stack.type(), stack.count(), -0.3f, -0.9f, 0.3f, -0.8f);
 		}
 		
 		// Draw other on-screen meta-data related to the state of the entity.
@@ -269,13 +271,14 @@ public class WindowManager
 				Runnable click = () -> {
 					// Select.
 					// If this already was selected, clear it.
-					if (_entity.selectedItemKey() == item)
+					int thisItemKey = _entity.inventory().getIdOfStackableType(item);
+					if (_entity.selectedItemKey() == thisItemKey)
 					{
-						client.setSelectedItem(null);
+						client.setSelectedItem(0);
 					}
 					else
 					{
-						client.setSelectedItem(item);
+						client.setSelectedItem(thisItemKey);
 					}
 				};
 				Runnable rightClick = () -> {
