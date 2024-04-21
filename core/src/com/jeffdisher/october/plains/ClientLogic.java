@@ -34,7 +34,9 @@ import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.FuelState;
 import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
+import com.jeffdisher.october.types.Items;
 import com.jeffdisher.october.types.MutableInventory;
+import com.jeffdisher.october.types.NonStackableItem;
 import com.jeffdisher.october.utils.Assert;
 
 
@@ -244,7 +246,11 @@ public class ClientLogic
 		// This must exist to be calling this.
 		Assert.assertTrue(null != inventory);
 		// This must be a valid request.
-		Assert.assertTrue(inventory.getStackForKey(blockInventoryKey).count() >= count);
+		Items stack = inventory.getStackForKey(blockInventoryKey);
+		NonStackableItem nonStack = inventory.getNonStackableForKey(blockInventoryKey);
+		Assert.assertTrue((null != stack) != (null != nonStack));
+		int available = (null != stack) ? stack.count() : 1;
+		Assert.assertTrue(available >= count);
 		
 		MutationEntityRequestItemPickUp request = new MutationEntityRequestItemPickUp(location, blockInventoryKey, count, inventoryAspect);
 		long currentTimeMillis = System.currentTimeMillis();
@@ -258,7 +264,10 @@ public class ClientLogic
 		Assert.assertTrue(null != cuboid);
 		BlockAddress blockAddress = location.getBlockAddress();
 		BlockProxy proxy = new BlockProxy(blockAddress, cuboid);
-		Item type = _thisEntity.inventory().getStackForKey(blockInventoryKey).type();
+		Items stack = _thisEntity.inventory().getStackForKey(blockInventoryKey);
+		NonStackableItem nonStack = _thisEntity.inventory().getNonStackableForKey(blockInventoryKey);
+		Assert.assertTrue((null != stack) != (null != nonStack));
+		Item type = (null != stack) ? stack.type() : nonStack.type();
 		// Make sure that these can fit in the tile.
 		Inventory targetInventory;
 		byte inventoryAspect;
@@ -290,10 +299,7 @@ public class ClientLogic
 			MutableInventory inv = new MutableInventory(targetInventory);
 			if (inv.maxVacancyForItem(type) >= count)
 			{
-				int itemKey = _thisEntity.inventory().getIdOfStackableType(type);
-				// We must have this in order to get this far.
-				Assert.assertTrue(itemKey > 0);
-				MutationEntityPushItems push = new MutationEntityPushItems(location, itemKey, count, inventoryAspect);
+				MutationEntityPushItems push = new MutationEntityPushItems(location, blockInventoryKey, count, inventoryAspect);
 				long currentTimeMillis = System.currentTimeMillis();
 				_client.sendAction(push, currentTimeMillis);
 			}

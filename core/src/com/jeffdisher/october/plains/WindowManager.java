@@ -21,6 +21,7 @@ import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
 import com.jeffdisher.october.types.Items;
 import com.jeffdisher.october.types.MutableInventory;
+import com.jeffdisher.october.types.NonStackableItem;
 import com.jeffdisher.october.utils.Assert;
 
 
@@ -144,10 +145,10 @@ public class WindowManager
 		int selectedKey = (null != _entity) ? _entity.selectedItemKey() : Entity.NO_SELECTION;
 		if (Entity.NO_SELECTION != selectedKey)
 		{
-			Items stack = _entity.inventory().getStackForKey(selectedKey);
+			Items items = _synthesizeItems(_entity.inventory(), selectedKey);
 			// This must be there if selected.
-			Assert.assertTrue(null != stack);
-			_drawItemWithLabel(stack.type(), stack.count(), -0.3f, -0.9f, 0.3f, -0.8f);
+			Assert.assertTrue(null != items);
+			_drawItemWithLabel(items.type(), items.count(), -0.3f, -0.9f, 0.3f, -0.8f);
 		}
 		
 		// Draw other on-screen meta-data related to the state of the entity.
@@ -188,7 +189,8 @@ public class WindowManager
 			{
 				if (null != overKey.context)
 				{
-					Item type = entityInventory.getStackForKey(overKey.context).type();
+					Items items = _synthesizeItems(entityInventory, overKey.context);
+					Item type = items.type();
 					_drawHover(glX, glY, type.name());
 				}
 				button = overKey.handler;
@@ -203,7 +205,8 @@ public class WindowManager
 				{
 					if (null != thisButton.context)
 					{
-						Item type = blockInventory.getStackForKey(thisButton.context).type();
+						Items items = _synthesizeItems(blockInventory, thisButton.context);
+						Item type = items.type();
 						_drawHover(glX, glY, type.name());
 					}
 					button = thisButton.handler;
@@ -264,9 +267,9 @@ public class WindowManager
 	private _MouseOver<Integer> _drawEntityInventory(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
 	{
 		_ValueRenderer<Integer> keyRender = (float left, float bottom, float scale, boolean isMouseOver, Integer key) -> {
-			Items value = entityInventory.getStackForKey(key);
-			Item item = value.type();
-			int count = value.count();
+			Items items = _synthesizeItems(entityInventory, key);
+			Item item = items.type();
+			int count = items.count();
 			_drawItem(item, count, left, bottom, scale, isMouseOver, NO_PROGRESS);
 			EventHandler onClick = null;
 			if (isMouseOver)
@@ -274,14 +277,13 @@ public class WindowManager
 				Runnable click = () -> {
 					// Select.
 					// If this already was selected, clear it.
-					int thisItemKey = _entity.inventory().getIdOfStackableType(item);
-					if (_entity.selectedItemKey() == thisItemKey)
+					if (_entity.selectedItemKey() == key)
 					{
 						client.setSelectedItem(0);
 					}
 					else
 					{
-						client.setSelectedItem(thisItemKey);
+						client.setSelectedItem(key);
 					}
 				};
 				Runnable rightClick = () -> {
@@ -311,9 +313,9 @@ public class WindowManager
 	private _MouseOver<Integer> _drawBlockInventory(ClientLogic client, Inventory blockInventory, String inventoryName, float glX, float glY)
 	{
 		_ValueRenderer<Integer> keyRender = (float left, float bottom, float scale, boolean isMouseOver, Integer key) -> {
-			Items value = blockInventory.getStackForKey(key);
-			Item item = value.type();
-			int count = value.count();
+			Items items = _synthesizeItems(blockInventory, key);
+			Item item = items.type();
+			int count = items.count();
 			// We never highlight the label, just the buttons.
 			_drawItem(item, count, left, bottom, scale, isMouseOver, NO_PROGRESS);
 			EventHandler onClick = null;
@@ -823,6 +825,30 @@ public class WindowManager
 		float top = glY;
 		_drawBackground(left, bottom, right, top, false);
 		_drawLabel(left, bottom, right, top, name.toUpperCase());
+	}
+
+	private static Items _synthesizeItems(Inventory inventory, int selectedKey)
+	{
+		// This helper will synthesize the non-stackable as a stack with 1 element, just as a stop-gap.
+		Items stack = inventory.getStackForKey(selectedKey);
+		Items items;
+		if (null != stack)
+		{
+			items = stack;
+		}
+		else
+		{
+			NonStackableItem nonStack = inventory.getNonStackableForKey(selectedKey);
+			if (null != nonStack)
+			{
+				items = new Items(nonStack.type(), 1);
+			}
+			else
+			{
+				items = null;
+			}
+		}
+		return items;
 	}
 
 
