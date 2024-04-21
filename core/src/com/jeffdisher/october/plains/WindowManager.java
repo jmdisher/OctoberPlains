@@ -231,7 +231,7 @@ public class WindowManager
 				{
 					if (null != thisButton.context)
 					{
-						_drawHover(glX, glY, thisButton.context.output.type().name());
+						_drawHover(glX, glY, thisButton.context.output[0].name());
 					}
 					button = thisButton.handler;
 				}
@@ -398,7 +398,17 @@ public class WindowManager
 			{
 				progressBar = (float)crafting.completedMillis() / (float)craft.millisPerCraft;
 			}
-			_drawItem(craft.output.type(), craft.output.count(), left, bottom, scale, shouldHighlight, progressBar);
+			// We will only show the first output type so see how many there are.
+			Item type = craft.output[0];
+			int count = 0;
+			for (Item item : craft.output)
+			{
+				if (type == item)
+				{
+					count += 1;
+				}
+			}
+			_drawItem(type, count, left, bottom, scale, shouldHighlight, progressBar);
 			EventHandler onClick = null;
 			if (shouldHighlight)
 			{
