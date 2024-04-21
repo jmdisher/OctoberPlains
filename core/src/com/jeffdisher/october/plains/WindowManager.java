@@ -287,7 +287,7 @@ public class WindowManager
 				Runnable rightClick = () -> {
 					// Transfer 1.
 					AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
-					client.pushItemsToTileInventory(location, item, 1, (_WindowMode.FUEL == _mode));
+					client.pushItemsToTileInventory(location, key, 1, (_WindowMode.FUEL == _mode));
 				};
 				Runnable shiftClick = () -> {
 					// Transfer all.
@@ -298,7 +298,7 @@ public class WindowManager
 					if (toDrop > 0)
 					{
 						AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
-						client.pushItemsToTileInventory(location, item, toDrop, (_WindowMode.FUEL == _mode));
+						client.pushItemsToTileInventory(location, key, toDrop, (_WindowMode.FUEL == _mode));
 					}
 				};
 				onClick = new EventHandler(click, rightClick, shiftClick);
@@ -326,7 +326,7 @@ public class WindowManager
 				Runnable rightClick = () -> {
 					// Transfer 1.
 					AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
-					client.pullItemsFromTileInventory(location, item, 1, (_WindowMode.FUEL == _mode));
+					client.pullItemsFromTileInventory(location, key, 1, (_WindowMode.FUEL == _mode));
 				};
 				Runnable shiftClick = () -> {
 					// Transfer all.
@@ -337,7 +337,7 @@ public class WindowManager
 					if (toPickUp > 0)
 					{
 						AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
-						client.pullItemsFromTileInventory(location, item, toPickUp, (_WindowMode.FUEL == _mode));
+						client.pullItemsFromTileInventory(location, key, toPickUp, (_WindowMode.FUEL == _mode));
 					}
 				};
 				onClick = new EventHandler(click, rightClick, shiftClick);

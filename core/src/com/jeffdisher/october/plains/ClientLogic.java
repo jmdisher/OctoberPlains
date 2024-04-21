@@ -34,7 +34,6 @@ import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.FuelState;
 import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
-import com.jeffdisher.october.types.Items;
 import com.jeffdisher.october.types.MutableInventory;
 import com.jeffdisher.october.utils.Assert;
 
@@ -220,7 +219,7 @@ public class ClientLogic
 		}
 	}
 
-	public void pullItemsFromTileInventory(AbsoluteLocation location, Item type, int count, boolean useFuel)
+	public void pullItemsFromTileInventory(AbsoluteLocation location, int blockInventoryKey, int count, boolean useFuel)
 	{
 		IReadOnlyCuboidData cuboid = _cuboids.get(location.getCuboidAddress());
 		// For now, we shouldn't see not-yet-loaded cuboids here.
@@ -245,20 +244,21 @@ public class ClientLogic
 		// This must exist to be calling this.
 		Assert.assertTrue(null != inventory);
 		// This must be a valid request.
-		Assert.assertTrue(inventory.getCount(type) >= count);
+		Assert.assertTrue(inventory.getStackForKey(blockInventoryKey).count() >= count);
 		
-		MutationEntityRequestItemPickUp request = new MutationEntityRequestItemPickUp(location, new Items(type, count), inventoryAspect);
+		MutationEntityRequestItemPickUp request = new MutationEntityRequestItemPickUp(location, blockInventoryKey, count, inventoryAspect);
 		long currentTimeMillis = System.currentTimeMillis();
 		_client.sendAction(request, currentTimeMillis);
 	}
 
-	public void pushItemsToTileInventory(AbsoluteLocation location, Item type, int count, boolean useFuel)
+	public void pushItemsToTileInventory(AbsoluteLocation location, int blockInventoryKey, int count, boolean useFuel)
 	{
 		IReadOnlyCuboidData cuboid = _cuboids.get(location.getCuboidAddress());
 		// For now, we shouldn't see not-yet-loaded cuboids here.
 		Assert.assertTrue(null != cuboid);
 		BlockAddress blockAddress = location.getBlockAddress();
 		BlockProxy proxy = new BlockProxy(blockAddress, cuboid);
+		Item type = _thisEntity.inventory().getStackForKey(blockInventoryKey).type();
 		// Make sure that these can fit in the tile.
 		Inventory targetInventory;
 		byte inventoryAspect;
