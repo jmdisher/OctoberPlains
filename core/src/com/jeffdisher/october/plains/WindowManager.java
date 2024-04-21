@@ -183,26 +183,28 @@ public class WindowManager
 					: _selectedBlockInventory(_WindowMode.FUEL == _mode)
 			;
 			
-			_MouseOver<Items> overItems = _drawEntityInventory(client, entityInventory, blockInventory, glX, glY);
-			if (null != overItems)
+			_MouseOver<Integer> overKey = _drawEntityInventory(client, entityInventory, blockInventory, glX, glY);
+			if (null != overKey)
 			{
-				if (null != overItems.context)
+				if (null != overKey.context)
 				{
-					_drawHover(glX, glY, overItems.context.type().name());
+					Item type = entityInventory.getStackForKey(overKey.context).type();
+					_drawHover(glX, glY, type.name());
 				}
-				button = overItems.handler;
+				button = overKey.handler;
 			}
 			
 			// Draw the inventory of the ground or selected block.
 			if (null != blockInventory)
 			{
 				String inventoryName = _getInventoryName(_WindowMode.FUEL == _mode);
-				_MouseOver<Items> thisButton = _drawBlockInventory(client, blockInventory, inventoryName, glX, glY);
+				_MouseOver<Integer> thisButton = _drawBlockInventory(client, blockInventory, inventoryName, glX, glY);
 				if (null != thisButton)
 				{
 					if (null != thisButton.context)
 					{
-						_drawHover(glX, glY, thisButton.context.type().name());
+						Item type = blockInventory.getStackForKey(thisButton.context).type();
+						_drawHover(glX, glY, type.name());
 					}
 					button = thisButton.handler;
 				}
@@ -259,9 +261,10 @@ public class WindowManager
 		_drawLabel(valueMargin, -1.0f, valueMargin + labelWidth, -0.95f, zLevel);
 	}
 
-	private _MouseOver<Items> _drawEntityInventory(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
+	private _MouseOver<Integer> _drawEntityInventory(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
 	{
-		_ValueRenderer<Items> itemRender = (float left, float bottom, float scale, boolean isMouseOver, Items value) -> {
+		_ValueRenderer<Integer> keyRender = (float left, float bottom, float scale, boolean isMouseOver, Integer key) -> {
+			Items value = entityInventory.getStackForKey(key);
 			Item item = value.type();
 			int count = value.count();
 			_drawItem(item, count, left, bottom, scale, isMouseOver, NO_PROGRESS);
@@ -302,12 +305,13 @@ public class WindowManager
 			}
 			return onClick;
 		};
-		return _drawTableWindow("Inventory", 0.05f, 0.05f, 0.95f, 0.95f, glX, glY, 0.1f, 0.05f, entityInventory.sortedItems(), itemRender);
+		return _drawTableWindow("Inventory", 0.05f, 0.05f, 0.95f, 0.95f, glX, glY, 0.1f, 0.05f, entityInventory.sortedKeys(), keyRender);
 	}
 
-	private _MouseOver<Items> _drawBlockInventory(ClientLogic client, Inventory blockInventory, String inventoryName, float glX, float glY)
+	private _MouseOver<Integer> _drawBlockInventory(ClientLogic client, Inventory blockInventory, String inventoryName, float glX, float glY)
 	{
-		_ValueRenderer<Items> itemRender = (float left, float bottom, float scale, boolean isMouseOver, Items value) -> {
+		_ValueRenderer<Integer> keyRender = (float left, float bottom, float scale, boolean isMouseOver, Integer key) -> {
+			Items value = blockInventory.getStackForKey(key);
 			Item item = value.type();
 			int count = value.count();
 			// We never highlight the label, just the buttons.
@@ -340,7 +344,7 @@ public class WindowManager
 			}
 			return onClick;
 		};
-		return _drawTableWindow(inventoryName, -0.95f, -0.95f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.sortedItems(), itemRender);
+		return _drawTableWindow(inventoryName, -0.95f, -0.95f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.sortedKeys(), keyRender);
 	}
 
 	private _MouseOver<Craft> _drawCraftingPanel(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)

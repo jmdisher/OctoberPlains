@@ -308,7 +308,7 @@ public class LayerManager
 				short damage = proxy.getDamage();
 				// Note that we will get an empty inventory if an inventory is supported.
 				Inventory blockInventory = proxy.getInventory();
-				boolean hasDebrisInventory = _environment.blocks.permitsEntityMovement(block) && (null != blockInventory) && !blockInventory.sortedItems().isEmpty();
+				boolean hasDebrisInventory = _environment.blocks.permitsEntityMovement(block) && (null != blockInventory) && !blockInventory.sortedKeys().isEmpty();
 				
 				// Apply the rules for how we prioritize secondary textures.
 				TextureAtlas.Secondary secondary;
