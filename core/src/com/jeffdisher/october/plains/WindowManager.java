@@ -156,10 +156,14 @@ public class WindowManager
 		int selectedKey = (null != _entity) ? _entity.selectedItemKey() : Entity.NO_SELECTION;
 		if (Entity.NO_SELECTION != selectedKey)
 		{
-			Items items = _synthesizeItems(_entity.inventory(), selectedKey);
+			// See if this is stackable or not.
+			Inventory entityInventory = _entity.inventory();
+			Items stack = entityInventory.getStackForKey(selectedKey);
+			NonStackableItem nonStack = entityInventory.getNonStackableForKey(selectedKey);
+			
 			// This must be there if selected.
-			Assert.assertTrue(null != items);
-			_drawItemWithLabel(items.type(), items.count(), -0.3f, -0.9f, 0.3f, -0.8f);
+			Assert.assertTrue((null != stack) != (null != nonStack));
+			_drawItemWithLabel(stack, nonStack, -0.3f, -0.9f, 0.3f, -0.8f);
 		}
 		
 		// Draw other on-screen meta-data related to the state of the entity.
@@ -278,10 +282,24 @@ public class WindowManager
 	private _MouseOver<Integer> _drawEntityInventory(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
 	{
 		_ValueRenderer<Integer> keyRender = (float left, float bottom, float scale, boolean isMouseOver, Integer key) -> {
-			Items items = _synthesizeItems(entityInventory, key);
-			Item item = items.type();
-			int count = items.count();
-			_drawItem(item, count, left, bottom, scale, isMouseOver, NO_PROGRESS);
+			// See if this is stackable or not.
+			Items stack = entityInventory.getStackForKey(key);
+			NonStackableItem nonStack = entityInventory.getNonStackableForKey(key);
+			Item item = (null != stack) ? stack.type() : nonStack.type();
+			int count = (null != stack) ? stack.count() : 1;
+			float progress;
+			if (null != stack)
+			{
+				progress = NO_PROGRESS;
+			}
+			else
+			{
+				// We will draw the durability as a progress over the non-stackable.
+				int maxDurability = _environment.tools.toolDurability(item);
+				progress = ((float)nonStack.durability()) / ((float)maxDurability);
+			}
+			_drawItem(item, count, left, bottom, scale, isMouseOver, progress);
+			
 			EventHandler onClick = null;
 			if (isMouseOver)
 			{
@@ -324,11 +342,24 @@ public class WindowManager
 	private _MouseOver<Integer> _drawBlockInventory(ClientLogic client, Inventory blockInventory, String inventoryName, float glX, float glY)
 	{
 		_ValueRenderer<Integer> keyRender = (float left, float bottom, float scale, boolean isMouseOver, Integer key) -> {
-			Items items = _synthesizeItems(blockInventory, key);
-			Item item = items.type();
-			int count = items.count();
-			// We never highlight the label, just the buttons.
-			_drawItem(item, count, left, bottom, scale, isMouseOver, NO_PROGRESS);
+			// See if this is stackable or not.
+			Items stack = blockInventory.getStackForKey(key);
+			NonStackableItem nonStack = blockInventory.getNonStackableForKey(key);
+			Item item = (null != stack) ? stack.type() : nonStack.type();
+			int count = (null != stack) ? stack.count() : 1;
+			float progress;
+			if (null != stack)
+			{
+				progress = NO_PROGRESS;
+			}
+			else
+			{
+				// We will draw the durability as a progress over the non-stackable.
+				int maxDurability = _environment.tools.toolDurability(item);
+				progress = ((float)nonStack.durability()) / ((float)maxDurability);
+			}
+			_drawItem(item, count, left, bottom, scale, isMouseOver, progress);
+			
 			EventHandler onClick = null;
 			if (isMouseOver)
 			{
@@ -574,10 +605,45 @@ public class WindowManager
 		// Draw the background.
 		_drawBackground(left, bottom, right, top, shouldHighlight);
 		
-		// Get the primary texture for the item.
+		_drawPrimaryTileAndNumber(selectedItem, count, left, bottom, scale, progressBar);
+	}
+
+	private void _drawItemWithLabel(Items stack, NonStackableItem nonStack, float left, float bottom, float right, float top)
+	{
+		Item item = (null != stack) ? stack.type() : nonStack.type();
+		int count = (null != stack) ? stack.count() : 1;
+		float progress;
+		if (null != stack)
+		{
+			progress = NO_PROGRESS;
+		}
+		else
+		{
+			// We will draw the durability as a progress over the non-stackable.
+			int maxDurability = _environment.tools.toolDurability(item);
+			progress = ((float)nonStack.durability()) / ((float)maxDurability);
+		}
+		
+		// We lazily create the label.
+		String name = item.name().toUpperCase();
+		
+		// Draw the background.
+		_drawBackground(left, bottom, right, top, false);
+		
+		// We will derive the scale from the y since we only want the square.
+		float scale = (top - bottom);
+		_drawPrimaryTileAndNumber(item, count, left, bottom, scale, progress);
+		
+		// Draw the label.
+		_drawLabel(left + 0.1f, bottom, right, top, name);
+	}
+
+	private void _drawPrimaryTileAndNumber(Item item, int count, float left, float bottom, float scale, float progressBar)
+	{
+		// Draw the tile.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _atlas.primaryTexture);
-		float[] uv = _atlas.baseOfPrimaryTexture(selectedItem);
+		float[] uv = _atlas.baseOfPrimaryTexture(item);
 		float textureBaseU = uv[0];
 		float textureBaseV = uv[1];
 		_gl.glUniform1i(_uTexture, 0);
@@ -598,6 +664,7 @@ public class WindowManager
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textManager.lazilyLoadStringTexture(Integer.toString(count)));
 		_gl.glUniform1i(_uTexture, 0);
 		_gl.glUniform2f(_uOffset, left, bottom);
+		// We want half the height but we stretch horizontally since the texture is too cramped, otherwise (it isn't a square).
 		_gl.glUniform2f(_uScale, scale * 2.0f, scale * 0.5f);
 		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
 		_gl.glUniform2f(_uTextureScale, 0.5f, 1.0f);
@@ -612,60 +679,12 @@ public class WindowManager
 		if (progressBar > 0.0f)
 		{
 			// There is a progress bar, so draw that, instead.
-			float progressTop = bottom + ((top - bottom) * progressBar);
+			float progressTop = bottom + (scale * progressBar);
 			_gl.glActiveTexture(GL20.GL_TEXTURE0);
 			_gl.glBindTexture(GL20.GL_TEXTURE_2D, _progressTexture);
 			_gl.glUniform2f(_uTextureScale, 1.0f, 1.0f);
-			_drawUnitRect(left, bottom, right, progressTop);
+			_drawUnitRect(left, bottom, left + scale, progressTop);
 		}
-	}
-
-	private void _drawItemWithLabel(Item selectedItem, int count, float left, float bottom, float right, float top)
-	{
-		// We lazily create the label.
-		String name = selectedItem.name().toUpperCase();
-		
-		// Draw the background.
-		_drawBackground(left, bottom, right, top, false);
-		float xScale = (right - left);
-		float yScale = (top - bottom);
-		
-		// Draw the tile.
-		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _atlas.primaryTexture);
-		float[] uv = _atlas.baseOfPrimaryTexture(selectedItem);
-		float textureBaseU = uv[0];
-		float textureBaseV = uv[1];
-		_gl.glUniform1i(_uTexture, 0);
-		_gl.glUniform2f(_uOffset, left, bottom);
-		// We want to just draw this square.
-		_gl.glUniform2f(_uScale, yScale, yScale);
-		_gl.glUniform2f(_uTextureBase, textureBaseU, textureBaseV);
-		_gl.glUniform2f(_uTextureScale, 1.0f, 1.0f);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _atlasVertexBuffer);
-		_gl.glEnableVertexAttribArray(0);
-		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
-		_gl.glEnableVertexAttribArray(1);
-		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
-		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
-		
-		// Draw the number in the corner.
-		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textManager.lazilyLoadStringTexture(Integer.toString(count)));
-		_gl.glUniform1i(_uTexture, 0);
-		_gl.glUniform2f(_uOffset, left, bottom);
-		_gl.glUniform2f(_uScale, xScale * 0.5f, yScale * 0.5f);
-		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
-		_gl.glUniform2f(_uTextureScale, 0.5f, 1.0f);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _unitVertexBuffer);
-		_gl.glEnableVertexAttribArray(0);
-		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
-		_gl.glEnableVertexAttribArray(1);
-		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
-		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
-		
-		// Draw the label.
-		_drawLabel(left + 0.1f, bottom, right, top, name);
 	}
 
 	private Inventory _currentBlockInventory()
