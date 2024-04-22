@@ -60,6 +60,7 @@ public class OctoberPlains extends ApplicationAdapter
 						, TextureAtlas.Secondary.BREAK_HEAVY, "break3.png"
 						, TextureAtlas.Secondary.ACTIVE_STATION, "active.png"
 				)
+				, "missing_texture.png"
 			);
 		}
 		catch (IOException e)

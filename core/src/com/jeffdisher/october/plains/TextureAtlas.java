@@ -40,6 +40,7 @@ public class TextureAtlas
 	public static TextureAtlas loadAtlas(GL20 gl
 			, Item[] primaryItems
 			, Map<Secondary, String> secondaryNameMap
+			, String missingTextureName
 	) throws IOException
 	{
 		// We will create 2 texture atlases:  Primary holds the item graphics and secondary holds modifiers to blend on top.
@@ -53,7 +54,7 @@ public class TextureAtlas
 				(int size) -> new String[size]
 		);
 		int primaryTexturesPerRow = _texturesPerRow(primaryNames.length);
-		int primaryTexture = _createTextureAtlas(gl, primaryNames, primaryTexturesPerRow, eachTextureEdge);
+		int primaryTexture = _createTextureAtlas(gl, primaryNames, missingTextureName, primaryTexturesPerRow, eachTextureEdge);
 		
 		String[] secondaryNames = new String[Secondary.values().length];
 		for (Secondary secondary : Secondary.values())
@@ -64,7 +65,7 @@ public class TextureAtlas
 			secondaryNames[secondary.ordinal()] = secondaryName;
 		}
 		int secondaryTexturesPerRow = _texturesPerRow(secondaryNames.length);
-		int secondaryTexture = _createTextureAtlas(gl, secondaryNames, secondaryTexturesPerRow, eachTextureEdge);
+		int secondaryTexture = _createTextureAtlas(gl, secondaryNames, missingTextureName, secondaryTexturesPerRow, eachTextureEdge);
 		
 		return new TextureAtlas(primaryTexture, secondaryTexture, primaryTexturesPerRow, secondaryTexturesPerRow);
 	}
@@ -91,7 +92,7 @@ public class TextureAtlas
 		return texturesPerRow;
 	}
 
-	private static int _createTextureAtlas(GL20 gl, String[] imageNames, int texturesPerRow, int eachTextureEdge) throws IOException
+	private static int _createTextureAtlas(GL20 gl, String[] imageNames, String missingTextureName, int texturesPerRow, int eachTextureEdge) throws IOException
 	{
 		int width = texturesPerRow * eachTextureEdge;
 		int height = texturesPerRow * eachTextureEdge;
@@ -107,8 +108,12 @@ public class TextureAtlas
 		{
 			String name = imageNames[i];
 			
-			// TODO:  Change this when we have more than one texture and need to actually build the atlas.
 			FileHandle unknownTextureFile = Gdx.files.internal(name);
+			// If this is missing, load the missing texture, instead.
+			if (!unknownTextureFile.exists())
+			{
+				unknownTextureFile = Gdx.files.internal(missingTextureName);
+			}
 			BufferedImage loadedTexture = ImageIO.read(unknownTextureFile.read());
 			// We require all textures to be of fixed square size.
 			Assert.assertTrue(loadedTexture.getWidth() == eachTextureEdge);
