@@ -51,6 +51,7 @@ public class WindowManager
 
 	private int _backgroundTexture;
 	private int _backgroundHighlightTexture;
+	private int _progressTexture;
 	private Entity _entity;
 
 	private _WindowMode _mode;
@@ -130,6 +131,16 @@ public class WindowManager
 		((java.nio.Buffer) textureBufferData).flip();
 		gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundHighlightTexture);
 		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, 1, 1, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
+		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
+		
+		// Create the progress texture - this is green with a low alpha since we draw it on top.
+		_progressTexture = _gl.glGenTexture();
+		textureBufferData = ByteBuffer.allocateDirect(4);
+		textureBufferData.order(ByteOrder.nativeOrder());
+		textureBufferData.put(new byte[] { (byte)0, (byte)255, (byte)0, (byte)128 });
+		((java.nio.Buffer) textureBufferData).flip();
+		gl.glBindTexture(GL20.GL_TEXTURE_2D, _progressTexture);
+		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_RGBA, 1, 1, 0, GL20.GL_RGBA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
 		
 		// By default, we don't have any window mode active.
@@ -561,17 +572,9 @@ public class WindowManager
 		float top = bottom + scale;
 		
 		// Draw the background.
-		if (progressBar > 0.0f)
-		{
-			// There is a progress bar, so draw that, instead.
-			float progressRight = left + ((right - left) * progressBar);
-			_drawBackground(left, bottom, progressRight, top, true);
-		}
-		else
-		{
-			// Just draw the normal background.
-			_drawBackground(left, bottom, right, top, shouldHighlight);
-		}
+		_drawBackground(left, bottom, right, top, shouldHighlight);
+		
+		// Get the primary texture for the item.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _atlas.primaryTexture);
 		float[] uv = _atlas.baseOfPrimaryTexture(selectedItem);
@@ -604,6 +607,17 @@ public class WindowManager
 		_gl.glEnableVertexAttribArray(1);
 		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+		
+		// If there is a progress bar, draw that on top (vertical - from bottom to top).
+		if (progressBar > 0.0f)
+		{
+			// There is a progress bar, so draw that, instead.
+			float progressTop = bottom + ((top - bottom) * progressBar);
+			_gl.glActiveTexture(GL20.GL_TEXTURE0);
+			_gl.glBindTexture(GL20.GL_TEXTURE_2D, _progressTexture);
+			_gl.glUniform2f(_uTextureScale, 1.0f, 1.0f);
+			_drawUnitRect(left, bottom, right, progressTop);
+		}
 	}
 
 	private void _drawItemWithLabel(Item selectedItem, int count, float left, float bottom, float right, float top)
