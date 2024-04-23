@@ -524,20 +524,20 @@ public class WindowManager
 		// Currently, this is only relevant for crafting table blocks.
 		boolean didOpen = false;
 		Block block = proxy.getBlock();
-		if (_environment.blocks.CRAFTING_TABLE == block)
+		if (_environment.stations.getNormalInventorySize(block) > 0)
 		{
-			// Enter crafting table mode at this block.
-			_mode = _WindowMode.CRAFTING_TABLE_INVENTORY;
-			// We store the location symbolically, instead of directly storing the inventory, since it can change or be destroyed.
+			// We are at least some kind of station with an inventory.
 			_openInventoryLocation = blockLocation;
-			didOpen = true;
-		}
-		else if (_environment.blocks.FURNACE == block)
-		{
-			// Enter furnace mode at this block.
-			_mode = _WindowMode.FURNACE_INVENTORY;
-			// We store the location symbolically, instead of directly storing the inventory, since it can change or be destroyed.
-			_openInventoryLocation = blockLocation;
+			if (_environment.stations.getFuelInventorySize(block) > 0)
+			{
+				// We have a fuel inventory so we are something like a furnace.
+				_mode = _WindowMode.FURNACE_INVENTORY;
+			}
+			else
+			{
+				// This is likely something like a crafting table.
+				_mode = _WindowMode.CRAFTING_TABLE_INVENTORY;
+			}
 			didOpen = true;
 		}
 		return didOpen;
@@ -553,7 +553,7 @@ public class WindowManager
 	{
 		AbsoluteLocation location = null;
 		if ((null != _openInventoryLocation)
-				&& (_environment.blocks.CRAFTING_TABLE == _blockLoader.apply(_openInventoryLocation).getBlock())
+				&& (_environment.stations.getManualMultiplier(_blockLoader.apply(_openInventoryLocation).getBlock()) > 0)
 				&& (null != _blockLoader.apply(_openInventoryLocation).getCrafting())
 		)
 		{
@@ -823,25 +823,10 @@ public class WindowManager
 		{
 			BlockProxy proxy = _blockLoader.apply(_openInventoryLocation);
 			Block block = proxy.getBlock();
-			if (_environment.blocks.CRAFTING_TABLE == block)
+			name = block.item().name();
+			if (fuelMode)
 			{
-				name = "Crafting Table";
-			}
-			else if (_environment.blocks.FURNACE == block)
-			{
-				if (fuelMode)
-				{
-					name = "Furnace Fuel";
-				}
-				else
-				{
-					name = "Furnace";
-				}
-			}
-			else
-			{
-				// Future items may appear here.
-				name = "(Unknown)";
+				name += " Fuel";
 			}
 		}
 		return name;
@@ -917,11 +902,11 @@ public class WindowManager
 			switch (this)
 			{
 			case CRAFTING_TABLE_INVENTORY:
-				isCorrect = (environment.blocks.CRAFTING_TABLE == block);
+				isCorrect = (environment.stations.getNormalInventorySize(block) > 0);
 				break;
 			case FURNACE_INVENTORY:
 			case FUEL:
-				isCorrect = (environment.blocks.FURNACE == block);
+				isCorrect = (environment.stations.getFuelInventorySize(block) > 0);
 				break;
 				default:
 					// We shouldn't be asking in this case.
