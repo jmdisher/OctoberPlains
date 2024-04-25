@@ -15,6 +15,7 @@ import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.mutations.EntityChangeAttackEntity;
 import com.jeffdisher.october.mutations.EntityChangeEatSelectedItem;
+import com.jeffdisher.october.mutations.EntityChangeExchangeLiquid;
 import com.jeffdisher.october.mutations.EntityChangeJump;
 import com.jeffdisher.october.mutations.IMutationEntity;
 import com.jeffdisher.october.mutations.MutationEntityPushItems;
@@ -204,17 +205,30 @@ public class ClientLogic
 		int selectedKey = _thisEntity.selectedItemKey();
 		if (Entity.NO_SELECTION != selectedKey)
 		{
-			// Check which action makes sense (eat or place).
+			// Check which action makes sense (eat, use, or place).
 			IMutationEntity change;
-			int foodValue = _environment.foods.foodValue(_thisEntity.inventory().getStackForKey(selectedKey).type());
+			Items stack = _thisEntity.inventory().getStackForKey(selectedKey);
+			Item stackType = (null != stack) ? stack.type() : null;
+			int foodValue = _environment.foods.foodValue(stackType);
 			if (foodValue > 0)
 			{
 				change = new EntityChangeEatSelectedItem();
 			}
 			else
 			{
-				// The mutation will check proximity and collision.
-				change = new MutationPlaceSelectedBlock(blockLocation);
+				NonStackableItem nonStack = _thisEntity.inventory().getNonStackableForKey(selectedKey);
+				Item nonStackType = (null != nonStack) ? nonStack.type() : null;
+				// For now, the only special action we have is for a bucket so try that.
+				if ((_environment.items.getItemById("op.bucket_empty") == nonStackType) || (_environment.items.getItemById("op.bucket_water") == nonStackType))
+				{
+					// The change will check if this makes sense for the target block.
+					change = new EntityChangeExchangeLiquid(blockLocation);
+				}
+				else
+				{
+					// The mutation will check proximity and collision.
+					change = new MutationPlaceSelectedBlock(blockLocation);
+				}
 			}
 			long currentTimeMillis = System.currentTimeMillis();
 			_client.sendAction(change, currentTimeMillis);
