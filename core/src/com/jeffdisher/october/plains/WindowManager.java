@@ -152,18 +152,45 @@ public class WindowManager
 		// Enable our program
 		_gl.glUseProgram(_program);
 		
-		// If there is an item selected, show it.
-		int selectedKey = (null != _entity) ? _entity.hotbarItems()[_entity.hotbarIndex()] : Entity.NO_SELECTION;
-		if (Entity.NO_SELECTION != selectedKey)
+		// We want to draw the hotbar.
+		float hotbarScale = 0.1f;
+		float hotbarSpacing = 0.05f;
+		float hotbarBottom = -0.95f;
+		float hotbarWidth = ((float)Entity.HOTBAR_SIZE * hotbarScale) + ((float)(Entity.HOTBAR_SIZE - 1) * hotbarSpacing);
+		float nextLeftButton = - hotbarWidth / 2.0f;
+		for (int i = 0; i < _entity.hotbarItems().length; ++i)
 		{
-			// See if this is stackable or not.
-			Inventory entityInventory = _entity.inventory();
-			Items stack = entityInventory.getStackForKey(selectedKey);
-			NonStackableItem nonStack = entityInventory.getNonStackableForKey(selectedKey);
+			// Get the inventory key (0 if not nothing here).
+			int key = _entity.hotbarItems()[i];
 			
-			// This must be there if selected.
-			Assert.assertTrue((null != stack) != (null != nonStack));
-			_drawItemWithLabel(stack, nonStack, -0.3f, -0.9f, 0.3f, -0.8f);
+			// Find the item type.
+			Item type;
+			int count;
+			if (Entity.NO_SELECTION != key)
+			{
+				// This is a real item so find out its type
+				Inventory entityInventory = _entity.inventory();
+				Items stack = entityInventory.getStackForKey(key);
+				NonStackableItem nonStack = entityInventory.getNonStackableForKey(key);
+				
+				// This must be there if selected.
+				Assert.assertTrue((null != stack) != (null != nonStack));
+				type = (null != stack) ? stack.type() : nonStack.type();
+				count = (null != stack) ? stack.count() : 1;
+			}
+			else
+			{
+				// There is nothing here - TODO:  Don't use this "air hack".
+				type = _environment.special.AIR.item();
+				count = 0;
+			}
+			
+			// Determine if this is selected.
+			boolean isSelected = (_entity.hotbarIndex() == i);
+			float progress = isSelected ? 1.0f : 0.0f;
+			_drawBackground(nextLeftButton, hotbarBottom, nextLeftButton + hotbarScale, hotbarBottom + hotbarScale, false);
+			_drawPrimaryTileAndNumber(type, count, nextLeftButton, hotbarBottom, hotbarScale, progress);
+			nextLeftButton += hotbarScale + hotbarSpacing;
 		}
 		
 		// Draw other on-screen meta-data related to the state of the entity.
@@ -388,7 +415,7 @@ public class WindowManager
 			}
 			return onClick;
 		};
-		return _drawTableWindow(inventoryName, -0.95f, -0.95f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.sortedKeys(), keyRender);
+		return _drawTableWindow(inventoryName, -0.95f, -0.80f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.sortedKeys(), keyRender);
 	}
 
 	private _MouseOver<Craft> _drawCraftingPanel(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
@@ -606,36 +633,6 @@ public class WindowManager
 		_drawBackground(left, bottom, right, top, shouldHighlight);
 		
 		_drawPrimaryTileAndNumber(selectedItem, count, left, bottom, scale, progressBar);
-	}
-
-	private void _drawItemWithLabel(Items stack, NonStackableItem nonStack, float left, float bottom, float right, float top)
-	{
-		Item item = (null != stack) ? stack.type() : nonStack.type();
-		int count = (null != stack) ? stack.count() : 1;
-		float progress;
-		if (null != stack)
-		{
-			progress = NO_PROGRESS;
-		}
-		else
-		{
-			// We will draw the durability as a progress over the non-stackable.
-			int maxDurability = _environment.tools.toolDurability(item);
-			progress = ((float)nonStack.durability()) / ((float)maxDurability);
-		}
-		
-		// We lazily create the label.
-		String name = item.name().toUpperCase();
-		
-		// Draw the background.
-		_drawBackground(left, bottom, right, top, false);
-		
-		// We will derive the scale from the y since we only want the square.
-		float scale = (top - bottom);
-		_drawPrimaryTileAndNumber(item, count, left, bottom, scale, progress);
-		
-		// Draw the label.
-		_drawLabel(left + 0.1f, bottom, right, top, name);
 	}
 
 	private void _drawPrimaryTileAndNumber(Item item, int count, float left, float bottom, float scale, float progressBar)

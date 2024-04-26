@@ -189,6 +189,44 @@ public class OctoberPlains extends ApplicationAdapter
 			_windowManager.toggleFuelInventory();
 		}
 		
+		// It looks like we may have to match these individually (arguably, assuming a relationship between them is wrong, anyway).
+		if (Gdx.input.isKeyJustPressed(Keys.NUM_1))
+		{
+			_client.changeHotbar(0);
+		}
+		else if (Gdx.input.isKeyJustPressed(Keys.NUM_2))
+		{
+			_client.changeHotbar(1);
+		}
+		else if (Gdx.input.isKeyJustPressed(Keys.NUM_3))
+		{
+			_client.changeHotbar(2);
+		}
+		else if (Gdx.input.isKeyJustPressed(Keys.NUM_4))
+		{
+			_client.changeHotbar(3);
+		}
+		else if (Gdx.input.isKeyJustPressed(Keys.NUM_5))
+		{
+			_client.changeHotbar(4);
+		}
+		else if (Gdx.input.isKeyJustPressed(Keys.NUM_6))
+		{
+			_client.changeHotbar(5);
+		}
+		else if (Gdx.input.isKeyJustPressed(Keys.NUM_7))
+		{
+			_client.changeHotbar(6);
+		}
+		else if (Gdx.input.isKeyJustPressed(Keys.NUM_8))
+		{
+			_client.changeHotbar(7);
+		}
+		else if (Gdx.input.isKeyJustPressed(Keys.NUM_9))
+		{
+			_client.changeHotbar(8);
+		}
+		
 		// We will only allow a single direction movement at a time.
 		if (didJump)
 		{

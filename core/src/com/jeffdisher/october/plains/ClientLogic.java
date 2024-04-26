@@ -14,6 +14,7 @@ import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.mutations.EntityChangeAttackEntity;
+import com.jeffdisher.october.mutations.EntityChangeChangeHotbarSlot;
 import com.jeffdisher.october.mutations.EntityChangeEatSelectedItem;
 import com.jeffdisher.october.mutations.EntityChangeExchangeLiquid;
 import com.jeffdisher.october.mutations.EntityChangeJump;
@@ -344,6 +345,13 @@ public class ClientLogic
 		EntityChangeAttackEntity attack = new EntityChangeAttackEntity(selectedEntity);
 		long currentTimeMillis = System.currentTimeMillis();
 		_client.sendAction(attack, currentTimeMillis);
+	}
+
+	public void changeHotbar(int index)
+	{
+		EntityChangeChangeHotbarSlot change = new EntityChangeChangeHotbarSlot(index);
+		long currentTimeMillis = System.currentTimeMillis();
+		_client.sendAction(change, currentTimeMillis);
 	}
 
 	public void disconnect()
