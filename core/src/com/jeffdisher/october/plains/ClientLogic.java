@@ -202,7 +202,7 @@ public class ClientLogic
 	public void runAction(AbsoluteLocation blockLocation)
 	{
 		// We need to check our selected item and see what "action" is associated with it.
-		int selectedKey = _thisEntity.selectedItemKey();
+		int selectedKey = _thisEntity.hotbarItems()[_thisEntity.hotbarIndex()];
 		if (Entity.NO_SELECTION != selectedKey)
 		{
 			// Check which action makes sense (eat, use, or place).

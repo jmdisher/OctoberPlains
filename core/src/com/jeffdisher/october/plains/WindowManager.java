@@ -153,7 +153,7 @@ public class WindowManager
 		_gl.glUseProgram(_program);
 		
 		// If there is an item selected, show it.
-		int selectedKey = (null != _entity) ? _entity.selectedItemKey() : Entity.NO_SELECTION;
+		int selectedKey = (null != _entity) ? _entity.hotbarItems()[_entity.hotbarIndex()] : Entity.NO_SELECTION;
 		if (Entity.NO_SELECTION != selectedKey)
 		{
 			// See if this is stackable or not.
@@ -306,7 +306,7 @@ public class WindowManager
 				Runnable click = () -> {
 					// Select.
 					// If this already was selected, clear it.
-					if (_entity.selectedItemKey() == key)
+					if (_entity.hotbarItems()[_entity.hotbarIndex()] == key)
 					{
 						client.setSelectedItem(0);
 					}
