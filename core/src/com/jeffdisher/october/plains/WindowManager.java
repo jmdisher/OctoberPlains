@@ -322,7 +322,7 @@ public class WindowManager
 			else
 			{
 				// We will draw the durability as a progress over the non-stackable.
-				int maxDurability = _environment.tools.toolDurability(item);
+				int maxDurability = _environment.durability.getDurability(item);
 				progress = ((float)nonStack.durability()) / ((float)maxDurability);
 			}
 			_drawItem(item, count, left, bottom, scale, isMouseOver, progress);
@@ -382,7 +382,7 @@ public class WindowManager
 			else
 			{
 				// We will draw the durability as a progress over the non-stackable.
-				int maxDurability = _environment.tools.toolDurability(item);
+				int maxDurability = _environment.durability.getDurability(item);
 				progress = ((float)nonStack.durability()) / ((float)maxDurability);
 			}
 			_drawItem(item, count, left, bottom, scale, isMouseOver, progress);
