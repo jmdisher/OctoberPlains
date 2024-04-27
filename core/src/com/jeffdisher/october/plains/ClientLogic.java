@@ -18,6 +18,7 @@ import com.jeffdisher.october.mutations.EntityChangeChangeHotbarSlot;
 import com.jeffdisher.october.mutations.EntityChangeEatSelectedItem;
 import com.jeffdisher.october.mutations.EntityChangeExchangeLiquid;
 import com.jeffdisher.october.mutations.EntityChangeJump;
+import com.jeffdisher.october.mutations.EntityChangeSwapArmour;
 import com.jeffdisher.october.mutations.IMutationEntity;
 import com.jeffdisher.october.mutations.MutationEntityPushItems;
 import com.jeffdisher.october.mutations.MutationEntityRequestItemPickUp;
@@ -30,6 +31,7 @@ import com.jeffdisher.october.process.ServerProcess;
 import com.jeffdisher.october.server.ServerRunner;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.BlockAddress;
+import com.jeffdisher.october.types.BodyPart;
 import com.jeffdisher.october.types.Craft;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
@@ -352,6 +354,13 @@ public class ClientLogic
 		EntityChangeChangeHotbarSlot change = new EntityChangeChangeHotbarSlot(index);
 		long currentTimeMillis = System.currentTimeMillis();
 		_client.sendAction(change, currentTimeMillis);
+	}
+
+	public void swapArmour(BodyPart armourPart, int selectedItem)
+	{
+		EntityChangeSwapArmour swap = new EntityChangeSwapArmour(armourPart, selectedItem);
+		long currentTimeMillis = System.currentTimeMillis();
+		_client.sendAction(swap, currentTimeMillis);
 	}
 
 	public void disconnect()

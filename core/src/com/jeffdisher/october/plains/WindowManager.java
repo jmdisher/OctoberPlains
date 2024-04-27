@@ -13,6 +13,7 @@ import com.jeffdisher.october.aspects.InventoryAspect;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.Block;
+import com.jeffdisher.october.types.BodyPart;
 import com.jeffdisher.october.types.Craft;
 import com.jeffdisher.october.types.CraftOperation;
 import com.jeffdisher.october.types.Entity;
@@ -152,50 +153,10 @@ public class WindowManager
 		// Enable our program
 		_gl.glUseProgram(_program);
 		
-		// We want to draw the hotbar.
-		float hotbarScale = 0.1f;
-		float hotbarSpacing = 0.05f;
-		float hotbarBottom = -0.95f;
-		float hotbarWidth = ((float)Entity.HOTBAR_SIZE * hotbarScale) + ((float)(Entity.HOTBAR_SIZE - 1) * hotbarSpacing);
-		float nextLeftButton = - hotbarWidth / 2.0f;
-		for (int i = 0; i < _entity.hotbarItems().length; ++i)
-		{
-			// Get the inventory key (0 if not nothing here).
-			int key = _entity.hotbarItems()[i];
-			
-			// Find the item type.
-			Item type;
-			int count;
-			if (Entity.NO_SELECTION != key)
-			{
-				// This is a real item so find out its type
-				Inventory entityInventory = _entity.inventory();
-				Items stack = entityInventory.getStackForKey(key);
-				NonStackableItem nonStack = entityInventory.getNonStackableForKey(key);
-				
-				// This must be there if selected.
-				Assert.assertTrue((null != stack) != (null != nonStack));
-				type = (null != stack) ? stack.type() : nonStack.type();
-				count = (null != stack) ? stack.count() : 1;
-			}
-			else
-			{
-				// There is nothing here - TODO:  Don't use this "air hack".
-				type = _environment.special.AIR.item();
-				count = 0;
-			}
-			
-			// Determine if this is selected.
-			boolean isSelected = (_entity.hotbarIndex() == i);
-			float progress = isSelected ? 1.0f : 0.0f;
-			_drawBackground(nextLeftButton, hotbarBottom, nextLeftButton + hotbarScale, hotbarBottom + hotbarScale, false);
-			_drawPrimaryTileAndNumber(type, count, nextLeftButton, hotbarBottom, hotbarScale, progress);
-			nextLeftButton += hotbarScale + hotbarSpacing;
-		}
-		
-		// Draw other on-screen meta-data related to the state of the entity.
+		// Draw the data associated with an entity which is always on screen.
 		if (null != _entity)
 		{
+			_drawHotbar();
 			_drawEntityMetaData(_entity);
 		}
 		
@@ -226,7 +187,7 @@ public class WindowManager
 					: _selectedBlockInventory(_WindowMode.FUEL == _mode)
 			;
 			
-			_MouseOver<Integer> overKey = _drawEntityInventory(client, entityInventory, blockInventory, glX, glY);
+			_MouseOver<Integer> overKey = _drawEntityInventory(client, _entity.armourSlots(), entityInventory, blockInventory, glX, glY);
 			if (null != overKey)
 			{
 				if (null != overKey.context)
@@ -289,6 +250,49 @@ public class WindowManager
 		return button;
 	}
 
+	private void _drawHotbar()
+	{
+		float hotbarScale = 0.1f;
+		float hotbarSpacing = 0.05f;
+		float hotbarBottom = -0.95f;
+		float hotbarWidth = ((float)Entity.HOTBAR_SIZE * hotbarScale) + ((float)(Entity.HOTBAR_SIZE - 1) * hotbarSpacing);
+		float nextLeftButton = - hotbarWidth / 2.0f;
+		for (int i = 0; i < _entity.hotbarItems().length; ++i)
+		{
+			// Get the inventory key (0 if not nothing here).
+			int key = _entity.hotbarItems()[i];
+			
+			// Find the item type.
+			Item type;
+			int count;
+			if (Entity.NO_SELECTION != key)
+			{
+				// This is a real item so find out its type
+				Inventory entityInventory = _entity.inventory();
+				Items stack = entityInventory.getStackForKey(key);
+				NonStackableItem nonStack = entityInventory.getNonStackableForKey(key);
+				
+				// This must be there if selected.
+				Assert.assertTrue((null != stack) != (null != nonStack));
+				type = (null != stack) ? stack.type() : nonStack.type();
+				count = (null != stack) ? stack.count() : 1;
+			}
+			else
+			{
+				// There is nothing here - TODO:  Don't use this "air hack".
+				type = _environment.special.AIR.item();
+				count = 0;
+			}
+			
+			// Determine if this is selected.
+			boolean isSelected = (_entity.hotbarIndex() == i);
+			float progress = isSelected ? 1.0f : 0.0f;
+			_drawBackground(nextLeftButton, hotbarBottom, nextLeftButton + hotbarScale, hotbarBottom + hotbarScale, false);
+			_drawPrimaryTileAndNumber(type, count, nextLeftButton, hotbarBottom, hotbarScale, progress);
+			nextLeftButton += hotbarScale + hotbarSpacing;
+		}
+	}
+
 	private void _drawEntityMetaData(Entity thisEntity)
 	{
 		float labelWidth = 0.1f;
@@ -306,8 +310,54 @@ public class WindowManager
 		_drawLabel(valueMargin, -1.0f, valueMargin + labelWidth, -0.95f, zLevel);
 	}
 
-	private _MouseOver<Integer> _drawEntityInventory(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
+	private _MouseOver<Integer> _drawEntityInventory(ClientLogic client, NonStackableItem[] armour, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
 	{
+		// First, draw the armour slots - these are on the top-right of the screen..
+		float slotScale = 0.1f;
+		float slotSpacing = 0.05f;
+		float slotRight = 0.95f;
+		float nextTopSlot = 0.95f;
+		_MouseOver<Integer> mouseHandler = null;
+		for (int i = 0; i < armour.length; ++i)
+		{
+			NonStackableItem piece = armour[i];
+			float left = slotRight - slotScale;
+			float bottom = nextTopSlot - slotScale;
+			boolean highlight = false;
+			if ((left <= glX) && (glX <= slotRight) && (bottom <= glY) && (glY <= nextTopSlot))
+			{
+				int thisIndex = i;
+				Runnable swap = () -> {
+					// Swap the inventory for this slot.
+					int selectedItem = _entity.hotbarItems()[_entity.hotbarIndex()];
+					NonStackableItem nonStack = _entity.inventory().getNonStackableForKey(selectedItem);
+					Item type = (null != nonStack) ? nonStack.type() : null;
+					BodyPart thisButtonPart = BodyPart.values()[thisIndex];
+					BodyPart armourPart = _environment.armour.getBodyPart(type);
+					// We want to allow the swap if we can swap this in _or_ if we can swap to empty.
+					if ((thisButtonPart == armourPart) || (0 == selectedItem))
+					{
+						// This is the kind of swap we can do.
+						client.swapArmour(thisButtonPart, selectedItem);
+					}
+				};
+				
+				Runnable doNothing = () -> {};
+				mouseHandler = new _MouseOver<>(null, new EventHandler(swap, doNothing, doNothing));
+				highlight = true;
+			}
+			_drawBackground(left, bottom, slotRight, nextTopSlot, highlight);
+			if (null != piece)
+			{
+				Item type = piece.type();
+				int maxDurability = _environment.durability.getDurability(type);
+				float progress = ((float)piece.durability()) / ((float)maxDurability);
+				_drawPrimaryTileAndNumber(type, 1, left, bottom, slotScale, progress);
+			}
+			nextTopSlot -= slotScale + slotSpacing;
+		}
+		
+		// Now, draw the main inventory.
 		_ValueRenderer<Integer> keyRender = (float left, float bottom, float scale, boolean isMouseOver, Integer key) -> {
 			// See if this is stackable or not.
 			Items stack = entityInventory.getStackForKey(key);
@@ -363,7 +413,13 @@ public class WindowManager
 			}
 			return onClick;
 		};
-		return _drawTableWindow("Inventory", 0.05f, 0.05f, 0.95f, 0.95f, glX, glY, 0.1f, 0.05f, entityInventory.sortedKeys(), keyRender);
+		float inventoryRight = slotRight - slotScale - slotSpacing;
+		_MouseOver<Integer> windowHandler = _drawTableWindow("Inventory", 0.05f, 0.05f, inventoryRight, 0.95f, glX, glY, 0.1f, 0.05f, entityInventory.sortedKeys(), keyRender);
+		if (null != windowHandler)
+		{
+			mouseHandler = windowHandler;
+		}
+		return mouseHandler;
 	}
 
 	private _MouseOver<Integer> _drawBlockInventory(ClientLogic client, Inventory blockInventory, String inventoryName, float glX, float glY)
