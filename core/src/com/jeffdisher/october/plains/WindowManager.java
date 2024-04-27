@@ -9,7 +9,7 @@ import java.util.function.Function;
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.aspects.CraftAspect;
 import com.jeffdisher.october.aspects.Environment;
-import com.jeffdisher.october.aspects.InventoryAspect;
+import com.jeffdisher.october.aspects.StationRegistry;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.Block;
@@ -400,7 +400,7 @@ public class WindowManager
 				Runnable shiftClick = () -> {
 					// Transfer all.
 					// Find out how many can fit in the block.
-					MutableInventory checker = new MutableInventory((null != blockInventory) ? blockInventory : Inventory.start(InventoryAspect.CAPACITY_BLOCK_EMPTY).finish());
+					MutableInventory checker = new MutableInventory((null != blockInventory) ? blockInventory : Inventory.start(StationRegistry.CAPACITY_BLOCK_EMPTY).finish());
 					int max = checker.maxVacancyForItem(item);
 					int toDrop = Math.min(count, max);
 					if (toDrop > 0)
