@@ -56,7 +56,6 @@ public class WindowManager
 	private Entity _entity;
 
 	private _WindowMode _mode;
-	private AbsoluteLocation _openInventoryLocation;
 
 	public WindowManager(Environment environment, GL20 gl, TextureAtlas atlas, Function<AbsoluteLocation, BlockProxy> blockLoader)
 	{
@@ -145,7 +144,7 @@ public class WindowManager
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
 		
 		// By default, we don't have any window mode active.
-		_mode = _WindowMode.NONE;
+		_mode = null;
 	}
 
 	public EventHandler drawWindowsWithButtonCapture(ClientLogic client, float glX, float glY)
@@ -161,30 +160,30 @@ public class WindowManager
 		}
 		
 		// Handle the case where we might need to close the inventory window if the block was destroyed or we are too far away.
-		if (_mode.usesBlock())
+		AbsoluteLocation openInventoryLocation = (null != _mode) ? _mode.selectedStation : null;
+		if (null != openInventoryLocation)
 		{
-			int absX = Math.abs(_openInventoryLocation.x() - Math.round(_entity.location().x()));
-			int absY = Math.abs(_openInventoryLocation.y() - Math.round(_entity.location().y()));
-			int absZ = Math.abs(_openInventoryLocation.z() - Math.round(_entity.location().z()));
+			int absX = Math.abs(openInventoryLocation.x() - Math.round(_entity.location().x()));
+			int absY = Math.abs(openInventoryLocation.y() - Math.round(_entity.location().y()));
+			int absZ = Math.abs(openInventoryLocation.z() - Math.round(_entity.location().z()));
 			boolean isLocationClose = ((absX <= 2) && (absY <= 2) && (absZ <= 2));
-			boolean isCorrectType = _mode.isCorrectBlock(_environment, _blockLoader.apply(_openInventoryLocation).getBlock());
-			if (!isLocationClose || !isCorrectType)
+			if (!isLocationClose)
 			{
-				_mode = _WindowMode.NONE;
-				_openInventoryLocation = null;
+				_mode = null;
 			}
 		}
 		
 		// See if we should show the inventory window.
 		// (note that the entity could only be null during start-up).
 		EventHandler button = null;
-		if ((_WindowMode.NONE != _mode) && (null != _entity))
+		if ((null != _mode) && (null != _entity))
 		{
 			// Draw the entity inventory.
 			Inventory entityInventory = _entity.inventory();
-			Inventory blockInventory = (_mode == _WindowMode.FLOOR)
-					? _currentBlockInventory()
-					: _selectedBlockInventory(_WindowMode.FUEL == _mode)
+			BlockProxy proxy = (null != _mode.selectedStation) ? _blockLoader.apply(openInventoryLocation) : null;
+			Inventory blockInventory = (null == _mode.selectedStation)
+					? _feetBlockInventory()
+					: _selectedBlockInventory(proxy, _mode.inFuelInventory)
 			;
 			
 			_MouseOver<Integer> overKey = _drawEntityInventory(client, _entity.armourSlots(), entityInventory, blockInventory, glX, glY);
@@ -202,7 +201,7 @@ public class WindowManager
 			// Draw the inventory of the ground or selected block.
 			if (null != blockInventory)
 			{
-				String inventoryName = _getInventoryName(_WindowMode.FUEL == _mode);
+				String inventoryName = _getInventoryName(_mode.selectedStation, _mode.inFuelInventory);
 				_MouseOver<Integer> thisButton = _drawBlockInventory(client, blockInventory, inventoryName, glX, glY);
 				if (null != thisButton)
 				{
@@ -216,9 +215,9 @@ public class WindowManager
 				}
 				
 				// If there is an active fuel aspect to this (no matter the display node, draw it).
-				if (null != _openInventoryLocation)
+				if (null != _mode.selectedStation)
 				{
-					FuelState fuel = _blockLoader.apply(_openInventoryLocation).getFuel();
+					FuelState fuel = proxy.getFuel();
 					if ((null != fuel) && (null != fuel.currentFuel()))
 					{
 						Item current = fuel.currentFuel();
@@ -229,10 +228,31 @@ public class WindowManager
 				}
 			}
 			
-			// Draw the crafting panel.
-			if (_WindowMode.FUEL != _mode)
+			// Draw the crafting panel - this will appear when no block is selected or when the selected block has crafting classifications.
+			Set<Craft.Classification> selectedBlockClassifications = (null != _mode.selectedStation)
+					? _environment.stations.getCraftingClasses(proxy.getBlock())
+					: Set.of()
+			;
+			boolean selectedBlockCanCraft = !selectedBlockClassifications.isEmpty();
+			if ((null == _mode.selectedStation) || selectedBlockCanCraft)
 			{
-				_MouseOver<Craft> thisButton = _drawCraftingPanel(client, entityInventory, blockInventory, glX, glY);
+				CraftOperation crafting = (null != _mode.selectedStation)
+						? proxy.getCrafting()
+						: null
+				;
+				Inventory craftingInventory = (null != _mode.selectedStation)
+						? blockInventory
+						: entityInventory
+				;
+				Set<Craft.Classification> classifications = (null != _mode.selectedStation)
+						? selectedBlockClassifications
+						: Set.of(Craft.Classification.TRIVIAL)
+				;
+				boolean canManuallyCraft = (null != _mode.selectedStation)
+						? (_environment.stations.getManualMultiplier(proxy.getBlock()) > 0)
+						: true
+				;
+				_MouseOver<Craft> thisButton = _drawCraftingPanel(client, crafting, craftingInventory, classifications, canManuallyCraft, glX, glY);
 				if (null != thisButton)
 				{
 					if (null != thisButton.context)
@@ -394,8 +414,8 @@ public class WindowManager
 				};
 				Runnable rightClick = () -> {
 					// Transfer 1.
-					AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
-					client.pushItemsToTileInventory(location, key, 1, (_WindowMode.FUEL == _mode));
+					AbsoluteLocation location = (null != _mode.selectedStation) ? _mode.selectedStation : GeometryHelpers.getCentreAtFeet(_entity);
+					client.pushItemsToTileInventory(location, key, 1, _mode.inFuelInventory);
 				};
 				Runnable shiftClick = () -> {
 					// Transfer all.
@@ -405,8 +425,8 @@ public class WindowManager
 					int toDrop = Math.min(count, max);
 					if (toDrop > 0)
 					{
-						AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
-						client.pushItemsToTileInventory(location, key, toDrop, (_WindowMode.FUEL == _mode));
+						AbsoluteLocation location = (null != _mode.selectedStation) ? _mode.selectedStation : GeometryHelpers.getCentreAtFeet(_entity);
+						client.pushItemsToTileInventory(location, key, toDrop, _mode.inFuelInventory);
 					}
 				};
 				onClick = new EventHandler(click, rightClick, shiftClick);
@@ -452,8 +472,8 @@ public class WindowManager
 				};
 				Runnable rightClick = () -> {
 					// Transfer 1.
-					AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
-					client.pullItemsFromTileInventory(location, key, 1, (_WindowMode.FUEL == _mode));
+					AbsoluteLocation location = (null != _mode.selectedStation) ? _mode.selectedStation : GeometryHelpers.getCentreAtFeet(_entity);
+					client.pullItemsFromTileInventory(location, key, 1, _mode.inFuelInventory);
 				};
 				Runnable shiftClick = () -> {
 					// Transfer all.
@@ -463,8 +483,8 @@ public class WindowManager
 					int toPickUp = Math.min(count, max);
 					if (toPickUp > 0)
 					{
-						AbsoluteLocation location = (null != _openInventoryLocation) ? _openInventoryLocation : GeometryHelpers.getCentreAtFeet(_entity);
-						client.pullItemsFromTileInventory(location, key, toPickUp, (_WindowMode.FUEL == _mode));
+						AbsoluteLocation location = (null != _mode.selectedStation) ? _mode.selectedStation : GeometryHelpers.getCentreAtFeet(_entity);
+						client.pullItemsFromTileInventory(location, key, toPickUp, _mode.inFuelInventory);
 					}
 				};
 				onClick = new EventHandler(click, rightClick, shiftClick);
@@ -474,46 +494,11 @@ public class WindowManager
 		return _drawTableWindow(inventoryName, -0.95f, -0.80f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.sortedKeys(), keyRender);
 	}
 
-	private _MouseOver<Craft> _drawCraftingPanel(ClientLogic client, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
+	private _MouseOver<Craft> _drawCraftingPanel(ClientLogic client, CraftOperation crafting, Inventory craftingInventory, Set<Craft.Classification> classifications, boolean canManuallyCraft, float glX, float glY)
 	{
-		// Note that the crafting panel will act a bit differently whether it is the player's inventory or a crafting table.
-		CraftOperation crafting;
-		Inventory craftingInventory;
-		Set<Craft.Classification> classifications;
-		boolean canManuallyCraft;
-		if (_WindowMode.CRAFTING_TABLE_INVENTORY == _mode)
-		{
-			// We are looking at the crafting table so grab its crafting aspect.
-			crafting = _selectedBlockCrafting();
-			craftingInventory = blockInventory;
-			classifications = Set.of(Craft.Classification.TRIVIAL, Craft.Classification.COMMON);
-			canManuallyCraft = true;
-		}
-		else if (_WindowMode.FLOOR == _mode)
-		{
-			// This is the player's inventory so use their operation.
-			crafting = (null != _entity) ? _entity.localCraftOperation() : null;
-			craftingInventory = entityInventory;
-			classifications = Set.of(Craft.Classification.TRIVIAL);
-			canManuallyCraft = true;
-		}
-		else if ((_WindowMode.FURNACE_INVENTORY == _mode) || (_WindowMode.FUEL == _mode))
-		{
-			// For now, nothing else will show crafting operations.
-			crafting = _selectedBlockCrafting();
-			craftingInventory = blockInventory;
-			// We will render these possible options, just for progress, since we won't let them click.
-			classifications = Set.of(Craft.Classification.SPECIAL_FURNACE);
-			canManuallyCraft = false;
-		}
-		else
-		{
-			// Handle this case once it is created.
-			throw Assert.unreachable();
-		}
+		// Note that the crafting panel will act a bit differently whether it is the player's inventory or a station (where even crafting table and furnace behave differently).
 		_ValueRenderer<Craft> itemRender = (float left, float bottom, float scale, boolean isMouseOver, Craft craft) -> {
 			// We will only check the highlight if this is something we even could craft.
-			// Note that this needs to handle 
 			boolean canCraft = canManuallyCraft
 					? ((null != craftingInventory) ? CraftAspect.canApply(craft, craftingInventory) : false)
 					: false
@@ -540,13 +525,13 @@ public class WindowManager
 			if (shouldHighlight)
 			{
 				Runnable doCraft;
-				if (_WindowMode.CRAFTING_TABLE_INVENTORY == _mode)
+				if (null != _mode.selectedStation)
 				{
 					// Craft in table.
 					doCraft = () -> {
 						if (CraftAspect.canApply(craft, craftingInventory))
 						{
-							client.beginCraftInBlock(_openInventoryLocation, craft);
+							client.beginCraftInBlock(_mode.selectedStation, craft);
 						}
 					};
 				}
@@ -575,27 +560,26 @@ public class WindowManager
 
 	public void toggleInventory()
 	{
-		// If it is any window mode, set it to none.  If none, set it to the floor mode.
-		_mode = (_WindowMode.NONE == _mode)
-				? _WindowMode.FLOOR
-				: _WindowMode.NONE
-		;
-		// The inventory location not used in these modes so clear it.
-		_openInventoryLocation = null;
+		if (null != _mode)
+		{
+			_mode = null;
+		}
+		else
+		{
+			_mode = new _WindowMode(null, false);
+		}
 	}
 
 	public void toggleFuelInventory()
 	{
-		// This only does anything if have the block inventory open.
-		if (_WindowMode.FURNACE_INVENTORY == _mode)
+		// We want to see if the block even has a fuel inventory.
+		if ((null != _mode) && (null != _mode.selectedStation))
 		{
-			// Furnace has a fuel mode.
-			_mode = _WindowMode.FUEL;
-		}
-		else if (_WindowMode.FUEL == _mode)
-		{
-			// We can just switch to inventory mode.
-			_mode = _WindowMode.FURNACE_INVENTORY;
+			BlockProxy proxy = _blockLoader.apply(_mode.selectedStation);
+			if (null != proxy.getFuel())
+			{
+				_mode = new _WindowMode(_mode.selectedStation, !_mode.inFuelInventory);
+			}
 		}
 	}
 
@@ -610,17 +594,7 @@ public class WindowManager
 		if (_environment.stations.getNormalInventorySize(block) > 0)
 		{
 			// We are at least some kind of station with an inventory.
-			_openInventoryLocation = blockLocation;
-			if (_environment.stations.getFuelInventorySize(block) > 0)
-			{
-				// We have a fuel inventory so we are something like a furnace.
-				_mode = _WindowMode.FURNACE_INVENTORY;
-			}
-			else
-			{
-				// This is likely something like a crafting table.
-				_mode = _WindowMode.CRAFTING_TABLE_INVENTORY;
-			}
+			_mode = new _WindowMode(blockLocation, false);
 			didOpen = true;
 		}
 		return didOpen;
@@ -635,12 +609,15 @@ public class WindowManager
 	public AbsoluteLocation getActiveCraftingTable()
 	{
 		AbsoluteLocation location = null;
-		if ((null != _openInventoryLocation)
-				&& (_environment.stations.getManualMultiplier(_blockLoader.apply(_openInventoryLocation).getBlock()) > 0)
-				&& (null != _blockLoader.apply(_openInventoryLocation).getCrafting())
-		)
+		// See if we have some block selected.
+		if ((null != _mode) && (null != _mode.selectedStation))
 		{
-			location = _openInventoryLocation;
+			// See if this block has an active crafting operation and is manually operated.
+			BlockProxy proxy = _blockLoader.apply(_mode.selectedStation);
+			if ((null != proxy.getCrafting()) && (_environment.stations.getManualMultiplier(proxy.getBlock()) > 0))
+			{
+				location = _mode.selectedStation;
+			}
 		}
 		return location;
 	}
@@ -740,7 +717,7 @@ public class WindowManager
 		}
 	}
 
-	private Inventory _currentBlockInventory()
+	private Inventory _feetBlockInventory()
 	{
 		AbsoluteLocation block = GeometryHelpers.getCentreAtFeet(_entity);
 		BlockProxy proxy = _blockLoader.apply(block);
@@ -751,9 +728,8 @@ public class WindowManager
 		;
 	}
 
-	private Inventory _selectedBlockInventory(boolean fuelMode)
+	private static Inventory _selectedBlockInventory(BlockProxy proxy, boolean fuelMode)
 	{
-		BlockProxy proxy = _blockLoader.apply(_openInventoryLocation);
 		Inventory inv = null;
 		if (fuelMode)
 		{
@@ -770,12 +746,6 @@ public class WindowManager
 			inv = proxy.getInventory();
 		}
 		return inv;
-	}
-
-	private CraftOperation _selectedBlockCrafting()
-	{
-		BlockProxy proxy = _blockLoader.apply(_openInventoryLocation);
-		return proxy.getCrafting();
 	}
 
 	private void _drawLabel(float left, float bottom, float right, float top, String label)
@@ -865,16 +835,16 @@ public class WindowManager
 		return onClick;
 	}
 
-	private String _getInventoryName(boolean fuelMode)
+	private String _getInventoryName(AbsoluteLocation openInventoryLocation, boolean fuelMode)
 	{
 		String name;
-		if (null == _openInventoryLocation)
+		if (null == openInventoryLocation)
 		{
 			name = "Floor";
 		}
 		else
 		{
-			BlockProxy proxy = _blockLoader.apply(_openInventoryLocation);
+			BlockProxy proxy = _blockLoader.apply(openInventoryLocation);
 			Block block = proxy.getBlock();
 			name = block.item().name();
 			if (fuelMode)
@@ -928,46 +898,9 @@ public class WindowManager
 			, Runnable shiftClick
 	) {}
 
-	private static enum _WindowMode
-	{
-		// No windows visible.
-		NONE,
-		// We want to see our inventory, the floor, and the crafting panel.
-		FLOOR,
-		// We want to see our inventory, a selected block, and the crafting panel.
-		CRAFTING_TABLE_INVENTORY,
-		// We want to see our inventory, a selected block, but only the special crafting panel which we can't operate.
-		FURNACE_INVENTORY,
-		// We want to see our inventory and the fuel inventory of a block but no crafting panel.
-		FUEL,
-		;
-		
-		public boolean usesBlock()
-		{
-			return (this == CRAFTING_TABLE_INVENTORY)
-					|| (this == FURNACE_INVENTORY)
-					|| (this == FUEL)
-			;
-		}
-		public boolean isCorrectBlock(Environment environment, Block block)
-		{
-			boolean isCorrect;
-			switch (this)
-			{
-			case CRAFTING_TABLE_INVENTORY:
-				isCorrect = (environment.stations.getNormalInventorySize(block) > 0);
-				break;
-			case FURNACE_INVENTORY:
-			case FUEL:
-				isCorrect = (environment.stations.getFuelInventorySize(block) > 0);
-				break;
-				default:
-					// We shouldn't be asking in this case.
-					throw Assert.unreachable();
-			}
-			return isCorrect;
-		}
-	}
+	// selectedStation can be null if we have windows open but are looking at the floor.
+	private static record _WindowMode(AbsoluteLocation selectedStation, boolean inFuelInventory)
+	{}
 
 	private interface _ValueRenderer<T>
 	{
