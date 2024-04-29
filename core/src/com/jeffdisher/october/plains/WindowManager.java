@@ -230,7 +230,7 @@ public class WindowManager
 						Item current = fuel.currentFuel();
 						float progressBar = (float)fuel.millisFueled() / (float)_environment.fuel.millisOfFuel(current);
 						// TODO:  We really need a better solution than these hard-coded positions, everywhere.
-						_drawItem(current, 1, -0.45f, - 0.15f, 0.1f, false, progressBar);
+						_drawItem(current, 0, -0.45f, - 0.15f, 0.1f, false, progressBar);
 					}
 				}
 			}
@@ -302,7 +302,7 @@ public class WindowManager
 				// This must be there if selected.
 				Assert.assertTrue((null != stack) != (null != nonStack));
 				type = (null != stack) ? stack.type() : nonStack.type();
-				count = (null != stack) ? stack.count() : 1;
+				count = (null != stack) ? stack.count() : 0;
 			}
 			else
 			{
@@ -379,7 +379,7 @@ public class WindowManager
 				Item type = piece.type();
 				int maxDurability = _environment.durability.getDurability(type);
 				float progress = ((float)piece.durability()) / ((float)maxDurability);
-				_drawPrimaryTileAndNumber(type, 1, left, bottom, slotScale, progress);
+				_drawPrimaryTileAndNumber(type, 0, left, bottom, slotScale, progress);
 			}
 			if (highlight)
 			{
@@ -397,7 +397,7 @@ public class WindowManager
 			Items stack = entityInventory.getStackForKey(key);
 			NonStackableItem nonStack = entityInventory.getNonStackableForKey(key);
 			Item item = (null != stack) ? stack.type() : nonStack.type();
-			int count = (null != stack) ? stack.count() : 1;
+			int count = (null != stack) ? stack.count() : 0;
 			float progress;
 			if (null != stack)
 			{
@@ -463,7 +463,7 @@ public class WindowManager
 			Items stack = blockInventory.getStackForKey(key);
 			NonStackableItem nonStack = blockInventory.getNonStackableForKey(key);
 			Item item = (null != stack) ? stack.type() : nonStack.type();
-			int count = (null != stack) ? stack.count() : 1;
+			int count = (null != stack) ? stack.count() : 0;
 			float progress;
 			if (null != stack)
 			{
@@ -709,20 +709,23 @@ public class WindowManager
 		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 		
-		// Draw the number in the corner.
-		TextManager.Element element = _textManager.lazilyLoadStringTexture(Integer.toString(count));
-		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, element.textureObject());
-		_gl.glUniform1i(_uTexture, 0);
-		_gl.glUniform2f(_uOffset, left, bottom);
-		_gl.glUniform2f(_uScale, 0.5f * scale * element.aspectRatio(), 0.5f * scale);
-		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _unitVertexBuffer);
-		_gl.glEnableVertexAttribArray(0);
-		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
-		_gl.glEnableVertexAttribArray(1);
-		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
-		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+		// Draw the number in the corner (only if it is non-zero).
+		if (count > 0)
+		{
+			TextManager.Element element = _textManager.lazilyLoadStringTexture(Integer.toString(count));
+			_gl.glActiveTexture(GL20.GL_TEXTURE0);
+			_gl.glBindTexture(GL20.GL_TEXTURE_2D, element.textureObject());
+			_gl.glUniform1i(_uTexture, 0);
+			_gl.glUniform2f(_uOffset, left, bottom);
+			_gl.glUniform2f(_uScale, 0.5f * scale * element.aspectRatio(), 0.5f * scale);
+			_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
+			_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _unitVertexBuffer);
+			_gl.glEnableVertexAttribArray(0);
+			_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
+			_gl.glEnableVertexAttribArray(1);
+			_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
+			_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
+		}
 		
 		// If there is a progress bar, draw that on top (vertical - from bottom to top).
 		if (progressBar > 0.0f)
