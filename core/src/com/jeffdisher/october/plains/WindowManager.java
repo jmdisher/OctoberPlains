@@ -32,6 +32,7 @@ import com.jeffdisher.october.utils.Assert;
 public class WindowManager
 {
 	public static final float NO_PROGRESS = 0.0f;
+	public static final float OUTLINE_SIZE = 0.01f;
 
 	private final Environment _environment;
 	private final GL20 _gl;
@@ -49,8 +50,9 @@ public class WindowManager
 	private int _atlasVertexBuffer;
 	private int _unitVertexBuffer;
 
-	private int _backgroundTexture;
-	private int _backgroundHighlightTexture;
+	private int _backgroundFrameTexture;
+	private int _backgroundSpaceTexture;
+	private int _highlightTexture;
 	private int _progressTexture;
 	private Entity _entity;
 
@@ -109,24 +111,32 @@ public class WindowManager
 		_atlasVertexBuffer = _defineCommonVertices(_gl, _atlas.primaryCoordinateSize);
 		_unitVertexBuffer = _defineCommonVertices(_gl, 1.0f);
 		
-		// Create the background colour texture we will use (just one pixel allowing us to avoid creating a new shader).
-		// This is just dark grey with alpha.
-		_backgroundTexture = _gl.glGenTexture();
+		// Create the special textures for the window areas (just one pixel allowing us to avoid creating a new shader).
 		ByteBuffer textureBufferData = ByteBuffer.allocateDirect(2);
 		textureBufferData.order(ByteOrder.nativeOrder());
-		textureBufferData.put(new byte[] { 32, (byte)196 });
+		
+		// The frame is opaque light grey.
+		_backgroundFrameTexture = _gl.glGenTexture();
+		textureBufferData.put(new byte[] { (byte) 180, (byte)255 });
 		((java.nio.Buffer) textureBufferData).flip();
-		gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundTexture);
+		gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundFrameTexture);
 		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, 1, 1, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
 		
-		// Similarly, we create the background highlight texture for selection.
-		// This is just light grey with alpha.
-		_backgroundHighlightTexture = _gl.glGenTexture();
+		// The space is dark grey with alpha.
+		_backgroundSpaceTexture = _gl.glGenTexture();
+		textureBufferData.put(new byte[] { 32, (byte)196 });
+		((java.nio.Buffer) textureBufferData).flip();
+		gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundSpaceTexture);
+		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, 1, 1, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
+		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
+		
+		// The highlight is light grey with alpha.
+		_highlightTexture = _gl.glGenTexture();
 		((java.nio.Buffer) textureBufferData).position(0);
 		textureBufferData.put(new byte[] { (byte)128, (byte)196 });
 		((java.nio.Buffer) textureBufferData).flip();
-		gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundHighlightTexture);
+		gl.glBindTexture(GL20.GL_TEXTURE_2D, _highlightTexture);
 		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, 1, 1, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
 		
@@ -304,7 +314,7 @@ public class WindowManager
 			// Determine if this is selected.
 			boolean isSelected = (_entity.hotbarIndex() == i);
 			float progress = isSelected ? 1.0f : 0.0f;
-			_drawBackground(nextLeftButton, hotbarBottom, nextLeftButton + hotbarScale, hotbarBottom + hotbarScale, false);
+			_drawBackground(nextLeftButton, hotbarBottom, nextLeftButton + hotbarScale, hotbarBottom + hotbarScale);
 			_drawPrimaryTileAndNumber(type, count, nextLeftButton, hotbarBottom, hotbarScale, progress);
 			nextLeftButton += hotbarScale + hotbarSpacing;
 		}
@@ -363,13 +373,20 @@ public class WindowManager
 				mouseHandler = new _MouseOver<>(null, new EventHandler(swap, doNothing, doNothing));
 				highlight = true;
 			}
-			_drawBackground(left, bottom, slotRight, nextTopSlot, highlight);
+			_drawBackground(left, bottom, slotRight, nextTopSlot);
 			if (null != piece)
 			{
 				Item type = piece.type();
 				int maxDurability = _environment.durability.getDurability(type);
 				float progress = ((float)piece.durability()) / ((float)maxDurability);
 				_drawPrimaryTileAndNumber(type, 1, left, bottom, slotScale, progress);
+			}
+			if (highlight)
+			{
+				// If we want to highlight this, draw the highlight square over this.
+				_gl.glActiveTexture(GL20.GL_TEXTURE0);
+				_gl.glBindTexture(GL20.GL_TEXTURE_2D, _highlightTexture);
+				_drawUnitRect(left, bottom, slotRight, nextTopSlot);
 			}
 			nextTopSlot -= slotScale + slotSpacing;
 		}
@@ -660,9 +677,16 @@ public class WindowManager
 		float top = bottom + scale;
 		
 		// Draw the background.
-		_drawBackground(left, bottom, right, top, shouldHighlight);
+		_drawBackground(left, bottom, right, top);
 		
 		_drawPrimaryTileAndNumber(selectedItem, count, left, bottom, scale, progressBar);
+		if (shouldHighlight)
+		{
+			// If we want to highlight this, draw the highlight square over this.
+			_gl.glActiveTexture(GL20.GL_TEXTURE0);
+			_gl.glBindTexture(GL20.GL_TEXTURE_2D, _highlightTexture);
+			_drawUnitRect(left, bottom, right, top);
+		}
 	}
 
 	private void _drawPrimaryTileAndNumber(Item item, int count, float left, float bottom, float scale, float progressBar)
@@ -757,10 +781,13 @@ public class WindowManager
 		_drawUnitRect(left, bottom, right, top);
 	}
 
-	private void _drawBackground(float left, float bottom, float right, float top, boolean shouldHighlight)
+	private void _drawBackground(float left, float bottom, float right, float top)
 	{
+		// We want draw the frame and then the space on top of that.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, shouldHighlight ? _backgroundHighlightTexture : _backgroundTexture);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundFrameTexture);
+		_drawUnitRect(left - OUTLINE_SIZE, bottom - OUTLINE_SIZE, right + OUTLINE_SIZE, top + OUTLINE_SIZE);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundSpaceTexture);
 		_drawUnitRect(left, bottom, right, top);
 	}
 
@@ -786,7 +813,7 @@ public class WindowManager
 	{
 		_MouseOver<T> onClick = null;
 		// Draw the window outline and create a default catch runnable to block the background.
-		_drawBackground(leftX, bottomY, rightX, topY, false);
+		_drawBackground(leftX, bottomY, rightX, topY);
 		if ((leftX <= glX) && (glX <= rightX) && (bottomY <= glY) && (glY <= topY))
 		{
 			Runnable runnable = () -> {};
@@ -858,7 +885,7 @@ public class WindowManager
 		float bottom = glY - labelHeight;
 		float top = glY;
 		float right = left + element.aspectRatio() * (top - bottom);
-		_drawBackground(left, bottom, right, top, false);
+		_drawBackground(left, bottom, right, top);
 		_drawTextElement(left, bottom, right, top, element.textureObject());
 	}
 
