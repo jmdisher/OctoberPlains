@@ -44,7 +44,6 @@ public class WindowManager
 	private int _uScale;
 	private int _uTexture;
 	private int _uTextureBase;
-	private int _uTextureScale;
 
 	// We use 2 buffers here, but they only differ in that the tile buffer knows the texture atlas size while the label buffer is 1.0/1.0.
 	private int _atlasVertexBuffer;
@@ -88,11 +87,10 @@ public class WindowManager
 						+ "uniform vec2 uScale;\n"
 						+ "uniform sampler2D uTexture;\n"
 						+ "uniform vec2 uTextureBase;\n"
-						+ "uniform vec2 uTextureScale;\n"
 						+ "varying vec2 vTexture;\n"
 						+ "void main()\n"
 						+ "{\n"
-						+ "	vec2 texCoord = vec2(clamp((uTextureScale.x * vTexture.x) + uTextureBase.x, 0.0, 1.0), clamp((uTextureScale.y * vTexture.y) + uTextureBase.y, 0.0, 1.0));\n"
+						+ "	vec2 texCoord = vec2(clamp(vTexture.x + uTextureBase.x, 0.0, 1.0), clamp(vTexture.y + uTextureBase.y, 0.0, 1.0));\n"
 						+ "	vec4 tex = texture2D(uTexture, texCoord);\n"
 						+ "	vec4 biased = vec4(tex.r, tex.g, tex.b, tex.a);\n"
 						+ "	gl_FragColor = vec4(biased.r, biased.g, biased.b, biased.a);\n"
@@ -106,7 +104,6 @@ public class WindowManager
 		_uScale = _gl.glGetUniformLocation(_program, "uScale");
 		_uTexture = _gl.glGetUniformLocation(_program, "uTexture");
 		_uTextureBase = _gl.glGetUniformLocation(_program, "uTextureBase");
-		_uTextureScale = _gl.glGetUniformLocation(_program, "uTextureScale");
 		
 		// We need to create the vertex buffers for the tile and the label.
 		_atlasVertexBuffer = _defineCommonVertices(_gl, _atlas.primaryCoordinateSize);
@@ -319,15 +316,15 @@ public class WindowManager
 		float labelMargin = 0.80f;
 		float valueMargin = labelMargin + labelWidth;
 		
-		_drawLabel(labelMargin, -0.90f, labelMargin + labelWidth, -0.85f, "Health");
-		_drawLabel(valueMargin, -0.90f, valueMargin + labelWidth, -0.85f, Byte.toString(thisEntity.health()));
+		_drawLabel(labelMargin, -0.90f, -0.85f, "Health");
+		_drawLabel(valueMargin, -0.90f, -0.85f, Byte.toString(thisEntity.health()));
 		
-		_drawLabel(labelMargin, -0.95f, labelMargin + labelWidth, -0.90f, "Food");
-		_drawLabel(valueMargin, -0.95f, valueMargin + labelWidth, -0.90f, Byte.toString(thisEntity.food()));
+		_drawLabel(labelMargin, -0.95f, -0.90f, "Food");
+		_drawLabel(valueMargin, -0.95f, -0.90f, Byte.toString(thisEntity.food()));
 		
-		_drawLabel(labelMargin, -1.0f, labelMargin + labelWidth, -0.95f, "z-level");
+		_drawLabel(labelMargin, -1.0f, -0.95f, "z-level");
 		String zLevel = String.format("%.2f", thisEntity.location().z());
-		_drawLabel(valueMargin, -1.0f, valueMargin + labelWidth, -0.95f, zLevel);
+		_drawLabel(valueMargin, -1.0f, -0.95f, zLevel);
 	}
 
 	private _MouseOver<Integer> _drawEntityInventory(ClientLogic client, NonStackableItem[] armour, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
@@ -681,7 +678,6 @@ public class WindowManager
 		// We want to just draw this square.
 		_gl.glUniform2f(_uScale, scale, scale);
 		_gl.glUniform2f(_uTextureBase, textureBaseU, textureBaseV);
-		_gl.glUniform2f(_uTextureScale, 1.0f, 1.0f);
 		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _atlasVertexBuffer);
 		_gl.glEnableVertexAttribArray(0);
 		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
@@ -690,14 +686,13 @@ public class WindowManager
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 		
 		// Draw the number in the corner.
+		TextManager.Element element = _textManager.lazilyLoadStringTexture(Integer.toString(count));
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textManager.lazilyLoadStringTexture(Integer.toString(count)));
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, element.textureObject());
 		_gl.glUniform1i(_uTexture, 0);
 		_gl.glUniform2f(_uOffset, left, bottom);
-		// We want half the height but we stretch horizontally since the texture is too cramped, otherwise (it isn't a square).
-		_gl.glUniform2f(_uScale, scale * 2.0f, scale * 0.5f);
+		_gl.glUniform2f(_uScale, 0.5f * scale * element.aspectRatio(), 0.5f * scale);
 		_gl.glUniform2f(_uTextureBase, 0.0f, 0.0f);
-		_gl.glUniform2f(_uTextureScale, 0.5f, 1.0f);
 		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _unitVertexBuffer);
 		_gl.glEnableVertexAttribArray(0);
 		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 4 * Float.BYTES, 0);
@@ -712,7 +707,6 @@ public class WindowManager
 			float progressTop = bottom + (scale * progressBar);
 			_gl.glActiveTexture(GL20.GL_TEXTURE0);
 			_gl.glBindTexture(GL20.GL_TEXTURE_2D, _progressTexture);
-			_gl.glUniform2f(_uTextureScale, 1.0f, 1.0f);
 			_drawUnitRect(left, bottom, left + scale, progressTop);
 		}
 	}
@@ -748,17 +742,18 @@ public class WindowManager
 		return inv;
 	}
 
-	private void _drawLabel(float left, float bottom, float right, float top, String label)
+	private void _drawLabel(float left, float bottom, float top, String label)
 	{
-		int labelTexture = _textManager.lazilyLoadStringTexture(label);
+		TextManager.Element element = _textManager.lazilyLoadStringTexture(label);
+		float textureAspect = element.aspectRatio();
+		float right = left + textureAspect * (top - bottom);
+		_drawTextElement(left, bottom, right, top, element.textureObject());
+	}
+
+	private void _drawTextElement(float left, float bottom, float right, float top, int labelTexture)
+	{
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, labelTexture);
-		float xScale = (right - left);
-		float yScale = (top - bottom);
-		float xRatio = xScale / yScale;
-		// We want to slim down the text so use a multiplier here.
-		float textureAspect = (float)TextManager.TEXT_TEXTURE_WIDTH_PIXELS / (float)TextManager.TEXT_TEXTURE_HEIGHT_PIXELS / 2.0f;
-		_gl.glUniform2f(_uTextureScale, xRatio / textureAspect, 1.0f);
 		_drawUnitRect(left, bottom, right, top);
 	}
 
@@ -766,7 +761,6 @@ public class WindowManager
 	{
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, shouldHighlight ? _backgroundHighlightTexture : _backgroundTexture);
-		_gl.glUniform2f(_uTextureScale, 1.0f, 1.0f);
 		_drawUnitRect(left, bottom, right, top);
 	}
 
@@ -799,7 +793,7 @@ public class WindowManager
 			onClick = new _MouseOver<>(null, new EventHandler(runnable, runnable, runnable));
 		}
 		// Draw the title.
-		_drawLabel(leftX, topY - 0.1f, leftX + 0.5f, topY, title.toUpperCase());
+		_drawLabel(leftX, topY - 0.1f, topY, title.toUpperCase());
 		
 		// We want to draw these in a grid, in rows.  Leave space for margins.
 		float xSpace = rightX - leftX - (2.0f * margin);
@@ -857,15 +851,15 @@ public class WindowManager
 
 	private void _drawHover(float glX, float glY, String name)
 	{
+		TextManager.Element element = _textManager.lazilyLoadStringTexture(name.toUpperCase());
 		float labelHeight = 0.1f;
-		float labelWidth = 0.2f;
 		
 		float left = glX;
 		float bottom = glY - labelHeight;
-		float right = glX + labelWidth;
 		float top = glY;
+		float right = left + element.aspectRatio() * (top - bottom);
 		_drawBackground(left, bottom, right, top, false);
-		_drawLabel(left, bottom, right, top, name.toUpperCase());
+		_drawTextElement(left, bottom, right, top, element.textureObject());
 	}
 
 	private static Items _synthesizeItems(Inventory inventory, int selectedKey)
