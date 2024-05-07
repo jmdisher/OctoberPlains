@@ -36,11 +36,13 @@ import com.jeffdisher.october.types.Craft;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.FuelState;
+import com.jeffdisher.october.types.IMutablePlayerEntity;
 import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
 import com.jeffdisher.october.types.Items;
 import com.jeffdisher.october.types.MutableInventory;
 import com.jeffdisher.october.types.NonStackableItem;
+import com.jeffdisher.october.types.PartialEntity;
 import com.jeffdisher.october.utils.Assert;
 
 
@@ -54,7 +56,7 @@ public class ClientLogic
 
 	private final Environment _environment;
 	private final Consumer<Entity> _thisEntityConsumer;
-	private final Consumer<Entity> _otherEntityConsumer;
+	private final Consumer<PartialEntity> _otherEntityConsumer;
 	private final IntConsumer _unloadEntityConsumer;
 	private final Consumer<IReadOnlyCuboidData> _changedCuboidConsumer;
 	private final Consumer<CuboidAddress> _removedCuboidConsumer;
@@ -70,7 +72,7 @@ public class ClientLogic
 
 	public ClientLogic(Environment environment
 			, Consumer<Entity> thisEntityConsumer
-			, Consumer<Entity> otherEntityConsumer
+			, Consumer<PartialEntity> otherEntityConsumer
 			, IntConsumer unloadEntityConsumer
 			, Consumer<IReadOnlyCuboidData> changedCuboidConsumer
 			, Consumer<CuboidAddress> removedCuboidConsumer
@@ -170,7 +172,7 @@ public class ClientLogic
 		boolean didJump = false;
 		if (!_didJump && (z == (float)Math.round(z)))
 		{
-			EntityChangeJump jumpChange = new EntityChangeJump();
+			EntityChangeJump<IMutablePlayerEntity> jumpChange = new EntityChangeJump<>();
 			long currentTimeMillis = System.currentTimeMillis();
 			_client.sendAction(jumpChange, currentTimeMillis);
 			didJump = true;
@@ -209,7 +211,7 @@ public class ClientLogic
 		if (Entity.NO_SELECTION != selectedKey)
 		{
 			// Check which action makes sense (eat, use, or place).
-			IMutationEntity change;
+			IMutationEntity<IMutablePlayerEntity> change;
 			Items stack = _thisEntity.inventory().getStackForKey(selectedKey);
 			Item stackType = (null != stack) ? stack.type() : null;
 			int foodValue = _environment.foods.foodValue(stackType);
@@ -418,33 +420,33 @@ public class ClientLogic
 			_removedCuboidConsumer.accept(address);
 		}
 		@Override
-		public void entityDidChange(Entity entity)
+		public void thisEntityDidLoad(Entity entity)
 		{
-			if (_assignedLocalEntityId == entity.id())
-			{
-				_setEntity(entity);
-				_thisEntityConsumer.accept(entity);
-			}
-			else
-			{
-				_otherEntityConsumer.accept(entity);
-			}
+			Assert.assertTrue(_assignedLocalEntityId == entity.id());
+			_setEntity(entity);
+			_thisEntityConsumer.accept(entity);
 		}
 		@Override
-		public void entityDidLoad(Entity entity)
+		public void thisEntityDidChange(Entity entity)
 		{
-			if (_assignedLocalEntityId == entity.id())
-			{
-				_setEntity(entity);
-				_thisEntityConsumer.accept(entity);
-			}
-			else
-			{
-				_otherEntityConsumer.accept(entity);
-			}
+			Assert.assertTrue(_assignedLocalEntityId == entity.id());
+			_setEntity(entity);
+			_thisEntityConsumer.accept(entity);
 		}
 		@Override
-		public void entityDidUnload(int id)
+		public void otherEntityDidChange(PartialEntity entity)
+		{
+			Assert.assertTrue(_assignedLocalEntityId != entity.id());
+			_otherEntityConsumer.accept(entity);
+		}
+		@Override
+		public void otherEntityDidLoad(PartialEntity entity)
+		{
+			Assert.assertTrue(_assignedLocalEntityId != entity.id());
+			_otherEntityConsumer.accept(entity);
+		}
+		@Override
+		public void otherEntityDidUnload(int id)
 		{
 			_unloadEntityConsumer.accept(id);
 		}

@@ -14,6 +14,7 @@ import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
+import com.jeffdisher.october.types.PartialEntity;
 
 
 public class OctoberPlains extends ApplicationAdapter
@@ -84,7 +85,7 @@ public class OctoberPlains extends ApplicationAdapter
 					_mouseHandler.setCentreLocation(entity.location());
 					_windowManager.setEntity(entity);
 				}
-				, (Entity entity) -> {
+				, (PartialEntity entity) -> {
 					// We notify both the renderer and the mouse handler about the entities.
 					_renderer.setOtherEntity(entity);
 					_mouseHandler.setOtherEntity(entity);

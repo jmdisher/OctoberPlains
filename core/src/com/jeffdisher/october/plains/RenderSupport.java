@@ -16,6 +16,7 @@ import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.EntityLocation;
+import com.jeffdisher.october.types.PartialEntity;
 import com.jeffdisher.october.utils.Assert;
 
 
@@ -54,7 +55,7 @@ public class RenderSupport
 	private int _layerMeshBuffer;
 
 	private Entity _thisEntity;
-	private final Map<Integer, Entity> _otherEntitiesById;
+	private final Map<Integer, PartialEntity> _otherEntitiesById;
 	private float _currentSceneScale;
 
 	public RenderSupport(Environment environment, GL20 gl, TextureAtlas textureAtlas)
@@ -240,7 +241,7 @@ public class RenderSupport
 			
 			// See if there are any other entities at this z-level (we should organize this differently, or pre-sort it, in the future).
 			int thisZ = Math.round(_thisEntity.location().z()) + zOffset;
-			for (Entity otherEntity : _otherEntitiesById.values())
+			for (PartialEntity otherEntity : _otherEntitiesById.values())
 			{
 				EntityLocation location = otherEntity.location();
 				int otherZ = Math.round(location.z());
@@ -284,14 +285,14 @@ public class RenderSupport
 		_layerManager.removeCuboid(address);
 	}
 
-	public void setOtherEntity(Entity entity)
+	public void setOtherEntity(PartialEntity entity)
 	{
 		_otherEntitiesById.put(entity.id(), entity);
 	}
 
 	public void removeEntity(int entityId)
 	{
-		Entity old = _otherEntitiesById.remove(entityId);
+		PartialEntity old = _otherEntitiesById.remove(entityId);
 		// This must have already been here.
 		Assert.assertTrue(null != old);
 	}

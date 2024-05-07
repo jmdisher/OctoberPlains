@@ -4,8 +4,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.jeffdisher.october.types.AbsoluteLocation;
-import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.EntityLocation;
+import com.jeffdisher.october.types.PartialEntity;
 import com.jeffdisher.october.utils.Assert;
 
 
@@ -15,7 +15,7 @@ import com.jeffdisher.october.utils.Assert;
 public class MouseHandler
 {
 	private final int _tilesSquare;
-	private final Map<Integer, Entity> _otherEntitiesById;
+	private final Map<Integer, PartialEntity> _otherEntitiesById;
 	private EntityLocation _centre;
 
 	public MouseHandler(int tilesSquare)
@@ -58,7 +58,7 @@ public class MouseHandler
 	 * 
 	 * @param entity The new or updated entity.
 	 */
-	public void setOtherEntity(Entity entity)
+	public void setOtherEntity(PartialEntity entity)
 	{
 		_otherEntitiesById.put(entity.id(), entity);
 	}
@@ -70,7 +70,7 @@ public class MouseHandler
 	 */
 	public void removeOtherEntity(int entityId)
 	{
-		Entity old = _otherEntitiesById.remove(entityId);
+		PartialEntity old = _otherEntitiesById.remove(entityId);
 		// This must have already been here.
 		Assert.assertTrue(null != old);
 	}
@@ -87,7 +87,7 @@ public class MouseHandler
 		float logicalX = _getLogicalX(glX);
 		float logicalY = _getLogicalY(glY);
 		int entityId = 0;
-		for (Entity otherEntity : _otherEntitiesById.values())
+		for (PartialEntity otherEntity : _otherEntitiesById.values())
 		{
 			EntityLocation location = otherEntity.location();
 			float scale = otherEntity.volume().width();
