@@ -100,7 +100,7 @@ public class ClientLogic
 					Assert.assertTrue(worldDirectory.mkdirs());
 				}
 				// We will just use the flat world generator since it should be populated with what we need for testing.
-				ResourceLoader loader = new ResourceLoader(worldDirectory, new FlatWorldGenerator());
+				ResourceLoader loader = new ResourceLoader(worldDirectory, new FlatWorldGenerator(true));
 				_server = new ServerProcess(PORT, ServerRunner.DEFAULT_MILLIS_PER_TICK, loader, () -> System.currentTimeMillis());
 				_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, clientName);
 			}
