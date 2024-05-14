@@ -245,7 +245,7 @@ public class WindowManager
 			{
 				CraftOperation crafting = (null != _mode.selectedStation)
 						? proxy.getCrafting()
-						: null
+						: _entity.localCraftOperation()
 				;
 				Inventory craftingInventory = (null != _mode.selectedStation)
 						? blockInventory
