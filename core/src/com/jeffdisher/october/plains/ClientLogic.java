@@ -49,9 +49,6 @@ import com.jeffdisher.october.utils.Assert;
 public class ClientLogic
 {
 	public static final int ENTITY_ID = 1;
-	// We have a walking speed limit of 4 blocks/second so we will pick something to push against that.
-	// (too high and we will see jitter due to rejections, too low and it will feel too slow).
-	public static final float INCREMENT = 0.05f;
 	public static final int PORT = 5678;
 
 	private final Environment _environment;
@@ -140,28 +137,28 @@ public class ClientLogic
 	{
 		// Make sure that there is no in-progress action, first.
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.moveHorizontal(0.0f, +INCREMENT, currentTimeMillis);
+		_client.moveHorizontalFully(0.0f, +1.0f, currentTimeMillis);
 	}
 
 	public void stepSouth()
 	{
 		// Make sure that there is no in-progress action, first.
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.moveHorizontal(0.0f, -INCREMENT, currentTimeMillis);
+		_client.moveHorizontalFully(0.0f, -1.0f, currentTimeMillis);
 	}
 
 	public void stepEast()
 	{
 		// Make sure that there is no in-progress action, first.
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.moveHorizontal(+INCREMENT, 0.0f, currentTimeMillis);
+		_client.moveHorizontalFully(+1.0f, 0.0f, currentTimeMillis);
 	}
 
 	public void stepWest()
 	{
 		// Make sure that there is no in-progress action, first.
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.moveHorizontal(-INCREMENT, 0.0f, currentTimeMillis);
+		_client.moveHorizontalFully(-1.0f, 0.0f, currentTimeMillis);
 	}
 
 	public boolean jump()
