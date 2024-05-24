@@ -15,10 +15,10 @@ import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.mutations.EntityChangeAttackEntity;
 import com.jeffdisher.october.mutations.EntityChangeChangeHotbarSlot;
-import com.jeffdisher.october.mutations.EntityChangeEatSelectedItem;
-import com.jeffdisher.october.mutations.EntityChangeExchangeLiquid;
 import com.jeffdisher.october.mutations.EntityChangeJump;
 import com.jeffdisher.october.mutations.EntityChangeSwapArmour;
+import com.jeffdisher.october.mutations.EntityChangeUseSelectedItemOnBlock;
+import com.jeffdisher.october.mutations.EntityChangeUseSelectedItemOnSelf;
 import com.jeffdisher.october.mutations.IMutationEntity;
 import com.jeffdisher.october.mutations.MutationEntityPushItems;
 import com.jeffdisher.october.mutations.MutationEntityRequestItemPickUp;
@@ -30,6 +30,7 @@ import com.jeffdisher.october.process.ClientProcess;
 import com.jeffdisher.october.process.ServerProcess;
 import com.jeffdisher.october.server.ServerRunner;
 import com.jeffdisher.october.types.AbsoluteLocation;
+import com.jeffdisher.october.types.Block;
 import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.BodyPart;
 import com.jeffdisher.october.types.Craft;
@@ -207,31 +208,33 @@ public class ClientLogic
 		int selectedKey = _thisEntity.hotbarItems()[_thisEntity.hotbarIndex()];
 		if (Entity.NO_SELECTION != selectedKey)
 		{
-			// Check which action makes sense (eat, use, or place).
+			// Check if a special use exists for this item and block or if we are just placing.
+			Inventory inventory = _thisEntity.inventory();
+			Items stack = inventory.getStackForKey(selectedKey);
+			NonStackableItem nonStack = inventory.getNonStackableForKey(selectedKey);
+			Item selectedType = (null != stack) ? stack.type() : nonStack.type();
+			
+			BlockProxy proxy = new BlockProxy(blockLocation.getBlockAddress(), _cuboids.get(blockLocation.getCuboidAddress()));
+			Block targetBlock = proxy.getBlock();
+			
+			// First, can we use this on the block.
 			IMutationEntity<IMutablePlayerEntity> change;
-			Items stack = _thisEntity.inventory().getStackForKey(selectedKey);
-			Item stackType = (null != stack) ? stack.type() : null;
-			int foodValue = _environment.foods.foodValue(stackType);
-			if (foodValue > 0)
+			if (EntityChangeUseSelectedItemOnBlock.canUseOnBlock(selectedType, targetBlock))
 			{
-				change = new EntityChangeEatSelectedItem();
+				change = new EntityChangeUseSelectedItemOnBlock(blockLocation);
 			}
+			// Second, check to see if we can use it, directly.
+			else if (EntityChangeUseSelectedItemOnSelf.canBeUsedOnSelf(selectedType))
+			{
+				change = new EntityChangeUseSelectedItemOnSelf();
+			}
+			// Finally, default to trying to place it.
 			else
 			{
-				NonStackableItem nonStack = _thisEntity.inventory().getNonStackableForKey(selectedKey);
-				Item nonStackType = (null != nonStack) ? nonStack.type() : null;
-				// For now, the only special action we have is for a bucket so try that.
-				if ((_environment.items.getItemById("op.bucket_empty") == nonStackType) || (_environment.items.getItemById("op.bucket_water") == nonStackType))
-				{
-					// The change will check if this makes sense for the target block.
-					change = new EntityChangeExchangeLiquid(blockLocation);
-				}
-				else
-				{
-					// The mutation will check proximity and collision.
-					change = new MutationPlaceSelectedBlock(blockLocation);
-				}
+				// The mutation will check proximity and collision.
+				change = new MutationPlaceSelectedBlock(blockLocation);
 			}
+			
 			long currentTimeMillis = System.currentTimeMillis();
 			_client.sendAction(change, currentTimeMillis);
 		}
