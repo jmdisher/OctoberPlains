@@ -18,6 +18,7 @@ import com.jeffdisher.october.mutations.EntityChangeChangeHotbarSlot;
 import com.jeffdisher.october.mutations.EntityChangeJump;
 import com.jeffdisher.october.mutations.EntityChangeSwapArmour;
 import com.jeffdisher.october.mutations.EntityChangeUseSelectedItemOnBlock;
+import com.jeffdisher.october.mutations.EntityChangeUseSelectedItemOnEntity;
 import com.jeffdisher.october.mutations.EntityChangeUseSelectedItemOnSelf;
 import com.jeffdisher.october.mutations.IMutationEntity;
 import com.jeffdisher.october.mutations.MutationEntityPushItems;
@@ -240,6 +241,26 @@ public class ClientLogic
 		}
 	}
 
+	public void applyToEntity(PartialEntity selectedEntity)
+	{
+		// We need to check our selected item and see if there is some interaction it has with this entity.
+		int selectedKey = _thisEntity.hotbarItems()[_thisEntity.hotbarIndex()];
+		if (Entity.NO_SELECTION != selectedKey)
+		{
+			Inventory inventory = _thisEntity.inventory();
+			Items stack = inventory.getStackForKey(selectedKey);
+			NonStackableItem nonStack = inventory.getNonStackableForKey(selectedKey);
+			Item selectedType = (null != stack) ? stack.type() : nonStack.type();
+			
+			if (EntityChangeUseSelectedItemOnEntity.canUseOnEntity(selectedType, selectedEntity.type()))
+			{
+				EntityChangeUseSelectedItemOnEntity change = new EntityChangeUseSelectedItemOnEntity(selectedEntity.id());
+				long currentTimeMillis = System.currentTimeMillis();
+				_client.sendAction(change, currentTimeMillis);
+			}
+		}
+	}
+
 	public void pullItemsFromTileInventory(AbsoluteLocation location, int blockInventoryKey, int count, boolean useFuel)
 	{
 		IReadOnlyCuboidData cuboid = _cuboids.get(location.getCuboidAddress());
@@ -344,9 +365,9 @@ public class ClientLogic
 		_client.craftInBlock(block, craft, currentTimeMillis);
 	}
 
-	public void hitEntity(int selectedEntity)
+	public void hitEntity(PartialEntity selectedEntity)
 	{
-		EntityChangeAttackEntity attack = new EntityChangeAttackEntity(selectedEntity);
+		EntityChangeAttackEntity attack = new EntityChangeAttackEntity(selectedEntity.id());
 		long currentTimeMillis = System.currentTimeMillis();
 		_client.sendAction(attack, currentTimeMillis);
 	}

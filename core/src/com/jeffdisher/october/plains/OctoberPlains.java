@@ -162,14 +162,14 @@ public class OctoberPlains extends ApplicationAdapter
 		float zoomX = glX / rendererZoom;
 		float zoomY = glY / rendererZoom;
 		AbsoluteLocation selection = null;
-		int selectedEntity = _mouseHandler.entityUnderMouse(zoomX, zoomY);
-		if (0 == selectedEntity)
+		PartialEntity selectedEntity = _mouseHandler.entityUnderMouse(zoomX, zoomY);
+		if (null == selectedEntity)
 		{
 			selection = _mouseHandler.getXyzTile(zoomX, zoomY, zOffset);
 		}
 		
 		// Draw the scene.
-		_renderer.renderScene(selectedEntity, selection);
+		_renderer.renderScene((null != selectedEntity) ? selectedEntity.id() : 0, selection);
 		
 		// Draw any active windows over the scene and get the capture for anything we which can receive click events.
 		WindowManager.EventHandler windowManagerEvent = _windowManager.drawWindowsWithButtonCapture(_client, glX, glY);
@@ -276,7 +276,7 @@ public class OctoberPlains extends ApplicationAdapter
 					// Whether they just pressed this or held it down, hit the block.
 					_client.hitBlock(selection);
 				}
-				else if (0 != selectedEntity)
+				else if (null != selectedEntity)
 				{
 					// If they just clicked, we will record that they hit this entity.
 					if (isJustPressed)
@@ -299,6 +299,11 @@ public class OctoberPlains extends ApplicationAdapter
 				{
 					_client.runAction(selection);
 				}
+			}
+			else if (null != selectedEntity)
+			{
+				// Use whatever we have selected on this entity.
+				_client.applyToEntity(selectedEntity);
 			}
 		}
 		else

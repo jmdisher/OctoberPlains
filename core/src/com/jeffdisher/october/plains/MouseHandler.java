@@ -80,13 +80,13 @@ public class MouseHandler
 	 * 
 	 * @param glX The x location, in GL coordinates ([-1.0 .. 1.0]).
 	 * @param glY The y location, in GL coordinates ([-1.0 .. 1.0]).
-	 * @return The ID of the entity under the mouse, 0 if there isn't one.
+	 * @return The entity under the mouse, null if there isn't one.
 	 */
-	public int entityUnderMouse(float glX, float glY)
+	public PartialEntity entityUnderMouse(float glX, float glY)
 	{
 		float logicalX = _getLogicalX(glX);
 		float logicalY = _getLogicalY(glY);
-		int entityId = 0;
+		PartialEntity selectedEntity = null;
 		for (PartialEntity otherEntity : _otherEntitiesById.values())
 		{
 			EntityLocation location = otherEntity.location();
@@ -97,11 +97,11 @@ public class MouseHandler
 			float highY = lowY + scale;
 			if ((logicalX >= lowX) && (logicalX <= highX) && (logicalY >= lowY) && (logicalY <= highY))
 			{
-				entityId = otherEntity.id();
+				selectedEntity = otherEntity;
 				break;
 			}
 		}
-		return entityId;
+		return selectedEntity;
 	}
 
 
