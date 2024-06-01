@@ -53,13 +53,13 @@ public class OctoberPlains extends ApplicationAdapter
 		{
 			// These are resolved by index so they must be loaded in the same order as the item registry.
 			_textureAtlas = TextureAtlas.loadAtlas(gl, _environment.items.ITEMS_BY_TYPE
-				, Map.of(TextureAtlas.Secondary.NONE, "op.air.png"
-						, TextureAtlas.Secondary.PLAYER, "player.png"
-						, TextureAtlas.Secondary.DEBRIS, "debris.png"
-						, TextureAtlas.Secondary.BREAK_LIGHT, "break1.png"
-						, TextureAtlas.Secondary.BREAK_MEDIUM, "break2.png"
-						, TextureAtlas.Secondary.BREAK_HEAVY, "break3.png"
-						, TextureAtlas.Secondary.ACTIVE_STATION, "active.png"
+				, "player.png"
+				, Map.of(TextureAtlas.Auxiliary.NONE, "op.air.png"
+						, TextureAtlas.Auxiliary.DEBRIS, "debris.png"
+						, TextureAtlas.Auxiliary.BREAK_LIGHT, "break1.png"
+						, TextureAtlas.Auxiliary.BREAK_MEDIUM, "break2.png"
+						, TextureAtlas.Auxiliary.BREAK_HEAVY, "break3.png"
+						, TextureAtlas.Auxiliary.ACTIVE_STATION, "active.png"
 				)
 				, "missing_texture.png"
 			);

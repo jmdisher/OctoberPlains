@@ -108,7 +108,7 @@ public class WindowManager
 		_uTextureBase = _gl.glGetUniformLocation(_program, "uTextureBase");
 		
 		// We need to create the vertex buffers for the tile and the label.
-		_atlasVertexBuffer = _defineCommonVertices(_gl, _atlas.primaryCoordinateSize);
+		_atlasVertexBuffer = _defineCommonVertices(_gl, _atlas.tileCoordinateSize);
 		_unitVertexBuffer = _defineCommonVertices(_gl, 1.0f);
 		
 		// Create the special textures for the window areas (just one pixel allowing us to avoid creating a new shader).
@@ -693,8 +693,8 @@ public class WindowManager
 	{
 		// Draw the tile.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _atlas.primaryTexture);
-		float[] uv = _atlas.baseOfPrimaryTexture(item);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _atlas.tileTextures);
+		float[] uv = _atlas.baseOfTileTexture(item);
 		float textureBaseU = uv[0];
 		float textureBaseV = uv[1];
 		_gl.glUniform1i(_uTexture, 0);

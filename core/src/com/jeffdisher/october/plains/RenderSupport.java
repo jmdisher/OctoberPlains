@@ -16,6 +16,7 @@ import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.EntityLocation;
+import com.jeffdisher.october.types.EntityType;
 import com.jeffdisher.october.types.PartialEntity;
 import com.jeffdisher.october.utils.Assert;
 
@@ -171,10 +172,10 @@ public class RenderSupport
 		
 		// Make sure that the texture atlas is active.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.primaryTexture);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.tileTextures);
 		_gl.glUniform1i(_uTexture0, 0);
 		_gl.glActiveTexture(GL20.GL_TEXTURE1);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.secondaryTexture);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.auxTextures);
 		_gl.glUniform1i(_uTexture1, 1);
 		
 		// Set any starting uniform values.
@@ -360,12 +361,13 @@ public class RenderSupport
 	private static int _defineEntityBuffer(Environment env, GL20 gl, TextureAtlas atlas)
 	{
 		// We just draw the player and drawn over air.
-		float textureSize0 = atlas.primaryCoordinateSize;
-		float textureSize1 = atlas.secondaryCoordinateSize;
-		float[] uv0 = atlas.baseOfPrimaryTexture(env.items.AIR);
+		float textureSize0 = atlas.tileCoordinateSize;
+		float textureSize1 = atlas.entityCoordinateSize;
+		float[] uv0 = atlas.baseOfTileTexture(env.items.AIR);
 		float textureBase0U = uv0[0];
 		float textureBase0V = uv0[1];
-		float[] uv1 = atlas.baseOfSecondaryTexture(TextureAtlas.Secondary.PLAYER);
+		// TODO:  Split one of these out per-entity type, once we are using them.
+		float[] uv1 = atlas.baseOfEntityTexture(EntityType.PLAYER);
 		float textureBase1U = uv1[0];
 		float textureBase1V = uv1[1];
 		float lightMultiplier = 1.0f;
@@ -470,10 +472,10 @@ public class RenderSupport
 	private void _drawEntity(float xOffset, float yOffset, float scale)
 	{
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.primaryTexture);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.tileTextures);
 		_gl.glUniform1i(_uTexture0, 0);
 		_gl.glActiveTexture(GL20.GL_TEXTURE1);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.secondaryTexture);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.entityTextures);
 		_gl.glUniform1i(_uTexture1, 1);
 		_gl.glUniform2f(_uOffset, xOffset, yOffset);
 		_gl.glUniform1f(_uScale, scale);
@@ -490,8 +492,11 @@ public class RenderSupport
 		
 		// (we switch the atlas in and out since this will likely be a different sprite atlas, later).
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.primaryTexture);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.tileTextures);
 		_gl.glUniform1i(_uTexture0, 0);
+		_gl.glActiveTexture(GL20.GL_TEXTURE1);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.auxTextures);
+		_gl.glUniform1i(_uTexture1, 1);
 		_gl.glUniform1f(_uScale, 1.0f);
 	}
 }

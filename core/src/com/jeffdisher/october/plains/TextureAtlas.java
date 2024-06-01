@@ -12,6 +12,7 @@ import javax.imageio.ImageIO;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.GL20;
+import com.jeffdisher.october.types.EntityType;
 import com.jeffdisher.october.types.Item;
 import com.jeffdisher.october.utils.Assert;
 
@@ -24,12 +25,11 @@ import com.jeffdisher.october.utils.Assert;
 public class TextureAtlas
 {
 	/**
-	 * The names of the special textures in the secondary atlas.
+	 * The names of the special textures in the auxiliary atlas.
 	 */
-	public static enum Secondary
+	public static enum Auxiliary
 	{
 		NONE,
-		PLAYER,
 		DEBRIS,
 		BREAK_LIGHT,
 		BREAK_MEDIUM,
@@ -38,8 +38,9 @@ public class TextureAtlas
 	};
 
 	public static TextureAtlas loadAtlas(GL20 gl
-			, Item[] primaryItems
-			, Map<Secondary, String> secondaryNameMap
+			, Item[] tileItems
+			, String playerTextureName
+			, Map<Auxiliary, String> auxiliaryNameMap
 			, String missingTextureName
 	) throws IOException
 	{
@@ -48,26 +49,30 @@ public class TextureAtlas
 		int eachTextureEdge = 32;
 		
 		// Just grab the names of the items, assuming they are all PNGs:
-		String[] primaryNames = Arrays.stream(primaryItems).map(
+		String[] primaryNames = Arrays.stream(tileItems).map(
 				(Item item) -> (item.id() + ".png")
 		).toArray(
 				(int size) -> new String[size]
 		);
-		int primaryTexturesPerRow = _texturesPerRow(primaryNames.length);
-		int primaryTexture = _createTextureAtlas(gl, primaryNames, missingTextureName, primaryTexturesPerRow, eachTextureEdge);
+		int tileTexturesPerRow = _texturesPerRow(primaryNames.length);
+		int tileTexture = _createTextureAtlas(gl, primaryNames, missingTextureName, tileTexturesPerRow, eachTextureEdge);
 		
-		String[] secondaryNames = new String[Secondary.values().length];
-		for (Secondary secondary : Secondary.values())
+		String[] entityNames = new String[] { playerTextureName };
+		int entityTexturesPerRow = _texturesPerRow(entityNames.length);
+		int entityTexture = _createTextureAtlas(gl, entityNames, missingTextureName, entityTexturesPerRow, eachTextureEdge);
+		
+		String[] auxNames = new String[Auxiliary.values().length];
+		for (Auxiliary aux : Auxiliary.values())
 		{
-			String secondaryName = secondaryNameMap.get(secondary);
+			String auxName = auxiliaryNameMap.get(aux);
 			// We don't allow missing textures - this would be a static error.
-			Assert.assertTrue(null != secondaryName);
-			secondaryNames[secondary.ordinal()] = secondaryName;
+			Assert.assertTrue(null != auxName);
+			auxNames[aux.ordinal()] = auxName;
 		}
-		int secondaryTexturesPerRow = _texturesPerRow(secondaryNames.length);
-		int secondaryTexture = _createTextureAtlas(gl, secondaryNames, missingTextureName, secondaryTexturesPerRow, eachTextureEdge);
+		int auxTexturesPerRow = _texturesPerRow(auxNames.length);
+		int auxTexture = _createTextureAtlas(gl, auxNames, missingTextureName, entityTexturesPerRow, eachTextureEdge);
 		
-		return new TextureAtlas(primaryTexture, secondaryTexture, primaryTexturesPerRow, secondaryTexturesPerRow);
+		return new TextureAtlas(tileTexture, entityTexture, auxTexture, tileTexturesPerRow, entityTexturesPerRow, auxTexturesPerRow);
 	}
 
 
@@ -159,52 +164,75 @@ public class TextureAtlas
 	}
 
 
-	public final int primaryTexture;
-	public final int secondaryTexture;
-	public final float primaryCoordinateSize;
-	public final float secondaryCoordinateSize;
-	private final int _primaryTexturesPerRow;
-	private final int _secondaryTexturesPerRow;
+	public final int tileTextures;
+	public final int entityTextures;
+	public final int auxTextures;
+	public final float tileCoordinateSize;
+	public final float entityCoordinateSize;
+	public final float auxCoordinateSize;
+	private final int _tileTexturesPerRow;
+	private final int _entityTexturesPerRow;
+	private final int _auxTexturesPerRow;
 
-	private TextureAtlas(int primaryTexture, int secondaryTexture, int primaryTexturesPerRow, int secondaryTexturesPerRow)
+	private TextureAtlas(int tileTextures, int entityTextures, int auxTextures, int tileTexturesPerRow, int entityTexturesPerRow, int auxTexturesPerRow)
 	{
-		this.primaryTexture = primaryTexture;
-		this.secondaryTexture = secondaryTexture;
-		this.primaryCoordinateSize = 1.0f / (float)primaryTexturesPerRow;
-		this.secondaryCoordinateSize = 1.0f / (float)secondaryTexturesPerRow;
-		_primaryTexturesPerRow = primaryTexturesPerRow;
-		_secondaryTexturesPerRow = secondaryTexturesPerRow;
+		this.tileTextures = tileTextures;
+		this.entityTextures = entityTextures;
+		this.auxTextures = auxTextures;
+		this.tileCoordinateSize = 1.0f / (float)tileTexturesPerRow;
+		this.entityCoordinateSize = 1.0f / (float)entityTexturesPerRow;
+		this.auxCoordinateSize = 1.0f / (float)auxTexturesPerRow;
+		_tileTexturesPerRow = tileTexturesPerRow;
+		_entityTexturesPerRow = entityTexturesPerRow;
+		_auxTexturesPerRow = auxTexturesPerRow;
 	}
 
 	/**
-	 * Returns the UV base coordinates of the texture with the given index.
+	 * Returns the UV base coordinates of the tile texture with the given index.
 	 * 
 	 * @param item The item to draw.
 	 * @return {u, v} of texture base coordinates.
 	 */
-	public float[] baseOfPrimaryTexture(Item item)
+	public float[] baseOfTileTexture(Item item)
 	{
 		int index = item.number();
-		int row = index / _primaryTexturesPerRow;
-		int column = index % _primaryTexturesPerRow;
-		float u = this.primaryCoordinateSize * (float)column;
-		float v = this.primaryCoordinateSize * (float)row;
+		int row = index / _tileTexturesPerRow;
+		int column = index % _tileTexturesPerRow;
+		float u = this.tileCoordinateSize * (float)column;
+		float v = this.tileCoordinateSize * (float)row;
 		return new float[] {u, v};
 	}
 
 	/**
-	 * Returns the UV base coordinates of the secondary texture with the given index.
+	 * Returns the UV base coordinates of the entity texture with the given index.
+	 * 
+	 * @param entityType The entity texture to draw.
+	 * @return {u, v} of texture base coordinates.
+	 */
+	public float[] baseOfEntityTexture(EntityType entityType)
+	{
+		// TODO:  Change this once we have the textures for entity types.
+		int index = 0;
+		int row = index / _entityTexturesPerRow;
+		int column = index % _entityTexturesPerRow;
+		float u = this.entityCoordinateSize * (float)column;
+		float v = this.entityCoordinateSize * (float)row;
+		return new float[] {u, v};
+	}
+
+	/**
+	 * Returns the UV base coordinates of the auxilliary texture with the given index.
 	 * 
 	 * @param special The special texture to draw.
 	 * @return {u, v} of texture base coordinates.
 	 */
-	public float[] baseOfSecondaryTexture(Secondary special)
+	public float[] baseOfAuxTexture(Auxiliary special)
 	{
 		int index = special.ordinal();
-		int row = index / _secondaryTexturesPerRow;
-		int column = index % _secondaryTexturesPerRow;
-		float u = this.secondaryCoordinateSize * (float)column;
-		float v = this.secondaryCoordinateSize * (float)row;
+		int row = index / _auxTexturesPerRow;
+		int column = index % _auxTexturesPerRow;
+		float u = this.auxCoordinateSize * (float)column;
+		float v = this.auxCoordinateSize * (float)row;
 		return new float[] {u, v};
 	}
 }

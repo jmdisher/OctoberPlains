@@ -282,8 +282,8 @@ public class LayerManager
 		// Populate the common mesh.
 		((java.nio.Buffer) bufferToFill).position(0);
 		FloatBuffer textureBuffer = bufferToFill.asFloatBuffer();
-		float textureSize0 = _textureAtlas.primaryCoordinateSize;
-		float textureSize1 = _textureAtlas.secondaryCoordinateSize;
+		float textureSize0 = _textureAtlas.tileCoordinateSize;
+		float textureSize1 = _textureAtlas.auxCoordinateSize;
 		for (int y = 0; y < CUBOID_EDGE_TILE_COUNT; ++y)
 		{
 			for (int x = 0; x < CUBOID_EDGE_TILE_COUNT; ++x)
@@ -293,7 +293,7 @@ public class LayerManager
 				Block block = proxy.getBlock();
 				
 				// The primary texture is just based on whatever the item type is.
-				float[] uv0 = _textureAtlas.baseOfPrimaryTexture(block.item());
+				float[] uv0 = _textureAtlas.baseOfTileTexture(block.item());
 				float textureBase0U = uv0[0];
 				float textureBase0V = uv0[1];
 				
@@ -311,14 +311,14 @@ public class LayerManager
 				boolean hasDebrisInventory = _environment.blocks.permitsEntityMovement(block) && (null != blockInventory) && !blockInventory.sortedKeys().isEmpty();
 				
 				// Apply the rules for how we prioritize secondary textures.
-				TextureAtlas.Secondary secondary;
+				TextureAtlas.Auxiliary aux;
 				if (isCrafting)
 				{
-					secondary = TextureAtlas.Secondary.ACTIVE_STATION;
+					aux = TextureAtlas.Auxiliary.ACTIVE_STATION;
 				}
 				else if (hasDebrisInventory)
 				{
-					secondary = TextureAtlas.Secondary.DEBRIS;
+					aux = TextureAtlas.Auxiliary.DEBRIS;
 				}
 				else if (damage > 0)
 				{
@@ -326,22 +326,22 @@ public class LayerManager
 					float damaged = (float) damage / (float)_environment.damage.getToughness(block);
 					if (damaged > 0.6f)
 					{
-						secondary = TextureAtlas.Secondary.BREAK_HEAVY;
+						aux = TextureAtlas.Auxiliary.BREAK_HEAVY;
 					}
 					else if (damaged > 0.3f)
 					{
-						secondary = TextureAtlas.Secondary.BREAK_MEDIUM;
+						aux = TextureAtlas.Auxiliary.BREAK_MEDIUM;
 					}
 					else
 					{
-						secondary = TextureAtlas.Secondary.BREAK_LIGHT;
+						aux = TextureAtlas.Auxiliary.BREAK_LIGHT;
 					}
 				}
 				else
 				{
-					secondary = TextureAtlas.Secondary.NONE;
+					aux = TextureAtlas.Auxiliary.NONE;
 				}
-				float[] uv1 = _textureAtlas.baseOfSecondaryTexture(secondary);
+				float[] uv1 = _textureAtlas.baseOfAuxTexture(aux);
 				float textureBase1U = uv1[0];
 				float textureBase1V = uv1[1];
 				
