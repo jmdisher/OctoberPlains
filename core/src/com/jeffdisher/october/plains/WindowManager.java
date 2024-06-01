@@ -597,6 +597,14 @@ public class WindowManager
 		}
 	}
 
+	public void closeAllWindows()
+	{
+		if (null != _mode)
+		{
+			_mode = null;
+		}
+	}
+
 	public boolean didOpenInventory(AbsoluteLocation blockLocation)
 	{
 		// See if there is an inventory we can open at the given block location.

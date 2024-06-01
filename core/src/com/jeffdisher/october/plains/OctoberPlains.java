@@ -193,6 +193,10 @@ public class OctoberPlains extends ApplicationAdapter
 		{
 			_windowManager.toggleFuelInventory();
 		}
+		if (Gdx.input.isKeyJustPressed(Keys.ESCAPE))
+		{
+			_windowManager.closeAllWindows();
+		}
 		
 		// It looks like we may have to match these individually (arguably, assuming a relationship between them is wrong, anyway).
 		if (Gdx.input.isKeyJustPressed(Keys.NUM_1))
