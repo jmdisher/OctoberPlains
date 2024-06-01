@@ -39,7 +39,7 @@ public class TextureAtlas
 
 	public static TextureAtlas loadAtlas(GL20 gl
 			, Item[] tileItems
-			, String playerTextureName
+			, Map<EntityType, String> entityNameMap
 			, Map<Auxiliary, String> auxiliaryNameMap
 			, String missingTextureName
 	) throws IOException
@@ -57,7 +57,13 @@ public class TextureAtlas
 		int tileTexturesPerRow = _texturesPerRow(primaryNames.length);
 		int tileTexture = _createTextureAtlas(gl, primaryNames, missingTextureName, tileTexturesPerRow, eachTextureEdge);
 		
-		String[] entityNames = new String[] { playerTextureName };
+		String[] entityNames = new String[EntityType.values().length];
+		for (EntityType type : EntityType.values())
+		{
+			String typeName = entityNameMap.get(type);
+			// It is possible that we didn't find this if it is new or just an error value so let this fall through.
+			entityNames[type.ordinal()] = typeName;
+		}
 		int entityTexturesPerRow = _texturesPerRow(entityNames.length);
 		int entityTexture = _createTextureAtlas(gl, entityNames, missingTextureName, entityTexturesPerRow, eachTextureEdge);
 		
@@ -113,9 +119,18 @@ public class TextureAtlas
 		{
 			String name = imageNames[i];
 			
-			FileHandle unknownTextureFile = Gdx.files.internal(name);
 			// If this is missing, load the missing texture, instead.
-			if (!unknownTextureFile.exists())
+			FileHandle unknownTextureFile;
+			if (null != name)
+			{
+				unknownTextureFile = Gdx.files.internal(name);
+				// If this is missing, load the missing texture, instead.
+				if (!unknownTextureFile.exists())
+				{
+					unknownTextureFile = Gdx.files.internal(missingTextureName);
+				}
+			}
+			else
 			{
 				unknownTextureFile = Gdx.files.internal(missingTextureName);
 			}
@@ -212,7 +227,7 @@ public class TextureAtlas
 	public float[] baseOfEntityTexture(EntityType entityType)
 	{
 		// TODO:  Change this once we have the textures for entity types.
-		int index = 0;
+		int index = entityType.ordinal();
 		int row = index / _entityTexturesPerRow;
 		int column = index % _entityTexturesPerRow;
 		float u = this.entityCoordinateSize * (float)column;

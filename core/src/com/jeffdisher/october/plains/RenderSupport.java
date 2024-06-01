@@ -52,7 +52,7 @@ public class RenderSupport
 	private int _uLayerBrightness;
 	private int _uLayerAlpha;
 	private int _uColourBias;
-	private int _entityBuffer;
+	private int[] _entityBuffers;
 	private int _layerMeshBuffer;
 
 	private Entity _thisEntity;
@@ -123,8 +123,12 @@ public class RenderSupport
 		_uLayerAlpha = _gl.glGetUniformLocation(_program, "uLayerAlpha");
 		_uColourBias = _gl.glGetUniformLocation(_program, "uColourBias");
 		
-		// Define the entity mesh and texture.
-		_entityBuffer = _defineEntityBuffer(environment, _gl, _textureAtlas);
+		// Define the entity mesh and texture for each entity type (in the future, we should probably avoid so many small representations).
+		_entityBuffers = new int[EntityType.values().length];
+		for (EntityType type : EntityType.values())
+		{
+			_entityBuffers[type.ordinal()] = _defineEntityBuffer(environment, _gl, _textureAtlas, type);
+		}
 		
 		// Define the layer mesh.
 		_layerMeshBuffer = _defineLayerMeshBuffer(_gl);
@@ -237,7 +241,7 @@ public class RenderSupport
 			if (0 == zOffset)
 			{
 				// Draw the entity.
-				_drawEntity(0.0f, 0.0f, _thisEntity.volume().width());
+				_drawEntity(0.0f, 0.0f, _thisEntity.volume().width(), EntityType.PLAYER);
 			}
 			
 			// See if there are any other entities at this z-level (we should organize this differently, or pre-sort it, in the future).
@@ -258,13 +262,13 @@ public class RenderSupport
 					{
 						// Give it a red colour.
 						_gl.glUniform4f(_uColourBias, 1.0f, 0.0f, 0.0f, 1.0f);
-						_drawEntity(xOffset, yOffset, scale);
+						_drawEntity(xOffset, yOffset, scale, otherEntity.type());
 						_gl.glUniform4f(_uColourBias, 0.0f, 0.0f, 0.0f, 0.0f);
 						
 					}
 					else
 					{
-						_drawEntity(xOffset, yOffset, scale);
+						_drawEntity(xOffset, yOffset, scale, otherEntity.type());
 					}
 				}
 			}
@@ -358,7 +362,7 @@ public class RenderSupport
 		return shader;
 	}
 
-	private static int _defineEntityBuffer(Environment env, GL20 gl, TextureAtlas atlas)
+	private static int _defineEntityBuffer(Environment env, GL20 gl, TextureAtlas atlas, EntityType type)
 	{
 		// We just draw the player and drawn over air.
 		float textureSize0 = atlas.tileCoordinateSize;
@@ -366,45 +370,50 @@ public class RenderSupport
 		float[] uv0 = atlas.baseOfTileTexture(env.items.AIR);
 		float textureBase0U = uv0[0];
 		float textureBase0V = uv0[1];
-		// TODO:  Split one of these out per-entity type, once we are using them.
-		float[] uv1 = atlas.baseOfEntityTexture(EntityType.PLAYER);
+		float[] uv1 = atlas.baseOfEntityTexture(type);
 		float textureBase1U = uv1[0];
 		float textureBase1V = uv1[1];
+		
 		float lightMultiplier = 1.0f;
+		// NOTE:  We invert the textures coordinates here (probably not ideal).
 		float[] vertices = new float[] {
-				0.0f, TILE_EDGE_SIZE,
+				// Bottom left.
+				0.0f, 0.0f,
 					textureBase0U, textureBase0V + textureSize0,
 					textureBase1U, textureBase1V + textureSize1,
 					lightMultiplier,
-				0.0f, 0.0f,
-					textureBase0U, textureBase0V,
-					textureBase1U, textureBase1V,
-					lightMultiplier,
+				// Bottom right.
 				TILE_EDGE_SIZE, 0.0f,
+					textureBase0U + textureSize0, textureBase0V + textureSize0,
+					textureBase1U + textureSize1, textureBase1V + textureSize1,
+					lightMultiplier,
+				// Top right.
+				TILE_EDGE_SIZE, TILE_EDGE_SIZE,
 					textureBase0U + textureSize0, textureBase0V,
 					textureBase1U + textureSize1, textureBase1V,
 					lightMultiplier,
 				
-				TILE_EDGE_SIZE, 0.0f,
-					textureBase0U + textureSize0, textureBase0V,
-					textureBase1U + textureSize1, textureBase1V,
-					lightMultiplier,
-				TILE_EDGE_SIZE, TILE_EDGE_SIZE,
-					textureBase0U + textureSize0, textureBase0V + textureSize0,
-					textureBase1U + textureSize1, textureBase1V + textureSize1,
-					lightMultiplier,
-				 0.0f, TILE_EDGE_SIZE,
+				// Bottom left.
+				0.0f, 0.0f,
 					textureBase0U, textureBase0V + textureSize0,
 					textureBase1U, textureBase1V + textureSize1,
 					lightMultiplier,
+				// Top right.
+				TILE_EDGE_SIZE, TILE_EDGE_SIZE,
+					textureBase0U + textureSize0, textureBase0V,
+					textureBase1U + textureSize1, textureBase1V,
+					lightMultiplier,
+				// Top left.
+				 0.0f, TILE_EDGE_SIZE,
+					textureBase0U, textureBase0V,
+					textureBase1U, textureBase1V,
+					lightMultiplier,
 		};
+		
 		ByteBuffer direct = ByteBuffer.allocateDirect(vertices.length * Float.BYTES);
 		direct.order(ByteOrder.nativeOrder());
-		for (float f : vertices)
-		{
-			direct.putFloat(f);
-		}
-		((java.nio.Buffer) direct).flip();
+		direct.asFloatBuffer().put(vertices);
+		((java.nio.Buffer) direct).position(0);
 		
 		int entityBuffer = gl.glGenBuffer();
 		gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, entityBuffer);
@@ -469,7 +478,7 @@ public class RenderSupport
 		return commonMesh;
 	}
 
-	private void _drawEntity(float xOffset, float yOffset, float scale)
+	private void _drawEntity(float xOffset, float yOffset, float scale, EntityType type)
 	{
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _textureAtlas.tileTextures);
@@ -479,7 +488,7 @@ public class RenderSupport
 		_gl.glUniform1i(_uTexture1, 1);
 		_gl.glUniform2f(_uOffset, xOffset, yOffset);
 		_gl.glUniform1f(_uScale, scale);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _entityBuffer);
+		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _entityBuffers[type.ordinal()]);
 		_gl.glEnableVertexAttribArray(0);
 		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 7 * Float.BYTES, 0);
 		_gl.glEnableVertexAttribArray(1);

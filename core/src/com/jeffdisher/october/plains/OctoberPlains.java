@@ -14,6 +14,7 @@ import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
+import com.jeffdisher.october.types.EntityType;
 import com.jeffdisher.october.types.PartialEntity;
 
 
@@ -53,7 +54,10 @@ public class OctoberPlains extends ApplicationAdapter
 		{
 			// These are resolved by index so they must be loaded in the same order as the item registry.
 			_textureAtlas = TextureAtlas.loadAtlas(gl, _environment.items.ITEMS_BY_TYPE
-				, "player.png"
+				, Map.of(EntityType.PLAYER, "entity_player.png"
+						, EntityType.COW, "entity_cow.png"
+						, EntityType.ORC, "entity_orc.png"
+				)
 				, Map.of(TextureAtlas.Auxiliary.NONE, "op.air.png"
 						, TextureAtlas.Auxiliary.DEBRIS, "debris.png"
 						, TextureAtlas.Auxiliary.BREAK_LIGHT, "break1.png"
