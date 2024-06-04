@@ -76,7 +76,7 @@ public class TextureAtlas
 			auxNames[aux.ordinal()] = auxName;
 		}
 		int auxTexturesPerRow = _texturesPerRow(auxNames.length);
-		int auxTexture = _createTextureAtlas(gl, auxNames, missingTextureName, entityTexturesPerRow, eachTextureEdge);
+		int auxTexture = _createTextureAtlas(gl, auxNames, missingTextureName, auxTexturesPerRow, eachTextureEdge);
 		
 		return new TextureAtlas(tileTexture, entityTexture, auxTexture, tileTexturesPerRow, entityTexturesPerRow, auxTexturesPerRow);
 	}
