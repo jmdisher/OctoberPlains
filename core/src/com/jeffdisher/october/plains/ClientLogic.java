@@ -16,6 +16,7 @@ import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.mutations.EntityChangeAttackEntity;
 import com.jeffdisher.october.mutations.EntityChangeChangeHotbarSlot;
 import com.jeffdisher.october.mutations.EntityChangeJump;
+import com.jeffdisher.october.mutations.EntityChangeSetBlockLogicState;
 import com.jeffdisher.october.mutations.EntityChangeSwapArmour;
 import com.jeffdisher.october.mutations.EntityChangeUseSelectedItemOnBlock;
 import com.jeffdisher.october.mutations.EntityChangeUseSelectedItemOnEntity;
@@ -207,7 +208,17 @@ public class ClientLogic
 	{
 		// We need to check our selected item and see what "action" is associated with it.
 		int selectedKey = _thisEntity.hotbarItems()[_thisEntity.hotbarIndex()];
-		if (Entity.NO_SELECTION != selectedKey)
+		BlockProxy proxy = new BlockProxy(blockLocation.getBlockAddress(), _cuboids.get(blockLocation.getCuboidAddress()));
+		Block targetBlock = proxy.getBlock();
+		
+		// First, see if the target block has a general logic state we can change.
+		IMutationEntity<IMutablePlayerEntity> change;
+		if (EntityChangeSetBlockLogicState.canChangeBlockLogicState(targetBlock))
+		{
+			boolean existingState = EntityChangeSetBlockLogicState.getCurrentBlockLogicState(targetBlock);
+			change = new EntityChangeSetBlockLogicState(blockLocation, !existingState);
+		}
+		else if (Entity.NO_SELECTION != selectedKey)
 		{
 			// Check if a special use exists for this item and block or if we are just placing.
 			Inventory inventory = _thisEntity.inventory();
@@ -215,16 +226,18 @@ public class ClientLogic
 			NonStackableItem nonStack = inventory.getNonStackableForKey(selectedKey);
 			Item selectedType = (null != stack) ? stack.type() : nonStack.type();
 			
-			BlockProxy proxy = new BlockProxy(blockLocation.getBlockAddress(), _cuboids.get(blockLocation.getCuboidAddress()));
-			Block targetBlock = proxy.getBlock();
-			
 			// First, can we use this on the block.
-			IMutationEntity<IMutablePlayerEntity> change;
 			if (EntityChangeUseSelectedItemOnBlock.canUseOnBlock(selectedType, targetBlock))
 			{
 				change = new EntityChangeUseSelectedItemOnBlock(blockLocation);
 			}
-			// Second, check to see if we can use it, directly.
+			// See if this block can just be activated, directly.
+			else if (EntityChangeSetBlockLogicState.canChangeBlockLogicState(targetBlock))
+			{
+				boolean existingState = EntityChangeSetBlockLogicState.getCurrentBlockLogicState(targetBlock);
+				change = new EntityChangeSetBlockLogicState(blockLocation, !existingState);
+			}
+			// Check to see if we can use it, directly.
 			else if (EntityChangeUseSelectedItemOnSelf.canBeUsedOnSelf(selectedType))
 			{
 				change = new EntityChangeUseSelectedItemOnSelf();
@@ -235,7 +248,15 @@ public class ClientLogic
 				// The mutation will check proximity and collision.
 				change = new MutationPlaceSelectedBlock(blockLocation);
 			}
-			
+		}
+		else
+		{
+			// Nothing to do.
+			change = null;
+		}
+		
+		if (null != change)
+		{
 			long currentTimeMillis = System.currentTimeMillis();
 			_client.sendAction(change, currentTimeMillis);
 		}
