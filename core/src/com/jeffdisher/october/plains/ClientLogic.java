@@ -37,6 +37,7 @@ import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.BodyPart;
 import com.jeffdisher.october.types.Craft;
 import com.jeffdisher.october.types.CuboidAddress;
+import com.jeffdisher.october.types.Difficulty;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.FuelState;
 import com.jeffdisher.october.types.IMutablePlayerEntity;
@@ -101,7 +102,12 @@ public class ClientLogic
 				}
 				// We will just use the flat world generator since it should be populated with what we need for testing.
 				ResourceLoader loader = new ResourceLoader(worldDirectory, new FlatWorldGenerator(true));
-				_server = new ServerProcess(PORT, ServerRunner.DEFAULT_MILLIS_PER_TICK, loader, () -> System.currentTimeMillis());
+				_server = new ServerProcess(PORT
+						, ServerRunner.DEFAULT_MILLIS_PER_TICK
+						, loader
+						, () -> System.currentTimeMillis()
+						, Difficulty.HOSTILE
+				);
 				_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, clientName);
 			}
 			else
