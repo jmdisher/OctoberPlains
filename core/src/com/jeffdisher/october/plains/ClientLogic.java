@@ -39,6 +39,7 @@ import com.jeffdisher.october.types.Craft;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Difficulty;
 import com.jeffdisher.october.types.Entity;
+import com.jeffdisher.october.types.EntityLocation;
 import com.jeffdisher.october.types.FuelState;
 import com.jeffdisher.october.types.IMutablePlayerEntity;
 import com.jeffdisher.october.types.Inventory;
@@ -54,6 +55,11 @@ public class ClientLogic
 {
 	public static final int ENTITY_ID = 1;
 	public static final int PORT = 5678;
+	/**
+	 * The threshold for how we determine which direction a block is "facing" based on where it is clicked.
+	 * If it is within this distance of an edge, it is facing that edge.  This means that the number must be < 0.5f.
+	 */
+	public static final double FACING_THRESHOLD = 0.3f;
 
 	private final Environment _environment;
 	private final Consumer<Entity> _thisEntityConsumer;
@@ -210,10 +216,11 @@ public class ClientLogic
 		}
 	}
 
-	public void runAction(AbsoluteLocation blockLocation)
+	public void runAction(EntityLocation logicalLocation)
 	{
 		// We need to check our selected item and see what "action" is associated with it.
 		int selectedKey = _thisEntity.hotbarItems()[_thisEntity.hotbarIndex()];
+		AbsoluteLocation blockLocation = logicalLocation.getBlockLocation();
 		BlockProxy proxy = new BlockProxy(blockLocation.getBlockAddress(), _cuboids.get(blockLocation.getCuboidAddress()));
 		Block targetBlock = proxy.getBlock();
 		
@@ -252,7 +259,9 @@ public class ClientLogic
 			else
 			{
 				// The mutation will check proximity and collision.
-				change = new MutationPlaceSelectedBlock(blockLocation);
+				// We will need to decide which block the selection is "facing".
+				AbsoluteLocation blockOutput = _determineFacingBlock(logicalLocation);
+				change = new MutationPlaceSelectedBlock(blockLocation, blockOutput);
 			}
 		}
 		else
@@ -427,6 +436,40 @@ public class ClientLogic
 	{
 		_thisEntity = thisEntity;
 		_didJump = false;
+	}
+
+	private static AbsoluteLocation _determineFacingBlock(EntityLocation logicalLocation)
+	{
+		// See the closest horizontal edge to the logicalLocation.  If the distance is below our threshold, that is the
+		// block it is "facing".  Otherwise, we will "face" the block below.
+		double logicalY = logicalLocation.y();
+		double logicalX = logicalLocation.x();
+		double northDistance = Math.ceil(logicalY) - logicalY;
+		double southDistance = logicalY - Math.floor(logicalY);
+		double eastDistance = Math.ceil(logicalX) - logicalX;
+		double westDistance = logicalX - Math.floor(logicalX);
+		double vertical = Math.min(northDistance, southDistance);
+		double horizontal = Math.min(eastDistance, westDistance);
+		
+		AbsoluteLocation facing;
+		if ((vertical <= horizontal) && (vertical <= FACING_THRESHOLD))
+		{
+			// We are close enough so see if this is north/sound.
+			int yOffset = (northDistance == vertical) ? 1 : -1;
+			facing = logicalLocation.getBlockLocation().getRelative(0, yOffset, 0);
+		}
+		else if ((vertical > horizontal) && (horizontal <= FACING_THRESHOLD))
+		{
+			// We are close enough so see if this is east/west.
+			int xOffset = (eastDistance == horizontal) ? 1 : -1;
+			facing = logicalLocation.getBlockLocation().getRelative(xOffset, 0, 0);
+		}
+		else
+		{
+			// We are close to the centre so just face down.
+			facing = logicalLocation.getBlockLocation().getRelative(0, 0, -1);
+		}
+		return facing;
 	}
 
 

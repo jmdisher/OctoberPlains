@@ -14,6 +14,7 @@ import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
+import com.jeffdisher.october.types.EntityLocation;
 import com.jeffdisher.october.types.EntityType;
 import com.jeffdisher.october.types.PartialEntity;
 
@@ -165,11 +166,13 @@ public class OctoberPlains extends ApplicationAdapter
 		float rendererZoom = _renderer.getZoom();
 		float zoomX = glX / rendererZoom;
 		float zoomY = glY / rendererZoom;
+		EntityLocation logicalLocation = null;
 		AbsoluteLocation selection = null;
 		PartialEntity selectedEntity = _mouseHandler.entityUnderMouse(zoomX, zoomY);
 		if (null == selectedEntity)
 		{
-			selection = _mouseHandler.getXyzTile(zoomX, zoomY, zOffset);
+			logicalLocation = _mouseHandler.getXyzTile(zoomX, zoomY, zOffset);
+			selection = logicalLocation.getBlockLocation();
 		}
 		
 		// Draw the scene.
@@ -305,7 +308,7 @@ public class OctoberPlains extends ApplicationAdapter
 				// If we right-click on a crafting table, open that UI, apply right-click logic to the item, itself.
 				if (!_windowManager.didOpenInventory(selection))
 				{
-					_client.runAction(selection);
+					_client.runAction(logicalLocation);
 				}
 			}
 			else if (null != selectedEntity)

@@ -3,7 +3,6 @@ package com.jeffdisher.october.plains;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.EntityLocation;
 import com.jeffdisher.october.types.PartialEntity;
 import com.jeffdisher.october.utils.Assert;
@@ -35,22 +34,17 @@ public class MouseHandler
 	}
 
 	/**
-	 * Gets the (x,y,z) block location where the mouse currently is.
+	 * Gets the (x,y,z) location where the mouse currently is, in tile coordinates.
 	 * 
 	 * @param glX The x location, in GL coordinates ([-1.0 .. 1.0]).
 	 * @param glY The y location, in GL coordinates ([-1.0 .. 1.0]).
 	 * @param zOffset The z offset from the current entity location to use for the 3rd dimension.
-	 * @return The location of the corresponding block.
+	 * @return The location of the mouse in tile coordinates.
 	 */
-	public AbsoluteLocation getXyzTile(float glX, float glY, int zOffset)
+	public EntityLocation getXyzTile(float glX, float glY, int zOffset)
 	{
 		// The glX and glY are in the range of [-1.0 .. 1.0] so convert that into tile coordinates.
-		// We also want to shift by half a tile so the mouse follows the centre, not the bottom-left.
-		float halfTile =  0.5f;
-		int xTile = Math.round(_getLogicalX(glX) - halfTile);
-		int yTile = Math.round(_getLogicalY(glY) - halfTile);
-		int zTile = (int)_centre.z() + zOffset;
-		return new AbsoluteLocation(xTile, yTile, zTile);
+		return new EntityLocation(_getLogicalX(glX), _getLogicalY(glY), _centre.z() + (float)zOffset);
 	}
 
 	/**
