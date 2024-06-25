@@ -28,6 +28,7 @@ import com.jeffdisher.october.mutations.MutationEntitySelectItem;
 import com.jeffdisher.october.mutations.MutationPlaceSelectedBlock;
 import com.jeffdisher.october.persistence.FlatWorldGenerator;
 import com.jeffdisher.october.persistence.ResourceLoader;
+import com.jeffdisher.october.persistence.WorldConfig;
 import com.jeffdisher.october.process.ClientProcess;
 import com.jeffdisher.october.process.ServerProcess;
 import com.jeffdisher.october.server.ServerRunner;
@@ -37,7 +38,6 @@ import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.BodyPart;
 import com.jeffdisher.october.types.Craft;
 import com.jeffdisher.october.types.CuboidAddress;
-import com.jeffdisher.october.types.Difficulty;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.EntityLocation;
 import com.jeffdisher.october.types.FuelState;
@@ -68,6 +68,8 @@ public class ClientLogic
 	private final Consumer<IReadOnlyCuboidData> _changedCuboidConsumer;
 	private final Consumer<CuboidAddress> _removedCuboidConsumer;
 
+	private final ResourceLoader _loader;
+	private final WorldConfig _config;
 	private final ServerProcess _server;
 	private final ClientProcess _client;
 
@@ -107,18 +109,22 @@ public class ClientLogic
 					Assert.assertTrue(worldDirectory.mkdirs());
 				}
 				// We will just use the flat world generator since it should be populated with what we need for testing.
-				ResourceLoader loader = new ResourceLoader(worldDirectory, new FlatWorldGenerator(true));
+				_loader = new ResourceLoader(worldDirectory, new FlatWorldGenerator(true));
+				_config = new WorldConfig();
+				_loader.populateWorldConfig(_config);
 				_server = new ServerProcess(PORT
 						, ServerRunner.DEFAULT_MILLIS_PER_TICK
-						, loader
+						, _loader
 						, () -> System.currentTimeMillis()
-						, Difficulty.HOSTILE
+						, _config
 				);
 				_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, clientName);
 			}
 			else
 			{
 				System.out.println("Connecting to server: " + serverAddress);
+				_loader = null;
+				_config = null;
 				_server = null;
 				_client = new ClientProcess(new _ClientListener(), serverAddress.getAddress(), serverAddress.getPort(), clientName);
 			}
@@ -428,6 +434,16 @@ public class ClientLogic
 		if (null != _server)
 		{
 			_server.stop();
+			// Write-back the world config.
+			try
+			{
+				_loader.storeWorldConfig(_config);
+			}
+			catch (IOException e)
+			{
+				// This shouldn't happen since we already loaded it at the beginning so this would be a serious, and odd, problem.
+				throw Assert.unexpected(e);
+			}
 		}
 	}
 
