@@ -3,7 +3,9 @@ package com.jeffdisher.october.plains;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.jeffdisher.october.types.EntityConstants;
 import com.jeffdisher.october.types.EntityLocation;
+import com.jeffdisher.october.types.EntityVolume;
 import com.jeffdisher.october.types.PartialEntity;
 import com.jeffdisher.october.utils.Assert;
 
@@ -84,7 +86,8 @@ public class MouseHandler
 		for (PartialEntity otherEntity : _otherEntitiesById.values())
 		{
 			EntityLocation location = otherEntity.location();
-			float scale = otherEntity.volume().width();
+			EntityVolume volume = EntityConstants.getVolume(otherEntity.type());
+			float scale = volume.width();
 			float lowX = location.x();
 			float highX = lowX + scale;
 			float lowY = location.y();

@@ -15,8 +15,10 @@ import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
+import com.jeffdisher.october.types.EntityConstants;
 import com.jeffdisher.october.types.EntityLocation;
 import com.jeffdisher.october.types.EntityType;
+import com.jeffdisher.october.types.EntityVolume;
 import com.jeffdisher.october.types.PartialEntity;
 import com.jeffdisher.october.utils.Assert;
 
@@ -241,7 +243,7 @@ public class RenderSupport
 			if (0 == zOffset)
 			{
 				// Draw the entity.
-				_drawEntity(0.0f, 0.0f, _thisEntity.volume().width(), EntityType.PLAYER);
+				_drawEntity(0.0f, 0.0f, EntityConstants.VOLUME_PLAYER.width(), EntityType.PLAYER);
 			}
 			
 			// See if there are any other entities at this z-level (we should organize this differently, or pre-sort it, in the future).
@@ -255,7 +257,8 @@ public class RenderSupport
 					// Figure out the offset.
 					float xOffset = TILE_EDGE_SIZE * (location.x() - entityLocation.x());
 					float yOffset = TILE_EDGE_SIZE * (location.y() - entityLocation.y());
-					float scale = otherEntity.volume().width();
+					EntityVolume volume = EntityConstants.getVolume(otherEntity.type());
+					float scale = volume.width();
 					
 					// See if this is the entity under the mouse.
 					if (otherEntity.id() == selectedEntity)
