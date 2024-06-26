@@ -262,10 +262,12 @@ public class WindowManager
 				_MouseOver<Craft> thisButton = _drawCraftingPanel(client, crafting, craftingInventory, classifications, canManuallyCraft, glX, glY);
 				if (null != thisButton)
 				{
+					// The context will be provided if we are hovering over a craft (even if it isn't possible - just not the panel background).
 					if (null != thisButton.context)
 					{
-						_drawHover(glX, glY, thisButton.context.output[0].name());
+						_drawCraftingHover(glX, glY, thisButton.context);
 					}
+					// The handler will be null if there is no valid crafting operation.
 					button = thisButton.handler;
 				}
 			}
@@ -853,7 +855,7 @@ public class WindowManager
 			float right = left + elementSize;
 			boolean isMouseOver = ((left <= glX) && (glX <= right) && (bottom <= glY) && (glY <= top));
 			EventHandler handler = renderer.render(left, bottom, elementSize, isMouseOver, value);
-			if (null != handler)
+			if (isMouseOver)
 			{
 				onClick = new _MouseOver<>(value, handler);
 			}
@@ -922,6 +924,38 @@ public class WindowManager
 			}
 		}
 		return items;
+	}
+
+	private void _drawCraftingHover(float glX, float glY, Craft craft)
+	{
+		String name = craft.output[0].name();
+		TextManager.Element element = _textManager.lazilyLoadStringTexture(name.toUpperCase());
+		float labelHeight = 0.1f;
+		float labelWidth = element.aspectRatio() * labelHeight;
+		
+		// We want to show the crafting ingredients in a row under the title.
+		float itemSize = 0.1f;
+		float itemMargin = 0.05f;
+		float ingredientsWidth = itemMargin + (craft.input.length * (itemSize + itemMargin));
+		//_drawItem(Item selectedItem, int count, float left, float bottom, float scale, boolean shouldHighlight, float progressBar)
+		
+		float left = glX;
+		float windowBottom = glY - labelHeight - itemSize - (2.0f * itemMargin);
+		float textBottom = glY - labelHeight;
+		float top = glY;
+		float windowRight = left + Math.max(labelWidth, ingredientsWidth);
+		float textRight = left + labelWidth;
+		_drawBackground(left, windowBottom, windowRight, top);
+		_drawTextElement(left, textBottom, textRight, top, element.textureObject());
+		
+		float inputLeft = left + itemMargin;
+		float inputTop = textBottom - itemMargin;
+		float inputBottom = inputTop - itemSize;
+		for (Items items : craft.input)
+		{
+			_drawItem(items.type(), items.count(), inputLeft, inputBottom, itemSize, false, 0.0f);
+			inputLeft += itemSize + itemMargin;
+		}
 	}
 
 
