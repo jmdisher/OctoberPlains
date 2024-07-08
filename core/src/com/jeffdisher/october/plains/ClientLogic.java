@@ -7,6 +7,7 @@ import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntConsumer;
 
 import com.jeffdisher.october.aspects.AspectRegistry;
@@ -18,6 +19,7 @@ import com.jeffdisher.october.mutations.EntityChangeChangeHotbarSlot;
 import com.jeffdisher.october.mutations.EntityChangeJump;
 import com.jeffdisher.october.mutations.EntityChangeSetBlockLogicState;
 import com.jeffdisher.october.mutations.EntityChangeSwapArmour;
+import com.jeffdisher.october.mutations.EntityChangeSwim;
 import com.jeffdisher.october.mutations.EntityChangeUseSelectedItemOnBlock;
 import com.jeffdisher.october.mutations.EntityChangeUseSelectedItemOnEntity;
 import com.jeffdisher.october.mutations.EntityChangeUseSelectedItemOnSelf;
@@ -39,7 +41,9 @@ import com.jeffdisher.october.types.BodyPart;
 import com.jeffdisher.october.types.Craft;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
+import com.jeffdisher.october.types.EntityConstants;
 import com.jeffdisher.october.types.EntityLocation;
+import com.jeffdisher.october.types.EntityType;
 import com.jeffdisher.october.types.FuelState;
 import com.jeffdisher.october.types.IMutablePlayerEntity;
 import com.jeffdisher.october.types.Inventory;
@@ -182,21 +186,47 @@ public class ClientLogic
 		_client.moveHorizontalFully(-1.0f, 0.0f, currentTimeMillis);
 	}
 
-	public boolean jump()
+	public boolean jumpOrSwim()
 	{
-		// We can only jump if we are on the ground.
-		// TODO:  This is is the same approach used in SpatialHelpers._isBlockAligned() so it could have the same rounding failure.
-		float z = _thisEntity.location().z();
-		boolean didJump = false;
-		if (!_didJump && (z == (float)Math.round(z)))
+		// See if we can jump or swim.
+		boolean didMove = false;
+		// Filter for redundant events.
+		if (!_didJump)
 		{
-			EntityChangeJump<IMutablePlayerEntity> jumpChange = new EntityChangeJump<>();
+			Function<AbsoluteLocation, BlockProxy> previousBlockLookUp = (AbsoluteLocation location) -> {
+				IReadOnlyCuboidData cuboid = _cuboids.get(location.getCuboidAddress());
+				return (null != cuboid)
+						? new BlockProxy(location.getBlockAddress(), cuboid)
+						: null
+				;
+			};
+			EntityLocation location = _thisEntity.location();
+			EntityLocation vector = _thisEntity.velocity();
 			long currentTimeMillis = System.currentTimeMillis();
-			_client.sendAction(jumpChange, currentTimeMillis);
-			didJump = true;
-			_didJump = true;
+			
+			if (EntityChangeJump.canJump(previousBlockLookUp
+					, location
+					, EntityConstants.getVolume(EntityType.PLAYER)
+					, vector
+			))
+			{
+				EntityChangeJump<IMutablePlayerEntity> jumpChange = new EntityChangeJump<>();
+				_client.sendAction(jumpChange, currentTimeMillis);
+				didMove = true;
+				_didJump = true;
+			}
+			else if (EntityChangeSwim.canSwim(previousBlockLookUp
+					, location
+					, vector
+			))
+			{
+				EntityChangeSwim<IMutablePlayerEntity> swimChange = new EntityChangeSwim<>();
+				_client.sendAction(swimChange, currentTimeMillis);
+				didMove = true;
+				_didJump = true;
+			}
 		}
-		return didJump;
+		return didMove;
 	}
 
 	public void doNothing()

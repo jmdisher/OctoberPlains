@@ -10,6 +10,7 @@ import java.util.Queue;
 
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.aspects.AspectRegistry;
+import com.jeffdisher.october.aspects.BlockAspect;
 import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
@@ -308,7 +309,8 @@ public class LayerManager
 				short damage = proxy.getDamage();
 				// Note that we will get an empty inventory if an inventory is supported.
 				Inventory blockInventory = proxy.getInventory();
-				boolean hasDebrisInventory = _environment.blocks.permitsEntityMovement(block) && (null != blockInventory) && !blockInventory.sortedKeys().isEmpty();
+				boolean blockPermitsEntityMovement = (_environment.blocks.blockViscosity(block) < BlockAspect.SOLID_VISCOSITY);
+				boolean hasDebrisInventory = blockPermitsEntityMovement && (null != blockInventory) && !blockInventory.sortedKeys().isEmpty();
 				
 				// Apply the rules for how we prioritize secondary textures.
 				TextureAtlas.Auxiliary aux;

@@ -186,7 +186,7 @@ public class OctoberPlains extends ApplicationAdapter
 		if (Gdx.input.isKeyPressed(Keys.SPACE))
 		{
 			// We let them hold down the space key to make this experience seem more natural.
-			didJump = _client.jump();
+			didJump = _client.jumpOrSwim();
 		}
 		if (Gdx.input.isKeyJustPressed(Keys.I))
 		{
