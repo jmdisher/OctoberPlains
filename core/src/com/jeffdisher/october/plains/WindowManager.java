@@ -328,11 +328,15 @@ public class WindowManager
 		float labelMargin = 0.80f;
 		float valueMargin = labelMargin + labelWidth;
 		
-		_drawLabel(labelMargin, -0.90f, -0.85f, "Health");
-		_drawLabel(valueMargin, -0.90f, -0.85f, Byte.toString(thisEntity.health()));
+		_drawLabel(labelMargin, -0.85f, -0.80f, "Health");
+		_drawLabel(valueMargin, -0.85f, -0.80f, Byte.toString(thisEntity.health()));
 		
-		_drawLabel(labelMargin, -0.95f, -0.90f, "Food");
-		_drawLabel(valueMargin, -0.95f, -0.90f, Byte.toString(thisEntity.food()));
+		_drawLabel(labelMargin, -0.90f, -0.85f, "Food");
+		_drawLabel(valueMargin, -0.90f, -0.85f, Byte.toString(thisEntity.food()));
+		
+		// We want to show breath as a percentage but it is normally out of 1000.
+		_drawLabel(labelMargin, -0.95f, -0.90f, "Breath");
+		_drawLabel(valueMargin, -0.95f, -0.90f, Integer.toString(thisEntity.breath() / 10));
 		
 		_drawLabel(labelMargin, -1.0f, -0.95f, "z-level");
 		String zLevel = String.format("%.2f", thisEntity.location().z());
