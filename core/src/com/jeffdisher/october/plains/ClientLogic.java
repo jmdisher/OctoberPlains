@@ -6,6 +6,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
@@ -66,7 +67,7 @@ public class ClientLogic
 	public static final double FACING_THRESHOLD = 0.3f;
 
 	private final Environment _environment;
-	private final Consumer<Entity> _thisEntityConsumer;
+	private final BiConsumer<Entity, Entity> _thisEntityConsumer;
 	private final Consumer<PartialEntity> _otherEntityConsumer;
 	private final IntConsumer _unloadEntityConsumer;
 	private final Consumer<IReadOnlyCuboidData> _changedCuboidConsumer;
@@ -84,7 +85,7 @@ public class ClientLogic
 	private boolean _didJump;
 
 	public ClientLogic(Environment environment
-			, Consumer<Entity> thisEntityConsumer
+			, BiConsumer<Entity, Entity> thisEntityConsumer
 			, Consumer<PartialEntity> otherEntityConsumer
 			, IntConsumer unloadEntityConsumer
 			, Consumer<IReadOnlyCuboidData> changedCuboidConsumer
@@ -557,18 +558,20 @@ public class ClientLogic
 			_removedCuboidConsumer.accept(address);
 		}
 		@Override
-		public void thisEntityDidLoad(Entity entity)
+		public void thisEntityDidLoad(Entity authoritativeEntity)
 		{
-			Assert.assertTrue(_assignedLocalEntityId == entity.id());
-			_setEntity(entity);
-			_thisEntityConsumer.accept(entity);
+			Assert.assertTrue(_assignedLocalEntityId == authoritativeEntity.id());
+			// To start, we will use the authoritative data as the projection.
+			_setEntity(authoritativeEntity);
+			_thisEntityConsumer.accept(authoritativeEntity, authoritativeEntity);
 		}
 		@Override
-		public void thisEntityDidChange(Entity entity)
+		public void thisEntityDidChange(Entity authoritativeEntity, Entity projectedEntity)
 		{
-			Assert.assertTrue(_assignedLocalEntityId == entity.id());
-			_setEntity(entity);
-			_thisEntityConsumer.accept(entity);
+			Assert.assertTrue(_assignedLocalEntityId == authoritativeEntity.id());
+			// Locally, we just use the projection.
+			_setEntity(projectedEntity);
+			_thisEntityConsumer.accept(authoritativeEntity, projectedEntity);
 		}
 		@Override
 		public void otherEntityDidChange(PartialEntity entity)

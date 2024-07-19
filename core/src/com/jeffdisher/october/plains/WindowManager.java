@@ -54,6 +54,7 @@ public class WindowManager
 	private int _backgroundSpaceTexture;
 	private int _highlightTexture;
 	private int _progressTexture;
+	private Entity _authoritativeEntity;
 	private Entity _entity;
 
 	private _WindowMode _mode;
@@ -163,7 +164,7 @@ public class WindowManager
 		if (null != _entity)
 		{
 			_drawHotbar();
-			_drawEntityMetaData(_entity);
+			_drawEntityMetaData();
 		}
 		
 		// Handle the case where we might need to close the inventory window if the block was destroyed or we are too far away.
@@ -322,24 +323,29 @@ public class WindowManager
 		}
 	}
 
-	private void _drawEntityMetaData(Entity thisEntity)
+	private void _drawEntityMetaData()
 	{
 		float labelWidth = 0.1f;
 		float labelMargin = 0.80f;
 		float valueMargin = labelMargin + labelWidth;
 		
+		// We will use the greater of authoritative and projected for most of these stats.
+		// That way, we get the stability of the authoritative numbers but the quick response to eating/breathing actions)
+		byte health = _authoritativeEntity.health();
 		_drawLabel(labelMargin, -0.85f, -0.80f, "Health");
-		_drawLabel(valueMargin, -0.85f, -0.80f, Byte.toString(thisEntity.health()));
+		_drawLabel(valueMargin, -0.85f, -0.80f, Byte.toString(health));
 		
+		byte food = (byte)Math.max(_authoritativeEntity.food(), _entity.food());
 		_drawLabel(labelMargin, -0.90f, -0.85f, "Food");
-		_drawLabel(valueMargin, -0.90f, -0.85f, Byte.toString(thisEntity.food()));
+		_drawLabel(valueMargin, -0.90f, -0.85f, Byte.toString(food));
 		
 		// We want to show breath as a percentage but it is normally out of 1000.
+		int breath = Math.max(_authoritativeEntity.breath(), _entity.breath());
 		_drawLabel(labelMargin, -0.95f, -0.90f, "Breath");
-		_drawLabel(valueMargin, -0.95f, -0.90f, Integer.toString(thisEntity.breath() / 10));
+		_drawLabel(valueMargin, -0.95f, -0.90f, Integer.toString(breath / 10));
 		
 		_drawLabel(labelMargin, -1.0f, -0.95f, "z-level");
-		String zLevel = String.format("%.2f", thisEntity.location().z());
+		String zLevel = String.format("%.2f", _entity.location().z());
 		_drawLabel(valueMargin, -1.0f, -0.95f, zLevel);
 	}
 
@@ -573,9 +579,10 @@ public class WindowManager
 		return _drawTableWindow("Crafting", -0.95f, 0.05f, -0.05f, 0.95f, glX, glY, 0.1f, 0.05f, _environment.crafting.craftsForClassifications(classifications), itemRender);
 	}
 
-	public void setEntity(Entity entity)
+	public void setEntity(Entity authoritativeEntity, Entity projectedEntity)
 	{
-		_entity = entity;
+		_authoritativeEntity = authoritativeEntity;
+		_entity = projectedEntity;
 	}
 
 	public void toggleInventory()
