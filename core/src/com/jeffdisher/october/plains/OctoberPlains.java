@@ -85,10 +85,13 @@ public class OctoberPlains extends ApplicationAdapter
 		
 		// At this point, we can also create the basic OctoberProject client and testing environment.
 		_client = new ClientLogic(_environment
-				, (Entity entity) -> {
-					_renderer.setThisEntity(entity);
-					_mouseHandler.setCentreLocation(entity.location());
-					_windowManager.setEntity(entity);
+				, (Entity projectedEntity) -> {
+					// The renderer and the mouse only want the projected location.
+					EntityLocation projectedLocation = projectedEntity.location();
+					_renderer.setThisEntityLocation(projectedLocation);
+					_mouseHandler.setCentreLocation(projectedLocation);
+					
+					_windowManager.setEntity(projectedEntity);
 				}
 				, (PartialEntity entity) -> {
 					// We notify both the renderer and the mouse handler about the entities.

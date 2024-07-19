@@ -14,7 +14,6 @@ import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
-import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.EntityConstants;
 import com.jeffdisher.october.types.EntityLocation;
 import com.jeffdisher.october.types.EntityType;
@@ -57,7 +56,7 @@ public class RenderSupport
 	private int[] _entityBuffers;
 	private int _layerMeshBuffer;
 
-	private Entity _thisEntity;
+	private EntityLocation _projectedEntityLocation;
 	private final Map<Integer, PartialEntity> _otherEntitiesById;
 	private float _currentSceneScale;
 
@@ -151,10 +150,9 @@ public class RenderSupport
 		_layerManager.completeBackgroundBakeRequest();
 		
 		// We render this relative to the entity, so figure out where it is.
-		EntityLocation entityLocation = _thisEntity.location();
-		AbsoluteLocation entityBlockLocation = entityLocation.getBlockLocation();
-		float x = entityLocation.x();
-		float y = entityLocation.y();
+		AbsoluteLocation entityBlockLocation = _projectedEntityLocation.getBlockLocation();
+		float x = _projectedEntityLocation.x();
+		float y = _projectedEntityLocation.y();
 		
 		// Determine which tile is selected under the mouse.
 		CuboidAddress selectedCuboid = null;
@@ -247,7 +245,7 @@ public class RenderSupport
 			}
 			
 			// See if there are any other entities at this z-level (we should organize this differently, or pre-sort it, in the future).
-			int thisZ = Math.round(_thisEntity.location().z()) + zOffset;
+			int thisZ = Math.round(_projectedEntityLocation.z()) + zOffset;
 			for (PartialEntity otherEntity : _otherEntitiesById.values())
 			{
 				EntityLocation location = otherEntity.location();
@@ -255,8 +253,8 @@ public class RenderSupport
 				if (thisZ == otherZ)
 				{
 					// Figure out the offset.
-					float xOffset = TILE_EDGE_SIZE * (location.x() - entityLocation.x());
-					float yOffset = TILE_EDGE_SIZE * (location.y() - entityLocation.y());
+					float xOffset = TILE_EDGE_SIZE * (location.x() - _projectedEntityLocation.x());
+					float yOffset = TILE_EDGE_SIZE * (location.y() - _projectedEntityLocation.y());
 					EntityVolume volume = EntityConstants.getVolume(otherEntity.type());
 					float scale = volume.width();
 					
@@ -278,9 +276,9 @@ public class RenderSupport
 		}
 	}
 
-	public void setThisEntity(Entity thisEntity)
+	public void setThisEntityLocation(EntityLocation projectedEntityLocation)
 	{
-		_thisEntity = thisEntity;
+		_projectedEntityLocation = projectedEntityLocation;
 	}
 
 	public void setOneCuboid(IReadOnlyCuboidData cuboid)
