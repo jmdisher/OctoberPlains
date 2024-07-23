@@ -18,6 +18,7 @@ import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.mutations.EntityChangeAttackEntity;
 import com.jeffdisher.october.mutations.EntityChangeChangeHotbarSlot;
 import com.jeffdisher.october.mutations.EntityChangeJump;
+import com.jeffdisher.october.mutations.EntityChangeMove;
 import com.jeffdisher.october.mutations.EntityChangeSetBlockLogicState;
 import com.jeffdisher.october.mutations.EntityChangeSwapArmour;
 import com.jeffdisher.october.mutations.EntityChangeSwim;
@@ -159,32 +160,11 @@ public class ClientLogic
 		}
 	}
 
-	public void stepNorth()
+	public void stepHorizontal(EntityChangeMove.Direction direction)
 	{
 		// Make sure that there is no in-progress action, first.
 		long currentTimeMillis = System.currentTimeMillis();
-		_client.moveHorizontalFully(0.0f, +1.0f, currentTimeMillis);
-	}
-
-	public void stepSouth()
-	{
-		// Make sure that there is no in-progress action, first.
-		long currentTimeMillis = System.currentTimeMillis();
-		_client.moveHorizontalFully(0.0f, -1.0f, currentTimeMillis);
-	}
-
-	public void stepEast()
-	{
-		// Make sure that there is no in-progress action, first.
-		long currentTimeMillis = System.currentTimeMillis();
-		_client.moveHorizontalFully(+1.0f, 0.0f, currentTimeMillis);
-	}
-
-	public void stepWest()
-	{
-		// Make sure that there is no in-progress action, first.
-		long currentTimeMillis = System.currentTimeMillis();
-		_client.moveHorizontalFully(-1.0f, 0.0f, currentTimeMillis);
+		_client.moveHorizontalFully(direction, currentTimeMillis);
 	}
 
 	public boolean jumpOrSwim()

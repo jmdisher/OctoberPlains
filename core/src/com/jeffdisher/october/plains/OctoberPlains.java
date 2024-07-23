@@ -11,6 +11,7 @@ import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
+import com.jeffdisher.october.mutations.EntityChangeMove;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
@@ -250,19 +251,19 @@ public class OctoberPlains extends ApplicationAdapter
 		}
 		else if (Gdx.input.isKeyPressed(Keys.DPAD_UP) || Gdx.input.isKeyPressed(Keys.W))
 		{
-			_client.stepNorth();
+			_client.stepHorizontal(EntityChangeMove.Direction.NORTH);
 		}
 		else if (Gdx.input.isKeyPressed(Keys.DPAD_DOWN) || Gdx.input.isKeyPressed(Keys.S))
 		{
-			_client.stepSouth();
+			_client.stepHorizontal(EntityChangeMove.Direction.SOUTH);
 		}
 		else if (Gdx.input.isKeyPressed(Keys.DPAD_RIGHT) || Gdx.input.isKeyPressed(Keys.D))
 		{
-			_client.stepEast();
+			_client.stepHorizontal(EntityChangeMove.Direction.EAST);
 		}
 		else if (Gdx.input.isKeyPressed(Keys.DPAD_LEFT) || Gdx.input.isKeyPressed(Keys.A))
 		{
-			_client.stepWest();
+			_client.stepHorizontal(EntityChangeMove.Direction.WEST);
 		}
 		else if (Gdx.input.isButtonPressed(0))
 		{
