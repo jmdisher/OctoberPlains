@@ -324,7 +324,7 @@ public class ClientLogic
 		byte inventoryAspect;
 		if (useFuel)
 		{
-			FuelState fuel = cuboid.getDataSpecial(AspectRegistry.FUELED, blockAddress);
+			FuelState fuel = cuboid.getDataSpecial(AspectRegistry.FUELLED, blockAddress);
 			inventory = (null != fuel)
 					? fuel.fuelInventory()
 					: null

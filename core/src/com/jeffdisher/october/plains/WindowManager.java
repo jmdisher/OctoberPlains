@@ -229,7 +229,7 @@ public class WindowManager
 					if ((null != fuel) && (null != fuel.currentFuel()))
 					{
 						Item current = fuel.currentFuel();
-						float progressBar = (float)fuel.millisFueled() / (float)_environment.fuel.millisOfFuel(current);
+						float progressBar = (float)fuel.millisFuelled() / (float)_environment.fuel.millisOfFuel(current);
 						// TODO:  We really need a better solution than these hard-coded positions, everywhere.
 						_drawItem(current, 0, -0.45f, - 0.15f, 0.1f, false, progressBar);
 					}
