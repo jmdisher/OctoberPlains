@@ -237,7 +237,7 @@ public class WindowManager
 			}
 			
 			// Draw the crafting panel - this will appear when no block is selected or when the selected block has crafting classifications.
-			Set<Craft.Classification> selectedBlockClassifications = (null != _mode.selectedStation)
+			Set<String> selectedBlockClassifications = (null != _mode.selectedStation)
 					? _environment.stations.getCraftingClasses(proxy.getBlock())
 					: Set.of()
 			;
@@ -252,9 +252,9 @@ public class WindowManager
 						? blockInventory
 						: entityInventory
 				;
-				Set<Craft.Classification> classifications = (null != _mode.selectedStation)
+				Set<String> classifications = (null != _mode.selectedStation)
 						? selectedBlockClassifications
-						: Set.of(Craft.Classification.TRIVIAL)
+						: Set.of(CraftAspect.BUILT_IN)
 				;
 				boolean canManuallyCraft = (null != _mode.selectedStation)
 						? (_environment.stations.getManualMultiplier(proxy.getBlock()) > 0)
@@ -520,7 +520,7 @@ public class WindowManager
 		return _drawTableWindow(inventoryName, -0.95f, -0.80f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.sortedKeys(), keyRender);
 	}
 
-	private _MouseOver<Craft> _drawCraftingPanel(ClientLogic client, CraftOperation crafting, Inventory craftingInventory, Set<Craft.Classification> classifications, boolean canManuallyCraft, float glX, float glY)
+	private _MouseOver<Craft> _drawCraftingPanel(ClientLogic client, CraftOperation crafting, Inventory craftingInventory, Set<String> classifications, boolean canManuallyCraft, float glX, float glY)
 	{
 		// Note that the crafting panel will act a bit differently whether it is the player's inventory or a station (where even crafting table and furnace behave differently).
 		_ValueRenderer<Craft> itemRender = (float left, float bottom, float scale, boolean isMouseOver, Craft craft) -> {
