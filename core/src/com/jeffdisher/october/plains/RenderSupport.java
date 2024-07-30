@@ -368,7 +368,7 @@ public class RenderSupport
 		// We just draw the player and drawn over air.
 		float textureSize0 = atlas.tileCoordinateSize;
 		float textureSize1 = atlas.entityCoordinateSize;
-		float[] uv0 = atlas.baseOfTileTexture(env.items.AIR);
+		float[] uv0 = atlas.baseOfTileTexture(env.special.AIR.item());
 		float textureBase0U = uv0[0];
 		float textureBase0V = uv0[1];
 		float[] uv1 = atlas.baseOfEntityTexture(type);
