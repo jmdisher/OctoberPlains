@@ -50,7 +50,9 @@ public class WindowManager
 	private int _atlasVertexBuffer;
 	private int _unitVertexBuffer;
 
-	private int _backgroundFrameTexture;
+	private int _backgroundFrameTexture_Common;
+	private int _backgroundFrameTexture_Green;
+	private int _backgroundFrameTexture_Red;
 	private int _backgroundSpaceTexture;
 	private int _highlightTexture;
 	private int _progressTexture;
@@ -113,16 +115,33 @@ public class WindowManager
 		_unitVertexBuffer = _defineCommonVertices(_gl, 1.0f);
 		
 		// Create the special textures for the window areas (just one pixel allowing us to avoid creating a new shader).
-		ByteBuffer textureBufferData = ByteBuffer.allocateDirect(2);
+		ByteBuffer textureBufferData = ByteBuffer.allocateDirect(4);
 		textureBufferData.order(ByteOrder.nativeOrder());
 		
-		// The frame is opaque light grey.
-		_backgroundFrameTexture = _gl.glGenTexture();
+		// The "common" frame is opaque light grey.
+		_backgroundFrameTexture_Common = _gl.glGenTexture();
 		textureBufferData.put(new byte[] { (byte) 180, (byte)255 });
 		((java.nio.Buffer) textureBufferData).flip();
-		gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundFrameTexture);
+		gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundFrameTexture_Common);
 		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, 1, 1, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
+		((java.nio.Buffer) textureBufferData).clear();
+		
+		// We also have red and green frame colours.
+		_backgroundFrameTexture_Red = _gl.glGenTexture();
+		textureBufferData.put(new byte[] { (byte) 255, (byte)0, (byte) 0, (byte)255 });
+		((java.nio.Buffer) textureBufferData).flip();
+		gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundFrameTexture_Red);
+		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_RGBA, 1, 1, 0, GL20.GL_RGBA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
+		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
+		((java.nio.Buffer) textureBufferData).clear();
+		_backgroundFrameTexture_Green = _gl.glGenTexture();
+		textureBufferData.put(new byte[] { (byte) 0, (byte)255, (byte) 0, (byte)255 });
+		((java.nio.Buffer) textureBufferData).flip();
+		gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundFrameTexture_Green);
+		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_RGBA, 1, 1, 0, GL20.GL_RGBA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
+		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
+		((java.nio.Buffer) textureBufferData).clear();
 		
 		// The space is dark grey with alpha.
 		_backgroundSpaceTexture = _gl.glGenTexture();
@@ -131,25 +150,25 @@ public class WindowManager
 		gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundSpaceTexture);
 		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, 1, 1, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
+		((java.nio.Buffer) textureBufferData).clear();
 		
 		// The highlight is light grey with alpha.
 		_highlightTexture = _gl.glGenTexture();
-		((java.nio.Buffer) textureBufferData).position(0);
 		textureBufferData.put(new byte[] { (byte)128, (byte)196 });
 		((java.nio.Buffer) textureBufferData).flip();
 		gl.glBindTexture(GL20.GL_TEXTURE_2D, _highlightTexture);
 		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_LUMINANCE_ALPHA, 1, 1, 0, GL20.GL_LUMINANCE_ALPHA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
+		((java.nio.Buffer) textureBufferData).clear();
 		
 		// Create the progress texture - this is green with a low alpha since we draw it on top.
 		_progressTexture = _gl.glGenTexture();
-		textureBufferData = ByteBuffer.allocateDirect(4);
-		textureBufferData.order(ByteOrder.nativeOrder());
 		textureBufferData.put(new byte[] { (byte)0, (byte)255, (byte)0, (byte)128 });
 		((java.nio.Buffer) textureBufferData).flip();
 		gl.glBindTexture(GL20.GL_TEXTURE_2D, _progressTexture);
 		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_RGBA, 1, 1, 0, GL20.GL_RGBA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
+		((java.nio.Buffer) textureBufferData).clear();
 		
 		// By default, we don't have any window mode active.
 		_mode = null;
@@ -231,7 +250,7 @@ public class WindowManager
 						Item current = fuel.currentFuel();
 						float progressBar = (float)fuel.millisFuelled() / (float)_environment.fuel.millisOfFuel(current);
 						// TODO:  We really need a better solution than these hard-coded positions, everywhere.
-						_drawItem(current, 0, -0.45f, - 0.15f, 0.1f, false, progressBar);
+						_drawItem(current, 0, _backgroundFrameTexture_Common, -0.45f, - 0.15f, 0.1f, false, progressBar);
 					}
 				}
 			}
@@ -317,7 +336,7 @@ public class WindowManager
 			// Determine if this is selected.
 			boolean isSelected = (_entity.hotbarIndex() == i);
 			float progress = isSelected ? 1.0f : 0.0f;
-			_drawBackground(nextLeftButton, hotbarBottom, nextLeftButton + hotbarScale, hotbarBottom + hotbarScale);
+			_drawBackground(_backgroundFrameTexture_Common, nextLeftButton, hotbarBottom, nextLeftButton + hotbarScale, hotbarBottom + hotbarScale);
 			_drawPrimaryTileAndNumber(type, count, nextLeftButton, hotbarBottom, hotbarScale, progress);
 			nextLeftButton += hotbarScale + hotbarSpacing;
 		}
@@ -385,7 +404,7 @@ public class WindowManager
 				mouseHandler = new _MouseOver<>(null, new EventHandler(swap, doNothing, doNothing));
 				highlight = true;
 			}
-			_drawBackground(left, bottom, slotRight, nextTopSlot);
+			_drawBackground(_backgroundFrameTexture_Common, left, bottom, slotRight, nextTopSlot);
 			if (null != piece)
 			{
 				Item type = piece.type();
@@ -421,7 +440,7 @@ public class WindowManager
 				int maxDurability = _environment.durability.getDurability(item);
 				progress = ((float)nonStack.durability()) / ((float)maxDurability);
 			}
-			_drawItem(item, count, left, bottom, scale, isMouseOver, progress);
+			_drawItem(item, count, _backgroundFrameTexture_Common, left, bottom, scale, isMouseOver, progress);
 			
 			EventHandler onClick = null;
 			if (isMouseOver)
@@ -487,7 +506,7 @@ public class WindowManager
 				int maxDurability = _environment.durability.getDurability(item);
 				progress = ((float)nonStack.durability()) / ((float)maxDurability);
 			}
-			_drawItem(item, count, left, bottom, scale, isMouseOver, progress);
+			_drawItem(item, count, _backgroundFrameTexture_Common, left, bottom, scale, isMouseOver, progress);
 			
 			EventHandler onClick = null;
 			if (isMouseOver)
@@ -525,8 +544,9 @@ public class WindowManager
 		// Note that the crafting panel will act a bit differently whether it is the player's inventory or a station (where even crafting table and furnace behave differently).
 		_ValueRenderer<Craft> itemRender = (float left, float bottom, float scale, boolean isMouseOver, Craft craft) -> {
 			// We will only check the highlight if this is something we even could craft.
+			boolean isPossibleCraft = ((null != craftingInventory) ? CraftAspect.canApply(craft, craftingInventory) : false);
 			boolean canCraft = canManuallyCraft
-					? ((null != craftingInventory) ? CraftAspect.canApply(craft, craftingInventory) : false)
+					? isPossibleCraft
 					: false
 			;
 			boolean shouldHighlight = canCraft && isMouseOver;
@@ -546,7 +566,12 @@ public class WindowManager
 					count += 1;
 				}
 			}
-			_drawItem(type, count, left, bottom, scale, shouldHighlight, progressBar);
+			// We will choose the outline texture based on whether or not this crafting recipe is available with the inventory (whether it is manual or not).
+			int backgroundTexture = isPossibleCraft
+					? _backgroundFrameTexture_Green
+					: _backgroundFrameTexture_Red
+			;
+			_drawItem(type, count, backgroundTexture, left, bottom, scale, shouldHighlight, progressBar);
 			EventHandler onClick = null;
 			if (shouldHighlight)
 			{
@@ -691,14 +716,14 @@ public class WindowManager
 		return entityBuffer;
 	}
 
-	private void _drawItem(Item selectedItem, int count, float left, float bottom, float scale, boolean shouldHighlight, float progressBar)
+	private void _drawItem(Item selectedItem, int count, int texture, float left, float bottom, float scale, boolean shouldHighlight, float progressBar)
 	{
 		// This basic item case is square so just build the top-right edges.
 		float right = left + scale;
 		float top = bottom + scale;
 		
 		// Draw the background.
-		_drawBackground(left, bottom, right, top);
+		_drawBackground(texture, left, bottom, right, top);
 		
 		_drawPrimaryTileAndNumber(selectedItem, count, left, bottom, scale, progressBar);
 		if (shouldHighlight)
@@ -805,11 +830,11 @@ public class WindowManager
 		_drawUnitRect(left, bottom, right, top);
 	}
 
-	private void _drawBackground(float left, float bottom, float right, float top)
+	private void _drawBackground(int texture, float left, float bottom, float right, float top)
 	{
 		// We want draw the frame and then the space on top of that.
 		_gl.glActiveTexture(GL20.GL_TEXTURE0);
-		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundFrameTexture);
+		_gl.glBindTexture(GL20.GL_TEXTURE_2D, texture);
 		_drawUnitRect(left - OUTLINE_SIZE, bottom - OUTLINE_SIZE, right + OUTLINE_SIZE, top + OUTLINE_SIZE);
 		_gl.glBindTexture(GL20.GL_TEXTURE_2D, _backgroundSpaceTexture);
 		_drawUnitRect(left, bottom, right, top);
@@ -837,7 +862,7 @@ public class WindowManager
 	{
 		_MouseOver<T> onClick = null;
 		// Draw the window outline and create a default catch runnable to block the background.
-		_drawBackground(leftX, bottomY, rightX, topY);
+		_drawBackground(_backgroundFrameTexture_Common, leftX, bottomY, rightX, topY);
 		if ((leftX <= glX) && (glX <= rightX) && (bottomY <= glY) && (glY <= topY))
 		{
 			Runnable runnable = () -> {};
@@ -909,7 +934,7 @@ public class WindowManager
 		float bottom = glY - labelHeight;
 		float top = glY;
 		float right = left + element.aspectRatio() * (top - bottom);
-		_drawBackground(left, bottom, right, top);
+		_drawBackground(_backgroundFrameTexture_Common, left, bottom, right, top);
 		_drawTextElement(left, bottom, right, top, element.textureObject());
 	}
 
@@ -948,7 +973,6 @@ public class WindowManager
 		float itemSize = 0.1f;
 		float itemMargin = 0.05f;
 		float ingredientsWidth = itemMargin + (craft.input.length * (itemSize + itemMargin));
-		//_drawItem(Item selectedItem, int count, float left, float bottom, float scale, boolean shouldHighlight, float progressBar)
 		
 		float left = glX;
 		float windowBottom = glY - labelHeight - itemSize - (2.0f * itemMargin);
@@ -956,7 +980,7 @@ public class WindowManager
 		float top = glY;
 		float windowRight = left + Math.max(labelWidth, ingredientsWidth);
 		float textRight = left + labelWidth;
-		_drawBackground(left, windowBottom, windowRight, top);
+		_drawBackground(_backgroundFrameTexture_Common, left, windowBottom, windowRight, top);
 		_drawTextElement(left, textBottom, textRight, top, element.textureObject());
 		
 		float inputLeft = left + itemMargin;
@@ -964,7 +988,7 @@ public class WindowManager
 		float inputBottom = inputTop - itemSize;
 		for (Items items : craft.input)
 		{
-			_drawItem(items.type(), items.count(), inputLeft, inputBottom, itemSize, false, 0.0f);
+			_drawItem(items.type(), items.count(), _backgroundFrameTexture_Common, inputLeft, inputBottom, itemSize, false, 0.0f);
 			inputLeft += itemSize + itemMargin;
 		}
 	}
