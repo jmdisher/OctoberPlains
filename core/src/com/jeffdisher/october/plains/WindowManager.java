@@ -31,6 +31,14 @@ public class WindowManager
 {
 	public static final float NO_PROGRESS = 0.0f;
 	public static final float OUTLINE_SIZE = 0.01f;
+	
+	public static final float ARMOUR_SLOT_SCALE = 0.1f;
+	public static final float ARMOUR_SLOT_SPACING = 0.05f;
+	public static final float ARMOUR_SLOT_RIGHT_EDGE = 0.95f;
+	public static final float ARMOUR_SLOT_TOP_EDGE = 0.95f;
+	public static final _WindowDimensions WINDOW_TOP_LEFT = new _WindowDimensions(-0.95f, 0.05f, -0.05f, 0.95f, 0.1f, 0.05f);
+	public static final _WindowDimensions WINDOW_TOP_RIGHT = new _WindowDimensions(0.05f, 0.05f, ARMOUR_SLOT_RIGHT_EDGE - ARMOUR_SLOT_SCALE - ARMOUR_SLOT_SPACING, 0.95f, 0.1f, 0.05f);
+	public static final _WindowDimensions WINDOW_BOTTOM = new _WindowDimensions(-0.95f, -0.80f, 0.95f, -0.05f, 0.1f, 0.05f);
 
 	private final Environment _environment;
 	private final GL20 _gl;
@@ -368,19 +376,16 @@ public class WindowManager
 
 	private _MouseOver<Integer> _drawEntityInventory(ClientLogic client, NonStackableItem[] armour, Inventory entityInventory, Inventory blockInventory, float glX, float glY)
 	{
-		// First, draw the armour slots - these are on the top-right of the screen..
-		float slotScale = 0.1f;
-		float slotSpacing = 0.05f;
-		float slotRight = 0.95f;
-		float nextTopSlot = 0.95f;
+		// First, draw the armour slots - these are on the top-right of the screen.
+		float nextTopSlot = ARMOUR_SLOT_TOP_EDGE;
 		_MouseOver<Integer> mouseHandler = null;
 		for (int i = 0; i < armour.length; ++i)
 		{
 			NonStackableItem piece = armour[i];
-			float left = slotRight - slotScale;
-			float bottom = nextTopSlot - slotScale;
+			float left = ARMOUR_SLOT_RIGHT_EDGE - ARMOUR_SLOT_SCALE;
+			float bottom = nextTopSlot - ARMOUR_SLOT_SCALE;
 			boolean highlight = false;
-			if ((left <= glX) && (glX <= slotRight) && (bottom <= glY) && (glY <= nextTopSlot))
+			if ((left <= glX) && (glX <= ARMOUR_SLOT_RIGHT_EDGE) && (bottom <= glY) && (glY <= nextTopSlot))
 			{
 				int thisIndex = i;
 				Runnable swap = () -> {
@@ -402,22 +407,22 @@ public class WindowManager
 				mouseHandler = new _MouseOver<>(null, new EventHandler(swap, doNothing, doNothing));
 				highlight = true;
 			}
-			_drawBackground(_backgroundFrameTexture_Common, left, bottom, slotRight, nextTopSlot);
+			_drawBackground(_backgroundFrameTexture_Common, left, bottom, ARMOUR_SLOT_RIGHT_EDGE, nextTopSlot);
 			if (null != piece)
 			{
 				Item type = piece.type();
 				int maxDurability = _environment.durability.getDurability(type);
 				float progress = ((float)piece.durability()) / ((float)maxDurability);
-				_drawPrimaryTileAndNumber(type, 0, left, bottom, slotScale, progress);
+				_drawPrimaryTileAndNumber(type, 0, left, bottom, ARMOUR_SLOT_SCALE, progress);
 			}
 			if (highlight)
 			{
 				// If we want to highlight this, draw the highlight square over this.
 				_gl.glActiveTexture(GL20.GL_TEXTURE0);
 				_gl.glBindTexture(GL20.GL_TEXTURE_2D, _highlightTexture);
-				_drawUnitRect(left, bottom, slotRight, nextTopSlot);
+				_drawUnitRect(left, bottom, ARMOUR_SLOT_RIGHT_EDGE, nextTopSlot);
 			}
-			nextTopSlot -= slotScale + slotSpacing;
+			nextTopSlot -= ARMOUR_SLOT_SCALE + ARMOUR_SLOT_SPACING;
 		}
 		
 		// Now, draw the main inventory.
@@ -434,8 +439,7 @@ public class WindowManager
 			_drawItem(selectedItem, count, _backgroundFrameTexture_Common, left, bottom, scale, shouldHighlight, progress);
 		};
 		ValueRenderer<Integer> keyRender = ValueRenderer.buildEntityInventory(client, blockInventory, location, _entity, _mode.inFuelInventory, drawHelper);
-		float inventoryRight = slotRight - slotScale - slotSpacing;
-		_MouseOver<Integer> windowHandler = _drawTableWindow("Inventory", 0.05f, 0.05f, inventoryRight, 0.95f, glX, glY, 0.1f, 0.05f, entityInventory.sortedKeys(), keyRender);
+		_MouseOver<Integer> windowHandler = _drawTableWindow("Inventory", WINDOW_TOP_RIGHT, glX, glY, entityInventory.sortedKeys(), keyRender);
 		if (null != windowHandler)
 		{
 			mouseHandler = windowHandler;
@@ -458,7 +462,7 @@ public class WindowManager
 			_drawItem(selectedItem, count, _backgroundFrameTexture_Common, left, bottom, scale, shouldHighlight, progress);
 		};
 		ValueRenderer<Integer> keyRender = ValueRenderer.buildBlockInventoryRenderer(client, blockInventory, location, _entity.inventory(), _mode.inFuelInventory, drawHelper);
-		return _drawTableWindow(inventoryName, -0.95f, -0.80f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.sortedKeys(), keyRender);
+		return _drawTableWindow(inventoryName, WINDOW_BOTTOM, glX, glY, blockInventory.sortedKeys(), keyRender);
 	}
 
 	private _MouseOver<Craft> _drawCraftingPanel(ClientLogic client, CraftOperation crafting, Inventory craftingInventory, Set<String> classifications, boolean canManuallyCraft, float glX, float glY)
@@ -474,7 +478,7 @@ public class WindowManager
 		};
 		// Note that the crafting panel will act a bit differently whether it is the player's inventory or a station (where even crafting table and furnace behave differently).
 		ValueRenderer<Craft> itemRender = ValueRenderer.buildCraftingRenderer(client, crafting, craftingInventory, _mode.selectedStation, canManuallyCraft, drawHelpers);
-		return _drawTableWindow("Crafting", -0.95f, 0.05f, -0.05f, 0.95f, glX, glY, 0.1f, 0.05f, _environment.crafting.craftsForClassifications(classifications), itemRender);
+		return _drawTableWindow("Crafting", WINDOW_TOP_LEFT, glX, glY, _environment.crafting.craftsForClassifications(classifications), itemRender);
 	}
 
 	public void setEntity(Entity authoritativeEntity, Entity projectedEntity)
@@ -731,39 +735,39 @@ public class WindowManager
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 	}
 
-	private <T> _MouseOver<T> _drawTableWindow(String title, float leftX, float bottomY, float rightX, float topY, float glX, float glY, float elementSize, float margin, List<T> values, ValueRenderer<T> renderer)
+	private <T> _MouseOver<T> _drawTableWindow(String title, _WindowDimensions dimensions, float glX, float glY, List<T> values, ValueRenderer<T> renderer)
 	{
 		_MouseOver<T> onClick = null;
 		// Draw the window outline and create a default catch runnable to block the background.
-		_drawBackground(_backgroundFrameTexture_Common, leftX, bottomY, rightX, topY);
-		if ((leftX <= glX) && (glX <= rightX) && (bottomY <= glY) && (glY <= topY))
+		_drawBackground(_backgroundFrameTexture_Common, dimensions.leftX, dimensions.bottomY, dimensions.rightX, dimensions.topY);
+		if ((dimensions.leftX <= glX) && (glX <= dimensions.rightX) && (dimensions.bottomY <= glY) && (glY <= dimensions.topY))
 		{
 			Runnable runnable = () -> {};
 			onClick = new _MouseOver<>(null, new EventHandler(runnable, runnable, runnable));
 		}
 		// Draw the title.
-		_drawLabel(leftX, topY - 0.1f, topY, title.toUpperCase());
+		_drawLabel(dimensions.leftX, dimensions.topY - 0.1f, dimensions.topY, title.toUpperCase());
 		
 		// We want to draw these in a grid, in rows.  Leave space for margins.
-		float xSpace = rightX - leftX - (2.0f * margin);
+		float xSpace = dimensions.rightX - dimensions.leftX - (2.0f * dimensions.margin);
 		// The size of each item is the margin before the element and the element itself.
-		float spacePerElement = elementSize + margin;
+		float spacePerElement = dimensions.elementSize + dimensions.margin;
 		int itemsPerRow = (int) Math.round(Math.floor(xSpace / spacePerElement));
 		int xElement = 0;
 		int yElement = 0;
 		
-		float leftMargin = leftX + margin;
+		float leftMargin = dimensions.leftX + dimensions.margin;
 		// Leave space for top margin and title.
-		float topMargin = topY - spacePerElement - margin;
+		float topMargin = dimensions.topY - spacePerElement - dimensions.margin;
 		for (T value : values)
 		{
 			// Find the bottom-left of this item.
 			float left = leftMargin + (xElement * spacePerElement);
-			float bottom = topMargin - (yElement * spacePerElement) - elementSize;
-			float top = bottom + elementSize;
-			float right = left + elementSize;
+			float bottom = topMargin - (yElement * spacePerElement) - dimensions.elementSize;
+			float top = bottom + dimensions.elementSize;
+			float right = left + dimensions.elementSize;
 			boolean isMouseOver = ((left <= glX) && (glX <= right) && (bottom <= glY) && (glY <= top));
-			EventHandler handler = renderer.render(left, bottom, elementSize, isMouseOver, value);
+			EventHandler handler = renderer.render(left, bottom, dimensions.elementSize, isMouseOver, value);
 			if (isMouseOver)
 			{
 				onClick = new _MouseOver<>(value, handler);
@@ -878,5 +882,13 @@ public class WindowManager
 
 	private static record _MouseOver<T>(T context
 			, EventHandler handler
+	) {}
+
+	private static record _WindowDimensions(float leftX
+			, float bottomY
+			, float rightX
+			, float topY
+			, float elementSize
+			, float margin
 	) {}
 }
