@@ -36,6 +36,7 @@ public class WindowManager
 	public static final float ARMOUR_SLOT_SPACING = 0.05f;
 	public static final float ARMOUR_SLOT_RIGHT_EDGE = 0.95f;
 	public static final float ARMOUR_SLOT_TOP_EDGE = 0.95f;
+	public static final float WINDOW_TITLE_HEIGHT = 0.1f;
 	public static final _WindowDimensions WINDOW_TOP_LEFT = new _WindowDimensions(-0.95f, 0.05f, -0.05f, 0.95f, 0.1f, 0.05f);
 	public static final _WindowDimensions WINDOW_TOP_RIGHT = new _WindowDimensions(0.05f, 0.05f, ARMOUR_SLOT_RIGHT_EDGE - ARMOUR_SLOT_SCALE - ARMOUR_SLOT_SPACING, 0.95f, 0.1f, 0.05f);
 	public static final _WindowDimensions WINDOW_BOTTOM = new _WindowDimensions(-0.95f, -0.80f, 0.95f, -0.05f, 0.1f, 0.05f);
@@ -746,10 +747,10 @@ public class WindowManager
 			onClick = new _MouseOver<>(null, new EventHandler(runnable, runnable, runnable));
 		}
 		// Draw the title.
-		_drawLabel(dimensions.leftX, dimensions.topY - 0.1f, dimensions.topY, title.toUpperCase());
+		_drawLabel(dimensions.leftX, dimensions.topY - WINDOW_TITLE_HEIGHT, dimensions.topY, title.toUpperCase());
 		
-		// We want to draw these in a grid, in rows.  Leave space for margins.
-		float xSpace = dimensions.rightX - dimensions.leftX - (2.0f * dimensions.margin);
+		// We want to draw these in a grid, in rows.  Leave space for the right margin since we count the left margin in the element sizing.
+		float xSpace = dimensions.rightX - dimensions.leftX - dimensions.margin;
 		// The size of each item is the margin before the element and the element itself.
 		float spacePerElement = dimensions.elementSize + dimensions.margin;
 		int itemsPerRow = (int) Math.round(Math.floor(xSpace / spacePerElement));
@@ -758,13 +759,13 @@ public class WindowManager
 		
 		float leftMargin = dimensions.leftX + dimensions.margin;
 		// Leave space for top margin and title.
-		float topMargin = dimensions.topY - spacePerElement - dimensions.margin;
+		float topMargin = dimensions.topY - WINDOW_TITLE_HEIGHT - dimensions.margin;
 		for (T value : values)
 		{
-			// Find the bottom-left of this item.
+			// We want to render these left->right, top->bottom but GL is left->right, bottom->top so we increment X and Y in opposite ways.
 			float left = leftMargin + (xElement * spacePerElement);
-			float bottom = topMargin - (yElement * spacePerElement) - dimensions.elementSize;
-			float top = bottom + dimensions.elementSize;
+			float top = topMargin - (yElement * spacePerElement);
+			float bottom = top - dimensions.elementSize;
 			float right = left + dimensions.elementSize;
 			boolean isMouseOver = ((left <= glX) && (glX <= right) && (bottom <= glY) && (glY <= top));
 			EventHandler handler = renderer.render(left, bottom, dimensions.elementSize, isMouseOver, value);
