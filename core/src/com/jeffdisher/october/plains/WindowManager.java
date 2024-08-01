@@ -9,7 +9,6 @@ import java.util.function.Function;
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.aspects.CraftAspect;
 import com.jeffdisher.october.aspects.Environment;
-import com.jeffdisher.october.aspects.StationRegistry;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.Block;
@@ -21,7 +20,6 @@ import com.jeffdisher.october.types.FuelState;
 import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
 import com.jeffdisher.october.types.Items;
-import com.jeffdisher.october.types.MutableInventory;
 import com.jeffdisher.october.types.NonStackableItem;
 import com.jeffdisher.october.utils.Assert;
 
@@ -423,61 +421,19 @@ public class WindowManager
 		}
 		
 		// Now, draw the main inventory.
-		_ValueRenderer<Integer> keyRender = (float left, float bottom, float scale, boolean isMouseOver, Integer key) -> {
-			// See if this is stackable or not.
-			Items stack = entityInventory.getStackForKey(key);
-			NonStackableItem nonStack = entityInventory.getNonStackableForKey(key);
-			Item item = (null != stack) ? stack.type() : nonStack.type();
-			int count = (null != stack) ? stack.count() : 0;
-			float progress;
-			if (null != stack)
-			{
-				progress = NO_PROGRESS;
-			}
-			else
+		AbsoluteLocation location = (null != _mode.selectedStation) ? _mode.selectedStation : GeometryHelpers.getCentreAtFeet(_entity);
+		ValueRenderer.DrawInventoryItem drawHelper = (Item selectedItem, int count, float left, float bottom, float scale, boolean shouldHighlight, int durability) ->
+		{
+			float progress = NO_PROGRESS;
+			if (durability > 0)
 			{
 				// We will draw the durability as a progress over the non-stackable.
-				int maxDurability = _environment.durability.getDurability(item);
-				progress = ((float)nonStack.durability()) / ((float)maxDurability);
+				int maxDurability = _environment.durability.getDurability(selectedItem);
+				progress = ((float)durability) / ((float)maxDurability);
 			}
-			_drawItem(item, count, _backgroundFrameTexture_Common, left, bottom, scale, isMouseOver, progress);
-			
-			EventHandler onClick = null;
-			if (isMouseOver)
-			{
-				Runnable click = () -> {
-					// Select.
-					// If this already was selected, clear it.
-					if (_entity.hotbarItems()[_entity.hotbarIndex()] == key)
-					{
-						client.setSelectedItem(0);
-					}
-					else
-					{
-						client.setSelectedItem(key);
-					}
-				};
-				Runnable rightClick = () -> {
-					// Transfer 1.
-					AbsoluteLocation location = (null != _mode.selectedStation) ? _mode.selectedStation : GeometryHelpers.getCentreAtFeet(_entity);
-					client.pushItemsToTileInventory(location, key, 1, _mode.inFuelInventory);
-				};
-				Runnable shiftClick = () -> {
-					// Transfer all.
-					// Find out how many can fit in the block.
-					MutableInventory checker = new MutableInventory((null != blockInventory) ? blockInventory : Inventory.start(StationRegistry.CAPACITY_BLOCK_EMPTY).finish());
-					int max = checker.maxVacancyForItem(item);
-					int toDrop = Math.min(count, max);
-					if (toDrop > 0)
-					{
-						AbsoluteLocation location = (null != _mode.selectedStation) ? _mode.selectedStation : GeometryHelpers.getCentreAtFeet(_entity);
-						client.pushItemsToTileInventory(location, key, toDrop, _mode.inFuelInventory);
-					}
-				};
-				onClick = new EventHandler(click, rightClick, shiftClick);
-			}
-			return onClick;
+			_drawItem(selectedItem, count, _backgroundFrameTexture_Common, left, bottom, scale, shouldHighlight, progress);
 		};
+		ValueRenderer<Integer> keyRender = ValueRenderer.buildEntityInventory(client, blockInventory, location, _entity, _mode.inFuelInventory, drawHelper);
 		float inventoryRight = slotRight - slotScale - slotSpacing;
 		_MouseOver<Integer> windowHandler = _drawTableWindow("Inventory", 0.05f, 0.05f, inventoryRight, 0.95f, glX, glY, 0.1f, 0.05f, entityInventory.sortedKeys(), keyRender);
 		if (null != windowHandler)
@@ -489,118 +445,35 @@ public class WindowManager
 
 	private _MouseOver<Integer> _drawBlockInventory(ClientLogic client, Inventory blockInventory, String inventoryName, float glX, float glY)
 	{
-		_ValueRenderer<Integer> keyRender = (float left, float bottom, float scale, boolean isMouseOver, Integer key) -> {
-			// See if this is stackable or not.
-			Items stack = blockInventory.getStackForKey(key);
-			NonStackableItem nonStack = blockInventory.getNonStackableForKey(key);
-			Item item = (null != stack) ? stack.type() : nonStack.type();
-			int count = (null != stack) ? stack.count() : 0;
-			float progress;
-			if (null != stack)
-			{
-				progress = NO_PROGRESS;
-			}
-			else
+		AbsoluteLocation location = (null != _mode.selectedStation) ? _mode.selectedStation : GeometryHelpers.getCentreAtFeet(_entity);
+		ValueRenderer.DrawInventoryItem drawHelper = (Item selectedItem, int count, float left, float bottom, float scale, boolean shouldHighlight, int durability) ->
+		{
+			float progress = NO_PROGRESS;
+			if (durability > 0)
 			{
 				// We will draw the durability as a progress over the non-stackable.
-				int maxDurability = _environment.durability.getDurability(item);
-				progress = ((float)nonStack.durability()) / ((float)maxDurability);
+				int maxDurability = _environment.durability.getDurability(selectedItem);
+				progress = ((float)durability) / ((float)maxDurability);
 			}
-			_drawItem(item, count, _backgroundFrameTexture_Common, left, bottom, scale, isMouseOver, progress);
-			
-			EventHandler onClick = null;
-			if (isMouseOver)
-			{
-				Runnable click = () -> {
-					// Select.
-					// Do nothing - this has no concept of selection.
-				};
-				Runnable rightClick = () -> {
-					// Transfer 1.
-					AbsoluteLocation location = (null != _mode.selectedStation) ? _mode.selectedStation : GeometryHelpers.getCentreAtFeet(_entity);
-					client.pullItemsFromTileInventory(location, key, 1, _mode.inFuelInventory);
-				};
-				Runnable shiftClick = () -> {
-					// Transfer all.
-					// Find out how many we can hold.
-					MutableInventory checker = new MutableInventory(_entity.inventory());
-					int max = checker.maxVacancyForItem(item);
-					int toPickUp = Math.min(count, max);
-					if (toPickUp > 0)
-					{
-						AbsoluteLocation location = (null != _mode.selectedStation) ? _mode.selectedStation : GeometryHelpers.getCentreAtFeet(_entity);
-						client.pullItemsFromTileInventory(location, key, toPickUp, _mode.inFuelInventory);
-					}
-				};
-				onClick = new EventHandler(click, rightClick, shiftClick);
-			}
-			return onClick;
+			_drawItem(selectedItem, count, _backgroundFrameTexture_Common, left, bottom, scale, shouldHighlight, progress);
 		};
+		ValueRenderer<Integer> keyRender = ValueRenderer.buildBlockInventoryRenderer(client, blockInventory, location, _entity.inventory(), _mode.inFuelInventory, drawHelper);
 		return _drawTableWindow(inventoryName, -0.95f, -0.80f, 0.95f, -0.05f, glX, glY, 0.1f, 0.05f, blockInventory.sortedKeys(), keyRender);
 	}
 
 	private _MouseOver<Craft> _drawCraftingPanel(ClientLogic client, CraftOperation crafting, Inventory craftingInventory, Set<String> classifications, boolean canManuallyCraft, float glX, float glY)
 	{
-		// Note that the crafting panel will act a bit differently whether it is the player's inventory or a station (where even crafting table and furnace behave differently).
-		_ValueRenderer<Craft> itemRender = (float left, float bottom, float scale, boolean isMouseOver, Craft craft) -> {
-			// We will only check the highlight if this is something we even could craft.
-			boolean isPossibleCraft = ((null != craftingInventory) ? CraftAspect.canApply(craft, craftingInventory) : false);
-			boolean canCraft = canManuallyCraft
-					? isPossibleCraft
-					: false
-			;
-			boolean shouldHighlight = canCraft && isMouseOver;
-			// Check to see if this is something we are currently crafting.
-			float progressBar = 0.0f;
-			if ((null != crafting) && (crafting.selectedCraft() == craft))
-			{
-				progressBar = (float)crafting.completedMillis() / (float)craft.millisPerCraft;
-			}
-			// We will only show the first output type so see how many there are.
-			Item type = craft.output[0];
-			int count = 0;
-			for (Item item : craft.output)
-			{
-				if (type == item)
-				{
-					count += 1;
-				}
-			}
+		ValueRenderer.DrawCraftItem drawHelpers = (Item selectedItem, int count, float left, float bottom, float scale, boolean shouldHighlight, float progressBar, boolean isPossibleCraft) ->
+		{
 			// We will choose the outline texture based on whether or not this crafting recipe is available with the inventory (whether it is manual or not).
 			int backgroundTexture = isPossibleCraft
 					? _backgroundFrameTexture_Green
 					: _backgroundFrameTexture_Red
 			;
-			_drawItem(type, count, backgroundTexture, left, bottom, scale, shouldHighlight, progressBar);
-			EventHandler onClick = null;
-			if (shouldHighlight)
-			{
-				Runnable doCraft;
-				if (null != _mode.selectedStation)
-				{
-					// Craft in table.
-					doCraft = () -> {
-						if (CraftAspect.canApply(craft, craftingInventory))
-						{
-							client.beginCraftInBlock(_mode.selectedStation, craft);
-						}
-					};
-				}
-				else
-				{
-					// Craft in inventory.
-					doCraft = () -> {
-						if (CraftAspect.canApply(craft, craftingInventory))
-						{
-							client.beginCraft(craft);
-						}
-					};
-				}
-				// For now, at least, just treat all the events the same way.
-				onClick = new EventHandler(doCraft, doCraft, doCraft);
-			}
-			return onClick;
+			_drawItem(selectedItem, count, backgroundTexture, left, bottom, scale, shouldHighlight, progressBar);
 		};
+		// Note that the crafting panel will act a bit differently whether it is the player's inventory or a station (where even crafting table and furnace behave differently).
+		ValueRenderer<Craft> itemRender = ValueRenderer.buildCraftingRenderer(client, crafting, craftingInventory, _mode.selectedStation, canManuallyCraft, drawHelpers);
 		return _drawTableWindow("Crafting", -0.95f, 0.05f, -0.05f, 0.95f, glX, glY, 0.1f, 0.05f, _environment.crafting.craftsForClassifications(classifications), itemRender);
 	}
 
@@ -858,7 +731,7 @@ public class WindowManager
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 	}
 
-	private <T> _MouseOver<T> _drawTableWindow(String title, float leftX, float bottomY, float rightX, float topY, float glX, float glY, float elementSize, float margin, List<T> values, _ValueRenderer<T> renderer)
+	private <T> _MouseOver<T> _drawTableWindow(String title, float leftX, float bottomY, float rightX, float topY, float glX, float glY, float elementSize, float margin, List<T> values, ValueRenderer<T> renderer)
 	{
 		_MouseOver<T> onClick = null;
 		// Draw the window outline and create a default catch runnable to block the background.
@@ -1002,11 +875,6 @@ public class WindowManager
 	// selectedStation can be null if we have windows open but are looking at the floor.
 	private static record _WindowMode(AbsoluteLocation selectedStation, boolean inFuelInventory)
 	{}
-
-	private interface _ValueRenderer<T>
-	{
-		EventHandler render(float left, float bottom, float scale, boolean isMouseOver, T value);
-	}
 
 	private static record _MouseOver<T>(T context
 			, EventHandler handler
