@@ -386,7 +386,7 @@ public class WindowManager
 			float left = ARMOUR_SLOT_RIGHT_EDGE - ARMOUR_SLOT_SCALE;
 			float bottom = nextTopSlot - ARMOUR_SLOT_SCALE;
 			boolean highlight = false;
-			if ((left <= glX) && (glX <= ARMOUR_SLOT_RIGHT_EDGE) && (bottom <= glY) && (glY <= nextTopSlot))
+			if (_isMouseOver(left, bottom, ARMOUR_SLOT_RIGHT_EDGE, nextTopSlot, glX, glY))
 			{
 				int thisIndex = i;
 				Runnable swap = () -> {
@@ -440,7 +440,7 @@ public class WindowManager
 			_drawItem(selectedItem, count, _backgroundFrameTexture_Common, left, bottom, scale, shouldHighlight, progress);
 		};
 		ValueRenderer<Integer> keyRender = ValueRenderer.buildEntityInventory(client, blockInventory, location, _entity, _mode.inFuelInventory, drawHelper);
-		_MouseOver<Integer> windowHandler = _drawTableWindow("Inventory", WINDOW_TOP_RIGHT, glX, glY, entityInventory.sortedKeys(), keyRender);
+		_MouseOver<Integer> windowHandler = _drawTableWindow("Inventory", WINDOW_TOP_RIGHT, _mode.topRight, glX, glY, entityInventory.sortedKeys(), keyRender);
 		if (null != windowHandler)
 		{
 			mouseHandler = windowHandler;
@@ -463,7 +463,7 @@ public class WindowManager
 			_drawItem(selectedItem, count, _backgroundFrameTexture_Common, left, bottom, scale, shouldHighlight, progress);
 		};
 		ValueRenderer<Integer> keyRender = ValueRenderer.buildBlockInventoryRenderer(client, blockInventory, location, _entity.inventory(), _mode.inFuelInventory, drawHelper);
-		return _drawTableWindow(inventoryName, WINDOW_BOTTOM, glX, glY, blockInventory.sortedKeys(), keyRender);
+		return _drawTableWindow(inventoryName, WINDOW_BOTTOM, _mode.bottom, glX, glY, blockInventory.sortedKeys(), keyRender);
 	}
 
 	private _MouseOver<Craft> _drawCraftingPanel(ClientLogic client, CraftOperation crafting, Inventory craftingInventory, Set<String> classifications, boolean canManuallyCraft, float glX, float glY)
@@ -479,7 +479,7 @@ public class WindowManager
 		};
 		// Note that the crafting panel will act a bit differently whether it is the player's inventory or a station (where even crafting table and furnace behave differently).
 		ValueRenderer<Craft> itemRender = ValueRenderer.buildCraftingRenderer(client, crafting, craftingInventory, _mode.selectedStation, canManuallyCraft, drawHelpers);
-		return _drawTableWindow("Crafting", WINDOW_TOP_LEFT, glX, glY, _environment.crafting.craftsForClassifications(classifications), itemRender);
+		return _drawTableWindow("Crafting", WINDOW_TOP_LEFT, _mode.topLeft, glX, glY, _environment.crafting.craftsForClassifications(classifications), itemRender);
 	}
 
 	public void setEntity(Entity authoritativeEntity, Entity projectedEntity)
@@ -496,7 +496,7 @@ public class WindowManager
 		}
 		else
 		{
-			_mode = new _WindowMode(null, false);
+			_mode = new _WindowMode(null, false, new _WindowState(), new _WindowState(), new _WindowState());
 		}
 	}
 
@@ -508,7 +508,8 @@ public class WindowManager
 			BlockProxy proxy = _blockLoader.apply(_mode.selectedStation);
 			if (null != proxy.getFuel())
 			{
-				_mode = new _WindowMode(_mode.selectedStation, !_mode.inFuelInventory);
+				// This requires a fresh bottom window state but we inherit the others.
+				_mode = new _WindowMode(_mode.selectedStation, !_mode.inFuelInventory, _mode.topLeft, _mode.topRight, new _WindowState());
 			}
 		}
 	}
@@ -532,7 +533,7 @@ public class WindowManager
 		if (_environment.stations.getNormalInventorySize(block) > 0)
 		{
 			// We are at least some kind of station with an inventory.
-			_mode = new _WindowMode(blockLocation, false);
+			_mode = new _WindowMode(blockLocation, false, new _WindowState(), new _WindowState(), new _WindowState());
 			didOpen = true;
 		}
 		return didOpen;
@@ -736,12 +737,12 @@ public class WindowManager
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 	}
 
-	private <T> _MouseOver<T> _drawTableWindow(String title, _WindowDimensions dimensions, float glX, float glY, List<T> values, ValueRenderer<T> renderer)
+	private <T> _MouseOver<T> _drawTableWindow(String title, _WindowDimensions dimensions, _WindowState state, float glX, float glY, List<T> values, ValueRenderer<T> renderer)
 	{
 		_MouseOver<T> onClick = null;
 		// Draw the window outline and create a default catch runnable to block the background.
 		_drawBackground(_backgroundFrameTexture_Common, dimensions.leftX, dimensions.bottomY, dimensions.rightX, dimensions.topY);
-		if ((dimensions.leftX <= glX) && (glX <= dimensions.rightX) && (dimensions.bottomY <= glY) && (glY <= dimensions.topY))
+		if (_isMouseOver(dimensions.leftX, dimensions.bottomY, dimensions.rightX, dimensions.topY, glX, glY))
 		{
 			Runnable runnable = () -> {};
 			onClick = new _MouseOver<>(null, new EventHandler(runnable, runnable, runnable));
@@ -751,23 +752,39 @@ public class WindowManager
 		
 		// We want to draw these in a grid, in rows.  Leave space for the right margin since we count the left margin in the element sizing.
 		float xSpace = dimensions.rightX - dimensions.leftX - dimensions.margin;
+		float ySpace = dimensions.topY - dimensions.bottomY - dimensions.margin;
 		// The size of each item is the margin before the element and the element itself.
 		float spacePerElement = dimensions.elementSize + dimensions.margin;
 		int itemsPerRow = (int) Math.round(Math.floor(xSpace / spacePerElement));
+		int rowsPerPage = (int) Math.round(Math.floor(ySpace / spacePerElement));
+		int itemsPerPage = itemsPerRow * rowsPerPage;
 		int xElement = 0;
 		int yElement = 0;
 		
 		float leftMargin = dimensions.leftX + dimensions.margin;
 		// Leave space for top margin and title.
 		float topMargin = dimensions.topY - WINDOW_TITLE_HEIGHT - dimensions.margin;
-		for (T value : values)
+		int totalItems = values.size();
+		int pageCount = ((totalItems - 1) / itemsPerPage) + 1;
+		if (state.currentPage >= pageCount)
+		{
+			// Something changed underneath us so just reset.
+			state.currentPage = 0;
+		}
+		int startingIndex = state.currentPage * itemsPerPage;
+		int firstIndexBeyondPage = startingIndex + itemsPerPage;
+		if (firstIndexBeyondPage > totalItems)
+		{
+			firstIndexBeyondPage = totalItems;
+		}
+		for (T value : values.subList(startingIndex, firstIndexBeyondPage))
 		{
 			// We want to render these left->right, top->bottom but GL is left->right, bottom->top so we increment X and Y in opposite ways.
 			float left = leftMargin + (xElement * spacePerElement);
 			float top = topMargin - (yElement * spacePerElement);
 			float bottom = top - dimensions.elementSize;
 			float right = left + dimensions.elementSize;
-			boolean isMouseOver = ((left <= glX) && (glX <= right) && (bottom <= glY) && (glY <= top));
+			boolean isMouseOver = _isMouseOver(left, bottom, right, top, glX, glY);
 			EventHandler handler = renderer.render(left, bottom, dimensions.elementSize, isMouseOver, value);
 			if (isMouseOver)
 			{
@@ -778,6 +795,34 @@ public class WindowManager
 			{
 				xElement = 0;
 				yElement += 1;
+			}
+		}
+		
+		// Draw our pagination buttons if they make sense.
+		if (pageCount > 1)
+		{
+			boolean canPageBack = (state.currentPage > 0);
+			boolean canPageForward = (state.currentPage < (pageCount - 1));
+			float textHeight = 0.05f;
+			float buttonTop = dimensions.topY - 0.05f;
+			float buttonBase = buttonTop - textHeight;
+			boolean isMouseOver = _drawTextButton(dimensions.rightX - 0.25f, buttonBase, buttonTop, "<", glX, glY, canPageBack);
+			if (isMouseOver)
+			{
+				Runnable runnable = () -> {
+					state.currentPage -= 1;
+				};
+				onClick = new _MouseOver<>(null, new EventHandler(runnable, runnable, runnable));
+			}
+			String label = (state.currentPage + 1) + " / " + pageCount;
+			_drawLabel(dimensions.rightX - 0.2f, buttonBase, buttonTop, label);
+			isMouseOver = _drawTextButton(dimensions.rightX - 0.1f, buttonBase, buttonTop, ">", glX, glY, canPageForward);
+			if (isMouseOver)
+			{
+				Runnable runnable = () -> {
+					state.currentPage += 1;
+				};
+				onClick = new _MouseOver<>(null, new EventHandler(runnable, runnable, runnable));
 			}
 		}
 		return onClick;
@@ -871,6 +916,31 @@ public class WindowManager
 		}
 	}
 
+	private boolean _drawTextButton(float left, float bottom, float top, String label, float glX, float glY, boolean canHighlight)
+	{
+		TextManager.Element element = _textManager.lazilyLoadStringTexture(label);
+		float textureAspect = element.aspectRatio();
+		float right = left + textureAspect * (top - bottom);
+		_drawBackground(_backgroundFrameTexture_Common, left, bottom, right, top);
+		_drawTextElement(left, bottom, right, top, element.textureObject());
+		
+		// See if the mouse is in this rect.
+		boolean shouldHighlight = canHighlight && _isMouseOver(left, bottom, right, top, glX, glY);
+		if (shouldHighlight)
+		{
+			// If we want to highlight this, draw the highlight square over this.
+			_gl.glActiveTexture(GL20.GL_TEXTURE0);
+			_gl.glBindTexture(GL20.GL_TEXTURE_2D, _highlightTexture);
+			_drawUnitRect(left, bottom, right, top);
+		}
+		return shouldHighlight;
+	}
+
+	private static boolean _isMouseOver(float left, float bottom, float right, float top, float glX, float glY)
+	{
+		return ((left <= glX) && (glX <= right) && (bottom <= glY) && (glY <= top));
+	}
+
 
 	public static record EventHandler(Runnable click
 			, Runnable rightClick
@@ -878,7 +948,13 @@ public class WindowManager
 	) {}
 
 	// selectedStation can be null if we have windows open but are looking at the floor.
-	private static record _WindowMode(AbsoluteLocation selectedStation, boolean inFuelInventory)
+	// Our layout currently just has the 3 fixed windows but each can have a state.
+	private static record _WindowMode(AbsoluteLocation selectedStation
+			, boolean inFuelInventory
+			, _WindowState topLeft
+			, _WindowState topRight
+			, _WindowState bottom
+	)
 	{}
 
 	private static record _MouseOver<T>(T context
@@ -892,4 +968,16 @@ public class WindowManager
 			, float elementSize
 			, float margin
 	) {}
+
+	/**
+	 * Window state is meant to be mutable to track the interactive state of a specific window.
+	 * Note that none of its state should be considered authoritative since the world will change underneath it so it
+	 * must always be able to default back to something sensible.
+	 * Additionally, these can be destroyed/replaced whenever the meaning of the window changes or is closed.
+	 * Also note that the presence of such a state object does not imply that that window is actually defined.
+	 */
+	private static class _WindowState
+	{
+		public int currentPage = 1;
+	}
 }
