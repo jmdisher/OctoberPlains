@@ -15,6 +15,7 @@ import com.jeffdisher.october.types.Block;
 import com.jeffdisher.october.types.BodyPart;
 import com.jeffdisher.october.types.Craft;
 import com.jeffdisher.october.types.CraftOperation;
+import com.jeffdisher.october.types.CreativeInventory;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.FuelState;
 import com.jeffdisher.october.types.Inventory;
@@ -213,7 +214,7 @@ public class WindowManager
 		if ((null != _mode) && (null != _entity))
 		{
 			// Draw the entity inventory.
-			Inventory entityInventory = _entity.inventory();
+			Inventory entityInventory = _getEntityInventory();
 			BlockProxy proxy = (null != _mode.selectedStation) ? _blockLoader.apply(openInventoryLocation) : null;
 			Inventory blockInventory = (null == _mode.selectedStation)
 					? _feetBlockInventory()
@@ -324,7 +325,7 @@ public class WindowManager
 			if (Entity.NO_SELECTION != key)
 			{
 				// This is a real item so find out its type
-				Inventory entityInventory = _entity.inventory();
+				Inventory entityInventory = _getEntityInventory();
 				Items stack = entityInventory.getStackForKey(key);
 				NonStackableItem nonStack = entityInventory.getNonStackableForKey(key);
 				
@@ -392,7 +393,7 @@ public class WindowManager
 				Runnable swap = () -> {
 					// Swap the inventory for this slot.
 					int selectedItem = _entity.hotbarItems()[_entity.hotbarIndex()];
-					NonStackableItem nonStack = _entity.inventory().getNonStackableForKey(selectedItem);
+					NonStackableItem nonStack = _getEntityInventory().getNonStackableForKey(selectedItem);
 					Item type = (null != nonStack) ? nonStack.type() : null;
 					BodyPart thisButtonPart = BodyPart.values()[thisIndex];
 					BodyPart armourPart = _environment.armour.getBodyPart(type);
@@ -462,7 +463,7 @@ public class WindowManager
 			}
 			_drawItem(selectedItem, count, _backgroundFrameTexture_Common, left, bottom, scale, shouldHighlight, progress);
 		};
-		ValueRenderer<Integer> keyRender = ValueRenderer.buildBlockInventoryRenderer(client, blockInventory, location, _entity.inventory(), _mode.inFuelInventory, drawHelper);
+		ValueRenderer<Integer> keyRender = ValueRenderer.buildBlockInventoryRenderer(client, blockInventory, location, _getEntityInventory(), _mode.inFuelInventory, drawHelper);
 		return _drawTableWindow(inventoryName, WINDOW_BOTTOM, _mode.bottom, glX, glY, blockInventory.sortedKeys(), keyRender);
 	}
 
@@ -941,6 +942,15 @@ public class WindowManager
 		return ((left <= glX) && (glX <= right) && (bottom <= glY) && (glY <= top));
 	}
 
+	private Inventory _getEntityInventory()
+	{
+		Inventory inventory = _entity.isCreativeMode()
+				? CreativeInventory.fakeInventory()
+				: _entity.inventory()
+		;
+		return inventory;
+	}
+
 
 	public static record EventHandler(Runnable click
 			, Runnable rightClick
@@ -978,6 +988,7 @@ public class WindowManager
 	 */
 	private static class _WindowState
 	{
-		public int currentPage = 1;
+		// Page is 0-indexed (even though we display it as "X/Y" for 1-indexed values, in the UI).
+		public int currentPage = 0;
 	}
 }

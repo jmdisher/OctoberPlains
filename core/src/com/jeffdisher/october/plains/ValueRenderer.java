@@ -6,6 +6,7 @@ import com.jeffdisher.october.plains.WindowManager.EventHandler;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.Craft;
 import com.jeffdisher.october.types.CraftOperation;
+import com.jeffdisher.october.types.CreativeInventory;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
@@ -39,7 +40,10 @@ public interface ValueRenderer<T>
 	{
 		return (float left, float bottom, float scale, boolean isMouseOver, Integer key) -> {
 			// See if this is stackable or not.
-			Inventory entityInventory = entity.inventory();
+			Inventory entityInventory = entity.isCreativeMode()
+					? CreativeInventory.fakeInventory()
+					: entity.inventory()
+			;
 			Items stack = entityInventory.getStackForKey(key);
 			NonStackableItem nonStack = entityInventory.getNonStackableForKey(key);
 			Item item = (null != stack) ? stack.type() : nonStack.type();

@@ -40,6 +40,7 @@ import com.jeffdisher.october.types.Block;
 import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.BodyPart;
 import com.jeffdisher.october.types.Craft;
+import com.jeffdisher.october.types.CreativeInventory;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.EntityConstants;
@@ -251,7 +252,7 @@ public class ClientLogic
 		else if (Entity.NO_SELECTION != selectedKey)
 		{
 			// Check if a special use exists for this item and block or if we are just placing.
-			Inventory inventory = _thisEntity.inventory();
+			Inventory inventory = _getEntityInventory();
 			Items stack = inventory.getStackForKey(selectedKey);
 			NonStackableItem nonStack = inventory.getNonStackableForKey(selectedKey);
 			Item selectedType = (null != stack) ? stack.type() : nonStack.type();
@@ -300,7 +301,7 @@ public class ClientLogic
 		int selectedKey = _thisEntity.hotbarItems()[_thisEntity.hotbarIndex()];
 		if (Entity.NO_SELECTION != selectedKey)
 		{
-			Inventory inventory = _thisEntity.inventory();
+			Inventory inventory = _getEntityInventory();
 			Items stack = inventory.getStackForKey(selectedKey);
 			NonStackableItem nonStack = inventory.getNonStackableForKey(selectedKey);
 			Item selectedType = (null != stack) ? stack.type() : nonStack.type();
@@ -357,8 +358,9 @@ public class ClientLogic
 		Assert.assertTrue(null != cuboid);
 		BlockAddress blockAddress = location.getBlockAddress();
 		BlockProxy proxy = new BlockProxy(blockAddress, cuboid);
-		Items stack = _thisEntity.inventory().getStackForKey(blockInventoryKey);
-		NonStackableItem nonStack = _thisEntity.inventory().getNonStackableForKey(blockInventoryKey);
+		Inventory inventory = _getEntityInventory();
+		Items stack = inventory.getStackForKey(blockInventoryKey);
+		NonStackableItem nonStack = inventory.getNonStackableForKey(blockInventoryKey);
 		Assert.assertTrue((null != stack) != (null != nonStack));
 		Item type = (null != stack) ? stack.type() : nonStack.type();
 		// Make sure that these can fit in the tile.
@@ -497,6 +499,15 @@ public class ClientLogic
 			facing = logicalLocation.getBlockLocation().getRelative(0, 0, -1);
 		}
 		return facing;
+	}
+
+	private Inventory _getEntityInventory()
+	{
+		Inventory inventory = _thisEntity.isCreativeMode()
+				? CreativeInventory.fakeInventory()
+				: _thisEntity.inventory()
+		;
+		return inventory;
 	}
 
 
