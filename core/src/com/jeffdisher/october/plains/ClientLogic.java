@@ -34,6 +34,7 @@ import com.jeffdisher.october.persistence.FlatWorldGenerator;
 import com.jeffdisher.october.persistence.ResourceLoader;
 import com.jeffdisher.october.process.ClientProcess;
 import com.jeffdisher.october.process.ServerProcess;
+import com.jeffdisher.october.server.MonitoringAgent;
 import com.jeffdisher.october.server.ServerRunner;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.Block;
@@ -123,6 +124,7 @@ public class ClientLogic
 						, ServerRunner.DEFAULT_MILLIS_PER_TICK
 						, _loader
 						, () -> System.currentTimeMillis()
+						, new MonitoringAgent()
 						, _config
 				);
 				_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, clientName);
