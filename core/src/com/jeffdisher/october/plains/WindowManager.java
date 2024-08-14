@@ -182,7 +182,7 @@ public class WindowManager
 		_mode = null;
 	}
 
-	public EventHandler drawWindowsWithButtonCapture(ClientLogic client, float glX, float glY)
+	public EventHandler drawWindowsWithButtonCapture(ClientLogic client, AbsoluteLocation worldMouseLocation, float glX, float glY)
 	{
 		// Enable our program
 		_gl.glUseProgram(_program);
@@ -192,6 +192,19 @@ public class WindowManager
 		{
 			_drawHotbar();
 			_drawEntityMetaData();
+		}
+		
+		// Draw the block name at the top of the screen.
+		BlockProxy proxyUnderMouse = (null != worldMouseLocation) ? _blockLoader.apply(worldMouseLocation) : null;
+		if (null != proxyUnderMouse)
+		{
+			Block blockUnderMouse = proxyUnderMouse.getBlock();
+			if (_environment.special.AIR != blockUnderMouse)
+			{
+				Item itemUnderMouse = blockUnderMouse.item();
+				_drawItem(itemUnderMouse, 0, _backgroundFrameTexture_Common, -0.1f, 0.85f, 0.1f, false, 0.0f);
+				_drawTextOnBackground(0.05f, 0.95f, itemUnderMouse.name().toUpperCase());
+			}
 		}
 		
 		// Handle the case where we might need to close the inventory window if the block was destroyed or we are too far away.
@@ -228,7 +241,7 @@ public class WindowManager
 				{
 					Items items = _synthesizeItems(entityInventory, overKey.context);
 					Item type = items.type();
-					_drawHover(glX, glY, type.name());
+					_drawTextOnBackground(glX, glY, type.name());
 				}
 				button = overKey.handler;
 			}
@@ -244,7 +257,7 @@ public class WindowManager
 					{
 						Items items = _synthesizeItems(blockInventory, thisButton.context);
 						Item type = items.type();
-						_drawHover(glX, glY, type.name());
+						_drawTextOnBackground(glX, glY, type.name());
 					}
 					button = thisButton.handler;
 				}
@@ -849,14 +862,12 @@ public class WindowManager
 		return name;
 	}
 
-	private void _drawHover(float glX, float glY, String name)
+	private void _drawTextOnBackground(float left, float top, String name)
 	{
 		TextManager.Element element = _textManager.lazilyLoadStringTexture(name.toUpperCase());
 		float labelHeight = 0.1f;
 		
-		float left = glX;
-		float bottom = glY - labelHeight;
-		float top = glY;
+		float bottom = top - labelHeight;
 		float right = left + element.aspectRatio() * (top - bottom);
 		_drawBackground(_backgroundFrameTexture_Common, left, bottom, right, top);
 		_drawTextElement(left, bottom, right, top, element.textureObject());

@@ -184,7 +184,7 @@ public class OctoberPlains extends ApplicationAdapter
 		_renderer.renderScene((null != selectedEntity) ? selectedEntity.id() : 0, selection);
 		
 		// Draw any active windows over the scene and get the capture for anything we which can receive click events.
-		WindowManager.EventHandler windowManagerEvent = _windowManager.drawWindowsWithButtonCapture(_client, glX, glY);
+		WindowManager.EventHandler windowManagerEvent = _windowManager.drawWindowsWithButtonCapture(_client, selection, glX, glY);
 		
 		// Handle inputs - we can handle some UI events at the same time as moving but only one move at a time.
 		boolean didJump = false;
