@@ -52,6 +52,7 @@ import com.jeffdisher.october.types.IMutablePlayerEntity;
 import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
 import com.jeffdisher.october.types.Items;
+import com.jeffdisher.october.types.MutableEntity;
 import com.jeffdisher.october.types.MutableInventory;
 import com.jeffdisher.october.types.NonStackableItem;
 import com.jeffdisher.october.types.PartialEntity;
@@ -117,9 +118,12 @@ public class ClientLogic
 					Assert.assertTrue(worldDirectory.mkdirs());
 				}
 				// We will just use the flat world generator since it should be populated with what we need for testing.
-				_loader = new ResourceLoader(worldDirectory, new FlatWorldGenerator(true));
 				_config = new WorldConfig();
-				_loader.populateWorldConfig(_config);
+				ResourceLoader.populateWorldConfig(worldDirectory, _config);
+				_loader = new ResourceLoader(worldDirectory
+						, new FlatWorldGenerator(true)
+						, MutableEntity.TESTING_LOCATION
+				);
 				_server = new ServerProcess(PORT
 						, ServerRunner.DEFAULT_MILLIS_PER_TICK
 						, _loader
