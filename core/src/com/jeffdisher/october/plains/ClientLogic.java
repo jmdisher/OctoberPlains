@@ -80,6 +80,7 @@ public class ClientLogic
 	private final WorldConfig _config;
 	private final ServerProcess _server;
 	private final ClientProcess _client;
+	private final ConsoleRunner _console;
 
 	private Entity _thisEntity;
 	private final Map<CuboidAddress, IReadOnlyCuboidData> _cuboids;
@@ -131,14 +132,19 @@ public class ClientLogic
 						, worldGen
 						, _config.worldSpawn.toEntityLocation()
 				);
+				MonitoringAgent monitoringAgent = new MonitoringAgent();
 				_server = new ServerProcess(PORT
 						, ServerRunner.DEFAULT_MILLIS_PER_TICK
 						, _loader
 						, () -> System.currentTimeMillis()
-						, new MonitoringAgent()
+						, monitoringAgent
 						, _config
 				);
 				_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, clientName);
+				_console = ConsoleRunner.runInBackground(System.in
+						, System.out
+						, monitoringAgent
+				);
 			}
 			else
 			{
@@ -147,6 +153,7 @@ public class ClientLogic
 				_config = null;
 				_server = null;
 				_client = new ClientProcess(new _ClientListener(), serverAddress.getAddress(), serverAddress.getPort(), clientName);
+				_console = null;
 			}
 		}
 		catch (IOException e)
@@ -468,6 +475,15 @@ public class ClientLogic
 			catch (IOException e)
 			{
 				// This shouldn't happen since we already loaded it at the beginning so this would be a serious, and odd, problem.
+				throw Assert.unexpected(e);
+			}
+			try
+			{
+				_console.stop();
+			}
+			catch (InterruptedException e)
+			{
+				// We are just shutting down so we don't expect anything here.
 				throw Assert.unexpected(e);
 			}
 		}
