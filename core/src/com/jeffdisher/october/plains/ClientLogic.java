@@ -30,7 +30,7 @@ import com.jeffdisher.october.mutations.MutationEntityPushItems;
 import com.jeffdisher.october.mutations.MutationEntityRequestItemPickUp;
 import com.jeffdisher.october.mutations.MutationEntitySelectItem;
 import com.jeffdisher.october.mutations.MutationPlaceSelectedBlock;
-import com.jeffdisher.october.persistence.FlatWorldGenerator;
+import com.jeffdisher.october.persistence.BasicWorldGenerator;
 import com.jeffdisher.october.persistence.ResourceLoader;
 import com.jeffdisher.october.process.ClientProcess;
 import com.jeffdisher.october.process.ServerProcess;
@@ -52,7 +52,6 @@ import com.jeffdisher.october.types.IMutablePlayerEntity;
 import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
 import com.jeffdisher.october.types.Items;
-import com.jeffdisher.october.types.MutableEntity;
 import com.jeffdisher.october.types.MutableInventory;
 import com.jeffdisher.october.types.NonStackableItem;
 import com.jeffdisher.october.types.PartialEntity;
@@ -117,12 +116,20 @@ public class ClientLogic
 				{
 					Assert.assertTrue(worldDirectory.mkdirs());
 				}
-				// We will just use the flat world generator since it should be populated with what we need for testing.
+				
+				// We will use the basic world generator, as that is our current standard generator.
 				_config = new WorldConfig();
-				ResourceLoader.populateWorldConfig(worldDirectory, _config);
+				boolean didLoadConfig = ResourceLoader.populateWorldConfig(worldDirectory, _config);
+				BasicWorldGenerator worldGen = new BasicWorldGenerator(_environment, _config.basicSeed);
+				if (!didLoadConfig)
+				{
+					// There is no config so ask the world-gen for the default spawn.
+					EntityLocation spawnLocation = worldGen.getDefaultSpawnLocation();
+					_config.worldSpawn = spawnLocation.getBlockLocation();
+				}
 				_loader = new ResourceLoader(worldDirectory
-						, new FlatWorldGenerator(true)
-						, MutableEntity.TESTING_LOCATION
+						, worldGen
+						, _config.worldSpawn.toEntityLocation()
 				);
 				_server = new ServerProcess(PORT
 						, ServerRunner.DEFAULT_MILLIS_PER_TICK
