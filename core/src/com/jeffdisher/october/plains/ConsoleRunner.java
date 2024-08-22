@@ -7,6 +7,7 @@ import java.io.PrintStream;
 import com.badlogic.gdx.Gdx;
 import com.jeffdisher.october.process.ConsoleHandler;
 import com.jeffdisher.october.server.MonitoringAgent;
+import com.jeffdisher.october.types.WorldConfig;
 import com.jeffdisher.october.utils.Assert;
 
 
@@ -19,9 +20,10 @@ public class ConsoleRunner
 	public static ConsoleRunner runInBackground(InputStream in
 			, PrintStream out
 			, MonitoringAgent monitoringAgent
+			, WorldConfig mutableSharedConfig
 	)
 	{
-		ConsoleRunner runner = new ConsoleRunner(in, out, monitoringAgent);
+		ConsoleRunner runner = new ConsoleRunner(in, out, monitoringAgent, mutableSharedConfig);
 		runner._background.start();
 		return runner;
 	}
@@ -32,12 +34,13 @@ public class ConsoleRunner
 	private ConsoleRunner(InputStream in
 			, PrintStream out
 			, MonitoringAgent monitoringAgent
+			, WorldConfig mutableSharedConfig
 	)
 	{
 		_background = new Thread(() -> {
 			try
 			{
-				ConsoleHandler.readUntilStopInterruptable(in, out, monitoringAgent);
+				ConsoleHandler.readUntilStopInterruptable(in, out, monitoringAgent, mutableSharedConfig);
 				Gdx.app.postRunnable(() -> { Gdx.app.exit(); });
 			}
 			catch (IOException e)

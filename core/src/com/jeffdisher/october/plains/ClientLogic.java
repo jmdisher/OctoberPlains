@@ -144,6 +144,7 @@ public class ClientLogic
 				_console = ConsoleRunner.runInBackground(System.in
 						, System.out
 						, monitoringAgent
+						, _config
 				);
 			}
 			else
