@@ -58,7 +58,7 @@ public class TextManager
 		// We want to get a shared graphics context which we will use for measuring the text size.
 		BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
 		_graphics = image.createGraphics();
-		_font = new Font("Arial", Font.BOLD, 64);
+		_font = new Font(Font.SANS_SERIF, Font.BOLD, 64);
 		_fontMetrics = _graphics.getFontMetrics(_font);
 		// The graphics system either does some lazy loading or heavily depends on JIT since the first call is at least 10x the cost of later ones.
 		// Hence, just draw "something" and ignore the result.
@@ -161,6 +161,7 @@ public class TextManager
 	private BufferedImage _writtenImage(String text)
 	{
 		Rectangle2D rect = _fontMetrics.getStringBounds(text, _graphics);
+		float descent = _fontMetrics.getLineMetrics(text, _graphics).getDescent();
 		double width = rect.getWidth();
 		if (width < 1.0)
 		{
@@ -171,7 +172,7 @@ public class TextManager
 		Graphics graphics = image.getGraphics();
 		graphics.setFont(_font);
 		graphics.setColor(Color.WHITE);
-		graphics.drawString(text, 0, (int)height);
+		graphics.drawString(text, 0, (int)(height - descent));
 		return image;
 	}
 
