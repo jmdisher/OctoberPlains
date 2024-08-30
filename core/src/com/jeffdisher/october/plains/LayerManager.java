@@ -35,7 +35,9 @@ public class LayerManager
 			+ (2 * Float.BYTES)
 			// UV texture coordinates for secondary texture atlas.
 			+ (2 * Float.BYTES)
-			// A float for the light multiplier.
+			// A float for the block light multiplier.
+			+ Float.BYTES
+			// A float for the sky light multiplier.
 			+ Float.BYTES
 	;
 	public static final int SINGLE_LAYER_TOTAL_BUFFER_BYTES = 1
@@ -54,6 +56,11 @@ public class LayerManager
 	 * potentially useless data elements.
 	 */
 	public static final int SCRATCH_BUFFER_COUNT = 4;
+	/**
+	 * The light value we will see for block light in the case of "total darkness".  Actual block light is added on top
+	 * of this.
+	 */
+	public static final float MINIMUM_LIGHT = 0.1f;
 
 	private final Environment _environment;
 	private final GL20 _gl;
@@ -357,27 +364,36 @@ public class LayerManager
 						? cuboid.getData7(AspectRegistry.LIGHT, new BlockAddress(blockAddress.x(), blockAddress.y(), (byte)(blockAddress.z() + 1)))
 						: (null != aboveCuboid) ? aboveCuboid.getData7(AspectRegistry.LIGHT, new BlockAddress(blockAddress.x(), blockAddress.y(), (byte)0)) : 0
 				;
-				float lightMultiplier = 0.5f + (((float)light) / 15.0f);
+				float blockLightMultiplier = MINIMUM_LIGHT + (((float)light) / 15.0f);
+				// TODO:  Base the sky light multiplier on whether or not this block is on top of the height map (since
+				// this will be multiplied against the current time-of-day light so it should be 0.0f or 1.0f).
+				float skyLightMultiplier = 1.0f;
 				
 				textureBuffer.put(bl0);
 				textureBuffer.put(bl1);
-				textureBuffer.put(lightMultiplier);
+				textureBuffer.put(blockLightMultiplier);
+				textureBuffer.put(skyLightMultiplier);
 				textureBuffer.put(br0);
 				textureBuffer.put(br1);
-				textureBuffer.put(lightMultiplier);
+				textureBuffer.put(blockLightMultiplier);
+				textureBuffer.put(skyLightMultiplier);
 				textureBuffer.put(tr0);
 				textureBuffer.put(tr1);
-				textureBuffer.put(lightMultiplier);
+				textureBuffer.put(blockLightMultiplier);
+				textureBuffer.put(skyLightMultiplier);
 				
 				textureBuffer.put(bl0);
 				textureBuffer.put(bl1);
-				textureBuffer.put(lightMultiplier);
+				textureBuffer.put(blockLightMultiplier);
+				textureBuffer.put(skyLightMultiplier);
 				textureBuffer.put(tr0);
 				textureBuffer.put(tr1);
-				textureBuffer.put(lightMultiplier);
+				textureBuffer.put(blockLightMultiplier);
+				textureBuffer.put(skyLightMultiplier);
 				textureBuffer.put(tl0);
 				textureBuffer.put(tl1);
-				textureBuffer.put(lightMultiplier);
+				textureBuffer.put(blockLightMultiplier);
+				textureBuffer.put(skyLightMultiplier);
 			}
 		}
 	}

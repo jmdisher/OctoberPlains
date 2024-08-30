@@ -48,6 +48,7 @@ public class RenderSupport
 	private int _uOffset;
 	private int _uScale;
 	private int _uSceneScale;
+	private int _uSkyLight;
 	private int _uTexture0;
 	private int _uTexture1;
 	private int _uLayerBrightness;
@@ -76,10 +77,12 @@ public class RenderSupport
 						+ "attribute vec2 aPosition;\n"
 						+ "attribute vec2 aTexture0;\n"
 						+ "attribute vec2 aTexture1;\n"
-						+ "attribute float aLightMultiplier;\n"
+						+ "attribute float aBlockLightMultiplier;\n"
+						+ "attribute float aSkyLightMultiplier;\n"
 						+ "uniform vec2 uOffset;\n"
 						+ "uniform float uScale;\n"
 						+ "uniform float uSceneScale;\n"
+						+ "uniform float uSkyLight;\n"
 						+ "varying vec2 vTexture0;\n"
 						+ "varying vec2 vTexture1;\n"
 						+ "varying float vLightMultiplier;\n"
@@ -87,7 +90,7 @@ public class RenderSupport
 						+ "{\n"
 						+ "	vTexture0 = aTexture0;\n"
 						+ "	vTexture1 = aTexture1;\n"
-						+ "	vLightMultiplier = aLightMultiplier;\n"
+						+ "	vLightMultiplier = clamp(aBlockLightMultiplier + (aSkyLightMultiplier * uSkyLight), 0.0, 1.0);\n"
 						+ "	gl_Position = vec4(uSceneScale * ((uScale * aPosition.x) + uOffset.x), uSceneScale * ((uScale * aPosition.y) + uOffset.y), 0.0, 1.0);\n"
 						+ "}\n"
 				, "#version 100\n"
@@ -112,12 +115,14 @@ public class RenderSupport
 						"aPosition",
 						"aTexture0",
 						"aTexture1",
-						"aLightMultiplier",
+						"aBlockLightMultiplier",
+						"aSkyLightMultiplier",
 				}
 		);
 		_uOffset = _gl.glGetUniformLocation(_program, "uOffset");
 		_uScale = _gl.glGetUniformLocation(_program, "uScale");
 		_uSceneScale = _gl.glGetUniformLocation(_program, "uSceneScale");
+		_uSkyLight = _gl.glGetUniformLocation(_program, "uSkyLight");
 		_uTexture0 = _gl.glGetUniformLocation(_program, "uTexture0");
 		_uTexture1 = _gl.glGetUniformLocation(_program, "uTexture1");
 		_uLayerBrightness = _gl.glGetUniformLocation(_program, "uLayerBrightness");
@@ -186,6 +191,8 @@ public class RenderSupport
 		_gl.glUniform4f(_uColourBias, 0.0f, 0.0f, 0.0f, 0.0f);
 		_gl.glUniform1f(_uScale, 1.0f);
 		_gl.glUniform1f(_uSceneScale, _currentSceneScale);
+		// TODO:  Base this sky light value on the time of day.
+		_gl.glUniform1f(_uSkyLight, 0.5f);
 		
 		// We want to render 9 tiles with 3 layers:  3x3x3, centred around the entity location.
 		// (technically 4 tiles with 3 layers would be enough but that would require some extra logic)
@@ -215,11 +222,13 @@ public class RenderSupport
 						_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 0, 0);
 						_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, buffer);
 						_gl.glEnableVertexAttribArray(1);
-						_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 5 * Float.BYTES, 0);
+						_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, LayerManager.SINGLE_VERTEX_BUFFER_BYTES, 0);
 						_gl.glEnableVertexAttribArray(2);
-						_gl.glVertexAttribPointer(2, 2, GL20.GL_FLOAT, false, 5 * Float.BYTES, 2 * Float.BYTES);
+						_gl.glVertexAttribPointer(2, 2, GL20.GL_FLOAT, false, LayerManager.SINGLE_VERTEX_BUFFER_BYTES, 2 * Float.BYTES);
 						_gl.glEnableVertexAttribArray(3);
-						_gl.glVertexAttribPointer(3, 1, GL20.GL_FLOAT, false, 5 * Float.BYTES, 4 * Float.BYTES);
+						_gl.glVertexAttribPointer(3, 1, GL20.GL_FLOAT, false, LayerManager.SINGLE_VERTEX_BUFFER_BYTES, 4 * Float.BYTES);
+						_gl.glEnableVertexAttribArray(4);
+						_gl.glVertexAttribPointer(4, 1, GL20.GL_FLOAT, false, LayerManager.SINGLE_VERTEX_BUFFER_BYTES, 5 * Float.BYTES);
 						
 						_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, CUBOID_EDGE_TILE_COUNT * CUBOID_EDGE_TILE_COUNT * VERTICES_PER_SQUARE);
 						
@@ -375,6 +384,7 @@ public class RenderSupport
 		float textureBase1U = uv1[0];
 		float textureBase1V = uv1[1];
 		
+		// Note that we will use full light for block light and sky light since entities are currently always full bright.
 		float lightMultiplier = 1.0f;
 		// NOTE:  We invert the textures coordinates here (probably not ideal).
 		float[] vertices = new float[] {
@@ -383,15 +393,18 @@ public class RenderSupport
 					textureBase0U, textureBase0V + textureSize0,
 					textureBase1U, textureBase1V + textureSize1,
 					lightMultiplier,
+					lightMultiplier,
 				// Bottom right.
 				TILE_EDGE_SIZE, 0.0f,
 					textureBase0U + textureSize0, textureBase0V + textureSize0,
 					textureBase1U + textureSize1, textureBase1V + textureSize1,
 					lightMultiplier,
+					lightMultiplier,
 				// Top right.
 				TILE_EDGE_SIZE, TILE_EDGE_SIZE,
 					textureBase0U + textureSize0, textureBase0V,
 					textureBase1U + textureSize1, textureBase1V,
+					lightMultiplier,
 					lightMultiplier,
 				
 				// Bottom left.
@@ -399,15 +412,18 @@ public class RenderSupport
 					textureBase0U, textureBase0V + textureSize0,
 					textureBase1U, textureBase1V + textureSize1,
 					lightMultiplier,
+					lightMultiplier,
 				// Top right.
 				TILE_EDGE_SIZE, TILE_EDGE_SIZE,
 					textureBase0U + textureSize0, textureBase0V,
 					textureBase1U + textureSize1, textureBase1V,
 					lightMultiplier,
+					lightMultiplier,
 				// Top left.
 				 0.0f, TILE_EDGE_SIZE,
 					textureBase0U, textureBase0V,
 					textureBase1U, textureBase1V,
+					lightMultiplier,
 					lightMultiplier,
 		};
 		
@@ -420,13 +436,15 @@ public class RenderSupport
 		gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, entityBuffer);
 		gl.glBufferData(GL20.GL_ARRAY_BUFFER, vertices.length * Float.BYTES, direct.asFloatBuffer(), GL20.GL_STATIC_DRAW);
 		gl.glEnableVertexAttribArray(0);
-		gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 7 * Float.BYTES, 0);
+		gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 8 * Float.BYTES, 0);
 		gl.glEnableVertexAttribArray(1);
-		gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 7 * Float.BYTES, 2 * Float.BYTES);
+		gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 8 * Float.BYTES, 2 * Float.BYTES);
 		gl.glEnableVertexAttribArray(2);
-		gl.glVertexAttribPointer(2, 2, GL20.GL_FLOAT, false, 7 * Float.BYTES, 4 * Float.BYTES);
+		gl.glVertexAttribPointer(2, 2, GL20.GL_FLOAT, false, 8 * Float.BYTES, 4 * Float.BYTES);
 		gl.glEnableVertexAttribArray(3);
-		gl.glVertexAttribPointer(3, 1, GL20.GL_FLOAT, false, 7 * Float.BYTES, 6 * Float.BYTES);
+		gl.glVertexAttribPointer(3, 1, GL20.GL_FLOAT, false, 8 * Float.BYTES, 6 * Float.BYTES);
+		gl.glEnableVertexAttribArray(4);
+		gl.glVertexAttribPointer(4, 1, GL20.GL_FLOAT, false, 8 * Float.BYTES, 7 * Float.BYTES);
 		return entityBuffer;
 	}
 
@@ -491,13 +509,15 @@ public class RenderSupport
 		_gl.glUniform1f(_uScale, scale);
 		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _entityBuffers[type.ordinal()]);
 		_gl.glEnableVertexAttribArray(0);
-		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 7 * Float.BYTES, 0);
+		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 8 * Float.BYTES, 0);
 		_gl.glEnableVertexAttribArray(1);
-		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 7 * Float.BYTES, 2 * Float.BYTES);
+		_gl.glVertexAttribPointer(1, 2, GL20.GL_FLOAT, false, 8 * Float.BYTES, 2 * Float.BYTES);
 		_gl.glEnableVertexAttribArray(2);
-		_gl.glVertexAttribPointer(2, 2, GL20.GL_FLOAT, false, 7 * Float.BYTES, 4 * Float.BYTES);
+		_gl.glVertexAttribPointer(2, 2, GL20.GL_FLOAT, false, 8 * Float.BYTES, 4 * Float.BYTES);
 		_gl.glEnableVertexAttribArray(3);
-		_gl.glVertexAttribPointer(3, 1, GL20.GL_FLOAT, false, 7 * Float.BYTES, 6 * Float.BYTES);
+		_gl.glVertexAttribPointer(3, 1, GL20.GL_FLOAT, false, 8 * Float.BYTES, 6 * Float.BYTES);
+		_gl.glEnableVertexAttribArray(4);
+		_gl.glVertexAttribPointer(4, 1, GL20.GL_FLOAT, false, 8 * Float.BYTES, 7 * Float.BYTES);
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 		
 		// (we switch the atlas in and out since this will likely be a different sprite atlas, later).
