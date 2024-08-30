@@ -10,6 +10,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
+import java.util.function.LongConsumer;
 
 import com.jeffdisher.october.aspects.AspectRegistry;
 import com.jeffdisher.october.aspects.Environment;
@@ -75,6 +76,7 @@ public class ClientLogic
 	private final IntConsumer _unloadEntityConsumer;
 	private final Consumer<IReadOnlyCuboidData> _changedCuboidConsumer;
 	private final Consumer<CuboidAddress> _removedCuboidConsumer;
+	private final LongConsumer _tickNumberConsumer;
 
 	private final ResourceLoader _loader;
 	private final WorldConfig _config;
@@ -94,6 +96,7 @@ public class ClientLogic
 			, IntConsumer unloadEntityConsumer
 			, Consumer<IReadOnlyCuboidData> changedCuboidConsumer
 			, Consumer<CuboidAddress> removedCuboidConsumer
+			, LongConsumer tickNumberConsumer
 			, String clientName
 			, InetSocketAddress serverAddress
 	)
@@ -104,6 +107,7 @@ public class ClientLogic
 		_unloadEntityConsumer = unloadEntityConsumer;
 		_changedCuboidConsumer = changedCuboidConsumer;
 		_removedCuboidConsumer = removedCuboidConsumer;
+		_tickNumberConsumer = tickNumberConsumer;
 		
 		try
 		{
@@ -610,6 +614,11 @@ public class ClientLogic
 		public void otherEntityDidUnload(int id)
 		{
 			_unloadEntityConsumer.accept(id);
+		}
+		@Override
+		public void tickDidComplete(long tickNumber)
+		{
+			_tickNumberConsumer.accept(tickNumber);
 		}
 	}
 }

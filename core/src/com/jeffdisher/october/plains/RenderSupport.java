@@ -60,6 +60,7 @@ public class RenderSupport
 	private EntityLocation _projectedEntityLocation;
 	private final Map<Integer, PartialEntity> _otherEntitiesById;
 	private float _currentSceneScale;
+	private float _currentSkyLightMultiplier;
 
 	public RenderSupport(Environment environment, GL20 gl, TextureAtlas textureAtlas)
 	{
@@ -191,8 +192,7 @@ public class RenderSupport
 		_gl.glUniform4f(_uColourBias, 0.0f, 0.0f, 0.0f, 0.0f);
 		_gl.glUniform1f(_uScale, 1.0f);
 		_gl.glUniform1f(_uSceneScale, _currentSceneScale);
-		// TODO:  Base this sky light value on the time of day.
-		_gl.glUniform1f(_uSkyLight, 0.5f);
+		_gl.glUniform1f(_uSkyLight, _currentSkyLightMultiplier);
 		
 		// We want to render 9 tiles with 3 layers:  3x3x3, centred around the entity location.
 		// (technically 4 tiles with 3 layers would be enough but that would require some extra logic)
@@ -328,6 +328,11 @@ public class RenderSupport
 	public float getZoom()
 	{
 		return _currentSceneScale;
+	}
+
+	public void setSkyLightMultiplier(float multiplier)
+	{
+		_currentSkyLightMultiplier = multiplier;
 	}
 
 	/**

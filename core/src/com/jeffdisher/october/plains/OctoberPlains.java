@@ -116,6 +116,13 @@ public class OctoberPlains extends ApplicationAdapter
 					// Notify the renderer to drop this from video memory.
 					_renderer.removeCuboid(address);
 				}
+				, (long gameTick) -> {
+					// TODO:  Base this on actual config from the server - this constant it just for testing.
+					long ticksPerDay = 1000L;
+					long step = gameTick % ticksPerDay;
+					float multiplier = (float)Math.abs(step - (ticksPerDay / 2)) / (float)(ticksPerDay / 2);
+					_renderer.setSkyLightMultiplier(multiplier);
+				}
 				, _clientName
 				, _serverSocketAddress
 		);
