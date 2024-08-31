@@ -11,6 +11,7 @@ import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
+import com.jeffdisher.october.logic.PropagationHelpers;
 import com.jeffdisher.october.mutations.EntityChangeMove;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.CuboidAddress;
@@ -33,6 +34,7 @@ public class OctoberPlains extends ApplicationAdapter
 	private WindowManager _windowManager;
 
 	private ClientLogic _client;
+	private ClientLogic.ConfigUpdate _serverConfig;
 
 	public OctoberPlains(String[] commandLineArgs)
 	{
@@ -117,11 +119,12 @@ public class OctoberPlains extends ApplicationAdapter
 					_renderer.removeCuboid(address);
 				}
 				, (long gameTick) -> {
-					// TODO:  Base this on actual config from the server - this constant it just for testing.
-					long ticksPerDay = 1000L;
-					long step = gameTick % ticksPerDay;
-					float multiplier = (float)Math.abs(step - (ticksPerDay / 2)) / (float)(ticksPerDay / 2);
+					long ticksPerDay = _serverConfig.ticksPerDay();
+					float multiplier = PropagationHelpers.skyLightMultiplier(gameTick, ticksPerDay);
 					_renderer.setSkyLightMultiplier(multiplier);
+				}
+				, (ClientLogic.ConfigUpdate config) -> {
+					_serverConfig = config;
 				}
 				, _clientName
 				, _serverSocketAddress

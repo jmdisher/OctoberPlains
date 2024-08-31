@@ -77,6 +77,7 @@ public class ClientLogic
 	private final Consumer<IReadOnlyCuboidData> _changedCuboidConsumer;
 	private final Consumer<CuboidAddress> _removedCuboidConsumer;
 	private final LongConsumer _tickNumberConsumer;
+	private final Consumer<ConfigUpdate> _configConsumer;
 
 	private final ResourceLoader _loader;
 	private final WorldConfig _config;
@@ -97,6 +98,7 @@ public class ClientLogic
 			, Consumer<IReadOnlyCuboidData> changedCuboidConsumer
 			, Consumer<CuboidAddress> removedCuboidConsumer
 			, LongConsumer tickNumberConsumer
+			, Consumer<ConfigUpdate> configConsumer
 			, String clientName
 			, InetSocketAddress serverAddress
 	)
@@ -108,6 +110,7 @@ public class ClientLogic
 		_changedCuboidConsumer = changedCuboidConsumer;
 		_removedCuboidConsumer = removedCuboidConsumer;
 		_tickNumberConsumer = tickNumberConsumer;
+		_configConsumer = configConsumer;
 		
 		try
 		{
@@ -620,5 +623,13 @@ public class ClientLogic
 		{
 			_tickNumberConsumer.accept(tickNumber);
 		}
+		@Override
+		public void configUpdated(int ticksPerDay)
+		{
+			_configConsumer.accept(new ConfigUpdate(ticksPerDay));
+		}
 	}
+
+	public static record ConfigUpdate(int ticksPerDay)
+	{}
 }
