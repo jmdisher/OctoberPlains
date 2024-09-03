@@ -15,6 +15,7 @@ import java.util.function.LongConsumer;
 import com.jeffdisher.october.aspects.AspectRegistry;
 import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.data.BlockProxy;
+import com.jeffdisher.october.data.ColumnHeightMap;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.mutations.EntityChangeAttackEntity;
 import com.jeffdisher.october.mutations.EntityChangeChangeHotbarSlot;
@@ -74,7 +75,7 @@ public class ClientLogic
 	private final BiConsumer<Entity, Entity> _thisEntityConsumer;
 	private final Consumer<PartialEntity> _otherEntityConsumer;
 	private final IntConsumer _unloadEntityConsumer;
-	private final Consumer<IReadOnlyCuboidData> _changedCuboidConsumer;
+	private final BiConsumer<IReadOnlyCuboidData, ColumnHeightMap> _changedCuboidConsumer;
 	private final Consumer<CuboidAddress> _removedCuboidConsumer;
 	private final LongConsumer _tickNumberConsumer;
 	private final Consumer<ConfigUpdate> _configConsumer;
@@ -95,7 +96,7 @@ public class ClientLogic
 			, BiConsumer<Entity, Entity> thisEntityConsumer
 			, Consumer<PartialEntity> otherEntityConsumer
 			, IntConsumer unloadEntityConsumer
-			, Consumer<IReadOnlyCuboidData> changedCuboidConsumer
+			, BiConsumer<IReadOnlyCuboidData, ColumnHeightMap> changedCuboidConsumer
 			, Consumer<CuboidAddress> removedCuboidConsumer
 			, LongConsumer tickNumberConsumer
 			, Consumer<ConfigUpdate> configConsumer
@@ -568,16 +569,16 @@ public class ClientLogic
 			_assignedLocalEntityId = assignedLocalEntityId;
 		}
 		@Override
-		public void cuboidDidChange(IReadOnlyCuboidData cuboid)
+		public void cuboidDidChange(IReadOnlyCuboidData cuboid, ColumnHeightMap heightMap)
 		{
 			_cuboids.put(cuboid.getCuboidAddress(), cuboid);
-			_changedCuboidConsumer.accept(cuboid);
+			_changedCuboidConsumer.accept(cuboid, heightMap);
 		}
 		@Override
-		public void cuboidDidLoad(IReadOnlyCuboidData cuboid)
+		public void cuboidDidLoad(IReadOnlyCuboidData cuboid, ColumnHeightMap heightMap)
 		{
 			_cuboids.put(cuboid.getCuboidAddress(), cuboid);
-			_changedCuboidConsumer.accept(cuboid);
+			_changedCuboidConsumer.accept(cuboid, heightMap);
 		}
 		@Override
 		public void cuboidDidUnload(CuboidAddress address)

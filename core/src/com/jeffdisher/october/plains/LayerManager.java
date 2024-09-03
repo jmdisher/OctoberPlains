@@ -12,7 +12,9 @@ import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.aspects.AspectRegistry;
 import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.data.BlockProxy;
+import com.jeffdisher.october.data.ColumnHeightMap;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
+import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.Block;
 import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
@@ -103,7 +105,7 @@ public class LayerManager
 		return _layerTextureMeshes.containsKey(address);
 	}
 
-	public void storeCuboid(IReadOnlyCuboidData cuboid)
+	public void storeCuboid(IReadOnlyCuboidData cuboid, ColumnHeightMap heightMap)
 	{
 		// This could be new or a replacement so see if we need to clean anything up.
 		CuboidAddress address = cuboid.getCuboidAddress();
@@ -113,12 +115,13 @@ public class LayerManager
 		{
 			// This already exists so just update the data and increment the generation number so it is re-baked in the background.
 			cuboidTextures.data = cuboid;
+			cuboidTextures.heightMap = heightMap;
 			cuboidTextures.dataGeneration += 1;
 		}
 		else
 		{
 			// This is new so just add it.
-			_layerTextureMeshes.put(address, new _CuboidMeshes(cuboid));
+			_layerTextureMeshes.put(address, new _CuboidMeshes(cuboid, heightMap));
 		}
 		
 		// We also need to the z-31 layer of the cuboid below this for rebake, since the lighting may have changed.
@@ -162,6 +165,7 @@ public class LayerManager
 					}
 					_RenderRequest request = new _RenderRequest(cuboidTextures.data
 							, aboveCuboid
+							, cuboidTextures.heightMap
 							, zLayer
 							, scratch
 					);
@@ -246,6 +250,7 @@ public class LayerManager
 			// Populate the buffer.
 			_backgroundDefineLayerTextureBuffer(request.data
 					, request.aboveCuboid
+					, request.heightMap
 					, request.zLayer
 					, request.scratchBuffer
 			);
@@ -282,6 +287,7 @@ public class LayerManager
 
 	private void _backgroundDefineLayerTextureBuffer(IReadOnlyCuboidData cuboid
 			, IReadOnlyCuboidData aboveCuboid
+			, ColumnHeightMap heightMap
 			, byte zLayer
 			, ByteBuffer bufferToFill
 	)
@@ -291,6 +297,8 @@ public class LayerManager
 		FloatBuffer textureBuffer = bufferToFill.asFloatBuffer();
 		float textureSize0 = _textureAtlas.tileCoordinateSize;
 		float textureSize1 = _textureAtlas.auxCoordinateSize;
+		AbsoluteLocation cuboidBase = cuboid.getCuboidAddress().getBase();
+		int layerAbsoluteZ = cuboidBase.z() + zLayer;
 		for (int y = 0; y < CUBOID_EDGE_TILE_COUNT; ++y)
 		{
 			for (int x = 0; x < CUBOID_EDGE_TILE_COUNT; ++x)
@@ -365,9 +373,12 @@ public class LayerManager
 						: (null != aboveCuboid) ? aboveCuboid.getData7(AspectRegistry.LIGHT, new BlockAddress(blockAddress.x(), blockAddress.y(), (byte)0)) : 0
 				;
 				float blockLightMultiplier = MINIMUM_LIGHT + (((float)light) / 15.0f);
-				// TODO:  Base the sky light multiplier on whether or not this block is on top of the height map (since
-				// this will be multiplied against the current time-of-day light so it should be 0.0f or 1.0f).
-				float skyLightMultiplier = 1.0f;
+				// Sky light is based on whether or not this block is the top.
+				int topBlock = heightMap.getHeight(x, y);
+				float skyLightMultiplier = (layerAbsoluteZ == topBlock)
+						? 1.0f
+						: 0.0f
+				;
 				
 				textureBuffer.put(bl0);
 				textureBuffer.put(bl1);
@@ -429,13 +440,15 @@ public class LayerManager
 	private static class _CuboidMeshes
 	{
 		public IReadOnlyCuboidData data;
+		public ColumnHeightMap heightMap;
 		public int dataGeneration;
 		public final int[] buffersByZ;
 		public final int[] bufferGeneration;
 		
-		public _CuboidMeshes(IReadOnlyCuboidData data)
+		public _CuboidMeshes(IReadOnlyCuboidData data, ColumnHeightMap heightMap)
 		{
 			this.data = data;
+			this.heightMap = heightMap;
 			this.dataGeneration = 1;
 			this.buffersByZ = new int[32];
 			this.bufferGeneration = new int[32];
@@ -444,6 +457,7 @@ public class LayerManager
 
 	private static record _RenderRequest(IReadOnlyCuboidData data
 			, IReadOnlyCuboidData aboveCuboid
+			, ColumnHeightMap heightMap
 			, byte zLayer
 			, ByteBuffer scratchBuffer
 	)

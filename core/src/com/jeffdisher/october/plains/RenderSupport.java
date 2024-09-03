@@ -10,6 +10,7 @@ import java.util.Map;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.aspects.Environment;
+import com.jeffdisher.october.data.ColumnHeightMap;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.BlockAddress;
@@ -290,9 +291,9 @@ public class RenderSupport
 		_projectedEntityLocation = projectedEntityLocation;
 	}
 
-	public void setOneCuboid(IReadOnlyCuboidData cuboid)
+	public void setOneCuboid(IReadOnlyCuboidData cuboid, ColumnHeightMap heightMap)
 	{
-		_layerManager.storeCuboid(cuboid);
+		_layerManager.storeCuboid(cuboid, heightMap);
 	}
 
 	public void removeCuboid(CuboidAddress address)

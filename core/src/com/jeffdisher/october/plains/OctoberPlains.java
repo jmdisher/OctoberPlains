@@ -10,6 +10,7 @@ import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.graphics.GL20;
 import com.jeffdisher.october.aspects.Environment;
+import com.jeffdisher.october.data.ColumnHeightMap;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.logic.PropagationHelpers;
 import com.jeffdisher.october.mutations.EntityChangeMove;
@@ -106,11 +107,11 @@ public class OctoberPlains extends ApplicationAdapter
 					_renderer.removeEntity(entityId);
 					_mouseHandler.removeOtherEntity(entityId);
 				}
-				, (IReadOnlyCuboidData cuboid) -> {
+				, (IReadOnlyCuboidData cuboid, ColumnHeightMap heightMap) -> {
 					// Update our data cache.
 					_worldCache.setCuboid(cuboid);
 					// Notify the renderer to redraw this cuboid.
-					_renderer.setOneCuboid(cuboid);
+					_renderer.setOneCuboid(cuboid, heightMap);
 				}
 				, (CuboidAddress address) -> {
 					// Delete thie from our cache.
