@@ -121,7 +121,8 @@ public class OctoberPlains extends ApplicationAdapter
 				}
 				, (long gameTick) -> {
 					long ticksPerDay = _serverConfig.ticksPerDay();
-					float multiplier = PropagationHelpers.skyLightMultiplier(gameTick, ticksPerDay);
+					long dayStartTick = _serverConfig.dayStartTick();
+					float multiplier = PropagationHelpers.skyLightMultiplier(gameTick, ticksPerDay, dayStartTick);
 					_renderer.setSkyLightMultiplier(multiplier);
 				}
 				, (ClientLogic.ConfigUpdate config) -> {

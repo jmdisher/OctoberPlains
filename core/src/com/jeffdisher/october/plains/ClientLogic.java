@@ -17,6 +17,7 @@ import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.data.BlockProxy;
 import com.jeffdisher.october.data.ColumnHeightMap;
 import com.jeffdisher.october.data.IReadOnlyCuboidData;
+import com.jeffdisher.october.logic.PropagationHelpers;
 import com.jeffdisher.october.mutations.EntityChangeAttackEntity;
 import com.jeffdisher.october.mutations.EntityChangeChangeHotbarSlot;
 import com.jeffdisher.october.mutations.EntityChangeJump;
@@ -38,6 +39,7 @@ import com.jeffdisher.october.process.ClientProcess;
 import com.jeffdisher.october.process.ServerProcess;
 import com.jeffdisher.october.server.MonitoringAgent;
 import com.jeffdisher.october.server.ServerRunner;
+import com.jeffdisher.october.server.TickRunner;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.Block;
 import com.jeffdisher.october.types.BlockAddress;
@@ -82,6 +84,7 @@ public class ClientLogic
 
 	private final ResourceLoader _loader;
 	private final WorldConfig _config;
+	private final MonitoringAgent _monitoringAgent;
 	private final ServerProcess _server;
 	private final ClientProcess _client;
 	private final ConsoleRunner _console;
@@ -140,18 +143,18 @@ public class ClientLogic
 						, worldGen
 						, _config.worldSpawn.toEntityLocation()
 				);
-				MonitoringAgent monitoringAgent = new MonitoringAgent();
+				_monitoringAgent = new MonitoringAgent();
 				_server = new ServerProcess(PORT
 						, ServerRunner.DEFAULT_MILLIS_PER_TICK
 						, _loader
 						, () -> System.currentTimeMillis()
-						, monitoringAgent
+						, _monitoringAgent
 						, _config
 				);
 				_client = new ClientProcess(new _ClientListener(), InetAddress.getLocalHost(), PORT, clientName);
 				_console = ConsoleRunner.runInBackground(System.in
 						, System.out
-						, monitoringAgent
+						, _monitoringAgent
 						, _config
 				);
 			}
@@ -160,6 +163,7 @@ public class ClientLogic
 				System.out.println("Connecting to server: " + serverAddress);
 				_loader = null;
 				_config = null;
+				_monitoringAgent = null;
 				_server = null;
 				_client = new ClientProcess(new _ClientListener(), serverAddress.getAddress(), serverAddress.getPort(), clientName);
 				_console = null;
@@ -476,6 +480,14 @@ public class ClientLogic
 		if (null != _server)
 		{
 			_server.stop();
+			// Look at how many ticks were run.
+			TickRunner.Snapshot lastSnapshot = _monitoringAgent.getLastSnapshot();
+			long ticksRun = (null != lastSnapshot)
+					? lastSnapshot.tickNumber()
+					: 0L
+			;
+			// Adjust the config's day start so that it will sync up with the time of day when ending.
+			_config.dayStartTick = (int)PropagationHelpers.resumableStartTick(ticksRun, _config.ticksPerDay, _config.dayStartTick);
 			// Write-back the world config.
 			try
 			{
@@ -625,12 +637,12 @@ public class ClientLogic
 			_tickNumberConsumer.accept(tickNumber);
 		}
 		@Override
-		public void configUpdated(int ticksPerDay)
+		public void configUpdated(int ticksPerDay, int dayStartTick)
 		{
-			_configConsumer.accept(new ConfigUpdate(ticksPerDay));
+			_configConsumer.accept(new ConfigUpdate(ticksPerDay, dayStartTick));
 		}
 	}
 
-	public static record ConfigUpdate(int ticksPerDay)
+	public static record ConfigUpdate(int ticksPerDay, int dayStartTick)
 	{}
 }
