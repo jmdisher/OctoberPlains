@@ -641,6 +641,19 @@ public class ClientLogic
 		{
 			_configConsumer.accept(new ConfigUpdate(ticksPerDay, dayStartTick));
 		}
+		@Override
+		public void otherClientJoined(int clientId, String name)
+		{
+		}
+		@Override
+		public void otherClientLeft(int clientId)
+		{
+		}
+		@Override
+		public void receivedChatMessage(int senderId, String message)
+		{
+			System.out.println("* " + senderId + "> " + message);
+		}
 	}
 
 	public static record ConfigUpdate(int ticksPerDay, int dayStartTick)
