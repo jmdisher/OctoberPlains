@@ -163,8 +163,16 @@ public class LayerManager
 						_CuboidMeshes aboveTextures = _layerTextureMeshes.get(address.getRelative(0, 0, 1));
 						aboveCuboid = (null != aboveTextures) ? aboveTextures.data : null;
 					}
+					_CuboidMeshes xCuboidPlusMesh  = _layerTextureMeshes.get(address.getRelative( 1, 0, 0));
+					_CuboidMeshes xCuboidMinusMesh = _layerTextureMeshes.get(address.getRelative(-1, 0, 0));
+					_CuboidMeshes yCuboidPlusMesh  = _layerTextureMeshes.get(address.getRelative(0,  1, 0));
+					_CuboidMeshes yCuboidMinusMesh = _layerTextureMeshes.get(address.getRelative(0, -1, 0));
 					_RenderRequest request = new _RenderRequest(cuboidTextures.data
 							, aboveCuboid
+							, (null != xCuboidPlusMesh)  ? xCuboidPlusMesh.data  : null
+							, (null != xCuboidMinusMesh) ? xCuboidMinusMesh.data : null
+							, (null != yCuboidPlusMesh)  ? yCuboidPlusMesh.data  : null
+							, (null != yCuboidMinusMesh) ? yCuboidMinusMesh.data : null
 							, cuboidTextures.heightMap
 							, zLayer
 							, scratch
@@ -250,6 +258,10 @@ public class LayerManager
 			// Populate the buffer.
 			_backgroundDefineLayerTextureBuffer(request.data
 					, request.aboveCuboid
+					, request.xCuboidPlus
+					, request.xCuboidMinus
+					, request.yCuboidPlus
+					, request.yCuboidMinus
 					, request.heightMap
 					, request.zLayer
 					, request.scratchBuffer
@@ -287,6 +299,10 @@ public class LayerManager
 
 	private void _backgroundDefineLayerTextureBuffer(IReadOnlyCuboidData cuboid
 			, IReadOnlyCuboidData aboveCuboid
+			, IReadOnlyCuboidData xCuboidPlus
+			, IReadOnlyCuboidData xCuboidMinus
+			, IReadOnlyCuboidData yCuboidPlus
+			, IReadOnlyCuboidData yCuboidMinus
 			, ColumnHeightMap heightMap
 			, byte zLayer
 			, ByteBuffer bufferToFill
@@ -299,11 +315,11 @@ public class LayerManager
 		float textureSize1 = _textureAtlas.auxCoordinateSize;
 		AbsoluteLocation cuboidBase = cuboid.getCuboidAddress().getBase();
 		int layerAbsoluteZ = cuboidBase.z() + zLayer;
-		for (int y = 0; y < CUBOID_EDGE_TILE_COUNT; ++y)
+		for (byte y = 0; y < CUBOID_EDGE_TILE_COUNT; ++y)
 		{
-			for (int x = 0; x < CUBOID_EDGE_TILE_COUNT; ++x)
+			for (byte x = 0; x < CUBOID_EDGE_TILE_COUNT; ++x)
 			{
-				BlockAddress blockAddress = new BlockAddress((byte)x, (byte)y, zLayer);
+				BlockAddress blockAddress = new BlockAddress(x, y, zLayer);
 				BlockProxy proxy = new BlockProxy(blockAddress, cuboid);
 				Block block = proxy.getBlock();
 				
@@ -368,10 +384,28 @@ public class LayerManager
 				float[] bl1 = new float[]{textureBase1U, textureBase1V + textureSize1};
 				
 				// We also want the light level of the block above this (since we are looking down at the layer).
-				byte light = (31 != zLayer)
+				byte zLight = (31 != zLayer)
 						? cuboid.getData7(AspectRegistry.LIGHT, new BlockAddress(blockAddress.x(), blockAddress.y(), (byte)(blockAddress.z() + 1)))
 						: (null != aboveCuboid) ? aboveCuboid.getData7(AspectRegistry.LIGHT, new BlockAddress(blockAddress.x(), blockAddress.y(), (byte)0)) : 0
 				;
+				// We want the block light to be the max of all adjacent blocks since otherwise you can't see the block next to you in a tunnel since it is under a solid block.
+				byte xLightPlus = (31 != blockAddress.x())
+						? cuboid.getData7(AspectRegistry.LIGHT, new BlockAddress((byte)(blockAddress.x() + 1), blockAddress.y(), blockAddress.z()))
+						: (null != xCuboidPlus) ? xCuboidPlus.getData7(AspectRegistry.LIGHT, new BlockAddress((byte)0, blockAddress.y(), blockAddress.z())) : 0
+				;
+				byte xLightMinus = (0 != blockAddress.x())
+						? cuboid.getData7(AspectRegistry.LIGHT, new BlockAddress((byte)(blockAddress.x() - 1), blockAddress.y(), blockAddress.z()))
+						: (null != xCuboidMinus) ? xCuboidMinus.getData7(AspectRegistry.LIGHT, new BlockAddress((byte)31, blockAddress.y(), blockAddress.z())) : 0
+				;
+				byte yLightPlus = (31 != blockAddress.y())
+						? cuboid.getData7(AspectRegistry.LIGHT, new BlockAddress(blockAddress.x(), (byte)(blockAddress.y() + 1), blockAddress.z()))
+						: (null != yCuboidPlus) ? yCuboidPlus.getData7(AspectRegistry.LIGHT, new BlockAddress(blockAddress.x(), (byte)0, blockAddress.z())) : 0
+				;
+				byte yLightMinus = (0 != blockAddress.y())
+						? cuboid.getData7(AspectRegistry.LIGHT, new BlockAddress(blockAddress.x(), (byte)(blockAddress.y() - 1), blockAddress.z()))
+						: (null !=yCuboidPlus) ? yCuboidPlus.getData7(AspectRegistry.LIGHT, new BlockAddress(blockAddress.x(), (byte)31, blockAddress.z())) : 0
+				;
+				byte light = (byte)Math.max(zLight, Math.max(Math.max(xLightPlus, xLightMinus), Math.max(yLightPlus, yLightMinus)));
 				float blockLightMultiplier = MINIMUM_LIGHT + (((float)light) / 15.0f);
 				// Sky light is based on whether or not this block is the top.
 				int topBlock = heightMap.getHeight(x, y);
@@ -455,8 +489,26 @@ public class LayerManager
 		}
 	}
 
+	
+	/**
+	 * The type we pass in when asking for a layer to be rendered by the background thread.  This includes all of the
+	 * information that the thread might need (all read-only data which may become stale but never invalid).
+	 * -data - The data for the cuboid being rendered
+	 * -aboveCuboid - The cuboid data above this one (if the zLayer is 31)
+	 * -xCuboidPlus  - The cuboid x+1 from data, for other context (may be null if not loaded)
+	 * -xCuboidMinus - The cuboid x-1 from data, for other context (may be null if not loaded)
+	 * -yCuboidPlus  - The cuboid y+1 from data, for other context (may be null if not loaded)
+	 * -yCuboidMinus - The cuboid y-1 from data, for other context (may be null if not loaded)
+	 * -heightMap - The height map for the column of data
+	 * -zLayer - The z-layer to render in this request, relative to data ([0..31])
+	 * -scratchBuffer - The buffer to use as temporary space for writing and uploading the mesh
+	 */
 	private static record _RenderRequest(IReadOnlyCuboidData data
 			, IReadOnlyCuboidData aboveCuboid
+			, IReadOnlyCuboidData xCuboidPlus
+			, IReadOnlyCuboidData xCuboidMinus
+			, IReadOnlyCuboidData yCuboidPlus
+			, IReadOnlyCuboidData yCuboidMinus
 			, ColumnHeightMap heightMap
 			, byte zLayer
 			, ByteBuffer scratchBuffer
