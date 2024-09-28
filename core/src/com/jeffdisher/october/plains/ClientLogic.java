@@ -6,6 +6,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -77,7 +78,7 @@ public class ClientLogic
 	private final BiConsumer<Entity, Entity> _thisEntityConsumer;
 	private final Consumer<PartialEntity> _otherEntityConsumer;
 	private final IntConsumer _unloadEntityConsumer;
-	private final BiConsumer<IReadOnlyCuboidData, ColumnHeightMap> _changedCuboidConsumer;
+	private final ICuboidUpdateConsumer _changedCuboidConsumer;
 	private final Consumer<CuboidAddress> _removedCuboidConsumer;
 	private final LongConsumer _tickNumberConsumer;
 	private final Consumer<ConfigUpdate> _configConsumer;
@@ -99,7 +100,7 @@ public class ClientLogic
 			, BiConsumer<Entity, Entity> thisEntityConsumer
 			, Consumer<PartialEntity> otherEntityConsumer
 			, IntConsumer unloadEntityConsumer
-			, BiConsumer<IReadOnlyCuboidData, ColumnHeightMap> changedCuboidConsumer
+			, ICuboidUpdateConsumer changedCuboidConsumer
 			, Consumer<CuboidAddress> removedCuboidConsumer
 			, LongConsumer tickNumberConsumer
 			, Consumer<ConfigUpdate> configConsumer
@@ -581,16 +582,17 @@ public class ClientLogic
 			_assignedLocalEntityId = assignedLocalEntityId;
 		}
 		@Override
-		public void cuboidDidChange(IReadOnlyCuboidData cuboid, ColumnHeightMap heightMap)
+		public void cuboidDidChange(IReadOnlyCuboidData cuboid, ColumnHeightMap heightMap, Set<BlockAddress> changedBlocks)
 		{
 			_cuboids.put(cuboid.getCuboidAddress(), cuboid);
-			_changedCuboidConsumer.accept(cuboid, heightMap);
+			Assert.assertTrue(!changedBlocks.isEmpty());
+			_changedCuboidConsumer.acceptCuboid(cuboid, heightMap, changedBlocks);
 		}
 		@Override
 		public void cuboidDidLoad(IReadOnlyCuboidData cuboid, ColumnHeightMap heightMap)
 		{
 			_cuboids.put(cuboid.getCuboidAddress(), cuboid);
-			_changedCuboidConsumer.accept(cuboid, heightMap);
+			_changedCuboidConsumer.acceptCuboid(cuboid, heightMap, null);
 		}
 		@Override
 		public void cuboidDidUnload(CuboidAddress address)
@@ -658,4 +660,10 @@ public class ClientLogic
 
 	public static record ConfigUpdate(int ticksPerDay, int dayStartTick)
 	{}
+
+	public static interface ICuboidUpdateConsumer
+	{
+		// Note that changedBlocks is null if this is the first load of the cuboid.
+		void acceptCuboid(IReadOnlyCuboidData cuboid, ColumnHeightMap heightMap, Set<BlockAddress> changedBlocks);
+	}
 }

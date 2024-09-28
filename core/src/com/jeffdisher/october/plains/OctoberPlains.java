@@ -3,6 +3,7 @@ package com.jeffdisher.october.plains;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Map;
+import java.util.Set;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
@@ -15,6 +16,7 @@ import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.logic.PropagationHelpers;
 import com.jeffdisher.october.mutations.EntityChangeMove;
 import com.jeffdisher.october.types.AbsoluteLocation;
+import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.EntityLocation;
@@ -107,7 +109,7 @@ public class OctoberPlains extends ApplicationAdapter
 					_renderer.removeEntity(entityId);
 					_mouseHandler.removeOtherEntity(entityId);
 				}
-				, (IReadOnlyCuboidData cuboid, ColumnHeightMap heightMap) -> {
+				, (IReadOnlyCuboidData cuboid, ColumnHeightMap heightMap, Set<BlockAddress> changedBlocks) -> {
 					// Update our data cache.
 					_worldCache.setCuboid(cuboid);
 					// Notify the renderer to redraw this cuboid.
