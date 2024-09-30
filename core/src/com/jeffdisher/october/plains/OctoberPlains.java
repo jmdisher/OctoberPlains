@@ -33,6 +33,7 @@ public class OctoberPlains extends ApplicationAdapter
 
 	private Environment _environment;
 	private TextureAtlas _textureAtlas;
+	private AudioManager _audioManager;
 	private RenderSupport _renderer;
 	private WindowManager _windowManager;
 
@@ -56,9 +57,10 @@ public class OctoberPlains extends ApplicationAdapter
 		// Get the GLES20 context.
 		GL20 gl = Gdx.graphics.getGL20();
 		
-		// Load the textures.
+		// Load all on-disk resources (these are considered essential so failure is fatal).
 		try
 		{
+			// Load the textures.
 			// These are resolved by index so they must be loaded in the same order as the item registry.
 			_textureAtlas = TextureAtlas.loadAtlas(gl, _environment.items.ITEMS_BY_TYPE
 				, Map.of(EntityType.PLAYER, "entity_player.png"
@@ -74,10 +76,21 @@ public class OctoberPlains extends ApplicationAdapter
 				)
 				, "missing_texture.png"
 			);
+			
+			// Load the audio.
+			_audioManager = AudioManager.load(_environment, Map.of(AudioManager.Cue.WALK, "walking.ogg"
+					, AudioManager.Cue.TAKE_DAMAGE, "take_damage.ogg"
+					, AudioManager.Cue.BREAK_BLOCK, "break_block.ogg"
+					, AudioManager.Cue.PLACE_BLOCK, "place_block.ogg"
+					, AudioManager.Cue.COW_IDLE, "cow_idle.ogg"
+					, AudioManager.Cue.COW_DEATH, "cow_death.ogg"
+					, AudioManager.Cue.ORC_IDLE, "orc_idle.ogg"
+					, AudioManager.Cue.ORC_DEATH, "orc_death.ogg"
+			));
 		}
 		catch (IOException e)
 		{
-			// This is a fatal error.
+			// We handle this as a fatal error since it means that we are missing resources.
 			throw new AssertionError(e);
 		}
 		
@@ -95,6 +108,7 @@ public class OctoberPlains extends ApplicationAdapter
 					// The renderer and the mouse only want the projected location.
 					EntityLocation projectedLocation = projectedEntity.location();
 					_renderer.setThisEntityLocation(projectedLocation);
+					_audioManager.setThisEntity(authoritativeEntity, projectedEntity);
 					_mouseHandler.setCentreLocation(projectedLocation);
 					
 					// The window manager needs both entities since it uses projected or authoritative for different data elements.
@@ -103,10 +117,12 @@ public class OctoberPlains extends ApplicationAdapter
 				, (PartialEntity entity) -> {
 					// We notify both the renderer and the mouse handler about the entities.
 					_renderer.setOtherEntity(entity);
+					_audioManager.setOtherEntity(entity);
 					_mouseHandler.setOtherEntity(entity);
 				}
 				, (int entityId) -> {
 					_renderer.removeEntity(entityId);
+					_audioManager.removeOtherEntity(entityId);
 					_mouseHandler.removeOtherEntity(entityId);
 				}
 				, (IReadOnlyCuboidData cuboid, ColumnHeightMap heightMap, Set<BlockAddress> changedBlocks) -> {
@@ -114,18 +130,21 @@ public class OctoberPlains extends ApplicationAdapter
 					_worldCache.setCuboid(cuboid);
 					// Notify the renderer to redraw this cuboid.
 					_renderer.setOneCuboid(cuboid, heightMap);
+					_audioManager.setCuboid(cuboid, changedBlocks);
 				}
 				, (CuboidAddress address) -> {
 					// Delete thie from our cache.
 					_worldCache.removeCuboid(address);
 					// Notify the renderer to drop this from video memory.
 					_renderer.removeCuboid(address);
+					_audioManager.removeCuboid(address);
 				}
 				, (long gameTick) -> {
 					long ticksPerDay = _serverConfig.ticksPerDay();
 					long dayStartTick = _serverConfig.dayStartTick();
 					float multiplier = PropagationHelpers.skyLightMultiplier(gameTick, ticksPerDay, dayStartTick);
 					_renderer.setSkyLightMultiplier(multiplier);
+					_audioManager.tickCompleted();
 				}
 				, (ClientLogic.ConfigUpdate config) -> {
 					_serverConfig = config;
@@ -266,18 +285,22 @@ public class OctoberPlains extends ApplicationAdapter
 		else if (Gdx.input.isKeyPressed(Keys.DPAD_UP) || Gdx.input.isKeyPressed(Keys.W))
 		{
 			_client.stepHorizontal(EntityChangeMove.Direction.NORTH);
+			_audioManager.setWalking();
 		}
 		else if (Gdx.input.isKeyPressed(Keys.DPAD_DOWN) || Gdx.input.isKeyPressed(Keys.S))
 		{
 			_client.stepHorizontal(EntityChangeMove.Direction.SOUTH);
+			_audioManager.setWalking();
 		}
 		else if (Gdx.input.isKeyPressed(Keys.DPAD_RIGHT) || Gdx.input.isKeyPressed(Keys.D))
 		{
 			_client.stepHorizontal(EntityChangeMove.Direction.EAST);
+			_audioManager.setWalking();
 		}
 		else if (Gdx.input.isKeyPressed(Keys.DPAD_LEFT) || Gdx.input.isKeyPressed(Keys.A))
 		{
 			_client.stepHorizontal(EntityChangeMove.Direction.WEST);
+			_audioManager.setWalking();
 		}
 		else if (Gdx.input.isButtonPressed(0))
 		{
@@ -315,6 +338,7 @@ public class OctoberPlains extends ApplicationAdapter
 					}
 				}
 			}
+			_audioManager.setStanding();
 		}
 		else if (Gdx.input.isButtonJustPressed(1))
 		{
@@ -335,6 +359,7 @@ public class OctoberPlains extends ApplicationAdapter
 				// Use whatever we have selected on this entity.
 				_client.applyToEntity(selectedEntity);
 			}
+			_audioManager.setStanding();
 		}
 		else
 		{
@@ -350,6 +375,7 @@ public class OctoberPlains extends ApplicationAdapter
 				// Default to whatever else is going on.
 				_client.doNothing();
 			}
+			_audioManager.setStanding();
 		}
 	}
 
