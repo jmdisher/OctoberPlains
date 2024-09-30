@@ -35,6 +35,8 @@ import com.jeffdisher.october.mutations.MutationEntityRequestItemPickUp;
 import com.jeffdisher.october.mutations.MutationEntitySelectItem;
 import com.jeffdisher.october.mutations.MutationPlaceSelectedBlock;
 import com.jeffdisher.october.persistence.BasicWorldGenerator;
+import com.jeffdisher.october.persistence.FlatWorldGenerator;
+import com.jeffdisher.october.persistence.IWorldGenerator;
 import com.jeffdisher.october.persistence.ResourceLoader;
 import com.jeffdisher.october.process.ClientProcess;
 import com.jeffdisher.october.process.ServerProcess;
@@ -133,7 +135,18 @@ public class ClientLogic
 				// We will use the basic world generator, as that is our current standard generator.
 				_config = new WorldConfig();
 				boolean didLoadConfig = ResourceLoader.populateWorldConfig(worldDirectory, _config);
-				BasicWorldGenerator worldGen = new BasicWorldGenerator(_environment, _config.basicSeed);
+				IWorldGenerator worldGen;
+				switch (_config.worldGeneratorName)
+				{
+				case BASIC:
+					worldGen = new BasicWorldGenerator(_environment, _config.basicSeed);
+					break;
+				case FLAT:
+					worldGen = new FlatWorldGenerator(true);
+					break;
+					default:
+						throw Assert.unreachable();
+				}
 				if (!didLoadConfig)
 				{
 					// There is no config so ask the world-gen for the default spawn.
