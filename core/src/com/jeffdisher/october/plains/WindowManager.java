@@ -379,10 +379,9 @@ public class WindowManager
 		_drawLabel(labelMargin, -0.90f, -0.85f, "Food");
 		_drawLabel(valueMargin, -0.90f, -0.85f, Byte.toString(food));
 		
-		// We want to show breath as a percentage but it is normally out of 1000.
 		int breath = Math.max(_authoritativeEntity.breath(), _entity.breath());
 		_drawLabel(labelMargin, -0.95f, -0.90f, "Breath");
-		_drawLabel(valueMargin, -0.95f, -0.90f, Integer.toString(breath / 10));
+		_drawLabel(valueMargin, -0.95f, -0.90f, Integer.toString(breath));
 		
 		_drawLabel(labelMargin, -1.0f, -0.95f, "z-level");
 		String zLevel = String.format("%.2f", _entity.location().z());
