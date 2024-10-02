@@ -24,6 +24,7 @@ import com.jeffdisher.october.mutations.EntityChangeChangeHotbarSlot;
 import com.jeffdisher.october.mutations.EntityChangeJump;
 import com.jeffdisher.october.mutations.EntityChangeMove;
 import com.jeffdisher.october.mutations.EntityChangeSetBlockLogicState;
+import com.jeffdisher.october.mutations.EntityChangeSetDayAndSpawn;
 import com.jeffdisher.october.mutations.EntityChangeSwapArmour;
 import com.jeffdisher.october.mutations.EntityChangeSwim;
 import com.jeffdisher.october.mutations.EntityChangeUseSelectedItemOnBlock;
@@ -281,6 +282,11 @@ public class ClientLogic
 		}
 	}
 
+	/**
+	 * Running an action is a generic "right-click on block" situation, assuming it wasn't a block with an inventory.
+	 * 
+	 * @param logicalLocation The logical location in the world where the user clicked.
+	 */
 	public void runAction(EntityLocation logicalLocation)
 	{
 		// We need to check our selected item and see what "action" is associated with it.
@@ -295,6 +301,11 @@ public class ClientLogic
 		{
 			boolean existingState = EntityChangeSetBlockLogicState.getCurrentBlockLogicState(targetBlock);
 			change = new EntityChangeSetBlockLogicState(blockLocation, !existingState);
+		}
+		else if (_environment.items.getItemById("op.bed") == targetBlock.item())
+		{
+			// This is a bed so we need to take a special action to set spawn and reset the day.
+			change = new EntityChangeSetDayAndSpawn(blockLocation);
 		}
 		else if (Entity.NO_SELECTION != selectedKey)
 		{
