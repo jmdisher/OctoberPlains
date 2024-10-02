@@ -96,7 +96,11 @@ public class TextureAtlas
 				if (textureCount > 16)
 				{
 					texturesPerRow = 8;
-					Assert.assertTrue(textureCount <= 64);
+					if (textureCount > 64)
+					{
+						texturesPerRow = 16;
+						Assert.assertTrue(textureCount <= 256);
+					}
 				}
 			}
 		}
