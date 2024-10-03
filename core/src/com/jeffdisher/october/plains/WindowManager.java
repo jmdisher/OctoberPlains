@@ -38,6 +38,8 @@ public class WindowManager
 	public static final float ARMOUR_SLOT_RIGHT_EDGE = 0.95f;
 	public static final float ARMOUR_SLOT_TOP_EDGE = 0.95f;
 	public static final float WINDOW_TITLE_HEIGHT = 0.1f;
+	public static final float WINDOW_INVENTORY_HEIGHT = 0.08f;
+	public static final float WINDOW_INVENTORY_OFFSET = 0.01f;
 	public static final _WindowDimensions WINDOW_TOP_LEFT = new _WindowDimensions(-0.95f, 0.05f, -0.05f, 0.95f, 0.1f, 0.05f);
 	public static final _WindowDimensions WINDOW_TOP_RIGHT = new _WindowDimensions(0.05f, 0.05f, ARMOUR_SLOT_RIGHT_EDGE - ARMOUR_SLOT_SCALE - ARMOUR_SLOT_SPACING, 0.95f, 0.1f, 0.05f);
 	public static final _WindowDimensions WINDOW_BOTTOM = new _WindowDimensions(-0.95f, -0.80f, 0.95f, -0.05f, 0.1f, 0.05f);
@@ -453,7 +455,7 @@ public class WindowManager
 			_drawItem(selectedItem, count, _backgroundFrameTexture_Common, left, bottom, scale, shouldHighlight, progress);
 		};
 		ValueRenderer<Integer> keyRender = ValueRenderer.buildEntityInventory(client, blockInventory, location, _entity, _mode.inFuelInventory, drawHelper);
-		_MouseOver<Integer> windowHandler = _drawTableWindow("Inventory", WINDOW_TOP_RIGHT, _mode.topRight, glX, glY, entityInventory.sortedKeys(), keyRender);
+		_MouseOver<Integer> windowHandler = _drawTableWindow("Inventory", entityInventory, WINDOW_TOP_RIGHT, _mode.topRight, glX, glY, entityInventory.sortedKeys(), keyRender);
 		if (null != windowHandler)
 		{
 			mouseHandler = windowHandler;
@@ -476,7 +478,7 @@ public class WindowManager
 			_drawItem(selectedItem, count, _backgroundFrameTexture_Common, left, bottom, scale, shouldHighlight, progress);
 		};
 		ValueRenderer<Integer> keyRender = ValueRenderer.buildBlockInventoryRenderer(client, blockInventory, location, _getEntityInventory(), _mode.inFuelInventory, drawHelper);
-		return _drawTableWindow(inventoryName, WINDOW_BOTTOM, _mode.bottom, glX, glY, blockInventory.sortedKeys(), keyRender);
+		return _drawTableWindow(inventoryName, blockInventory, WINDOW_BOTTOM, _mode.bottom, glX, glY, blockInventory.sortedKeys(), keyRender);
 	}
 
 	private _MouseOver<Craft> _drawCraftingPanel(ClientLogic client, CraftOperation crafting, Inventory craftingInventory, Set<String> classifications, boolean canManuallyCraft, float glX, float glY)
@@ -492,7 +494,7 @@ public class WindowManager
 		};
 		// Note that the crafting panel will act a bit differently whether it is the player's inventory or a station (where even crafting table and furnace behave differently).
 		ValueRenderer<Craft> itemRender = ValueRenderer.buildCraftingRenderer(client, crafting, craftingInventory, _mode.selectedStation, canManuallyCraft, drawHelpers);
-		return _drawTableWindow("Crafting", WINDOW_TOP_LEFT, _mode.topLeft, glX, glY, _environment.crafting.craftsForClassifications(classifications), itemRender);
+		return _drawTableWindow("Crafting", null, WINDOW_TOP_LEFT, _mode.topLeft, glX, glY, _environment.crafting.craftsForClassifications(classifications), itemRender);
 	}
 
 	public void setEntity(Entity authoritativeEntity, Entity projectedEntity)
@@ -707,12 +709,13 @@ public class WindowManager
 		return inv;
 	}
 
-	private void _drawLabel(float left, float bottom, float top, String label)
+	private float _drawLabel(float left, float bottom, float top, String label)
 	{
 		TextManager.Element element = _textManager.lazilyLoadStringTexture(label);
 		float textureAspect = element.aspectRatio();
 		float right = left + textureAspect * (top - bottom);
 		_drawTextElement(left, bottom, right, top, element.textureObject());
+		return right;
 	}
 
 	private void _drawTextElement(float left, float bottom, float right, float top, int labelTexture)
@@ -750,7 +753,7 @@ public class WindowManager
 		_gl.glDrawArrays(GL20.GL_TRIANGLES, 0, 6);
 	}
 
-	private <T> _MouseOver<T> _drawTableWindow(String title, _WindowDimensions dimensions, _WindowState state, float glX, float glY, List<T> values, ValueRenderer<T> renderer)
+	private <T> _MouseOver<T> _drawTableWindow(String title, Inventory titleInventory, _WindowDimensions dimensions, _WindowState state, float glX, float glY, List<T> values, ValueRenderer<T> renderer)
 	{
 		_MouseOver<T> onClick = null;
 		// Draw the window outline and create a default catch runnable to block the background.
@@ -761,7 +764,15 @@ public class WindowManager
 			onClick = new _MouseOver<>(null, new EventHandler(runnable, runnable, runnable));
 		}
 		// Draw the title.
-		_drawLabel(dimensions.leftX, dimensions.topY - WINDOW_TITLE_HEIGHT, dimensions.topY, title.toUpperCase());
+		float labelRight = _drawLabel(dimensions.leftX, dimensions.topY - WINDOW_TITLE_HEIGHT, dimensions.topY, title.toUpperCase());
+		
+		// If we have any extra data, draw that after the title.
+		if (null != titleInventory)
+		{
+			String extraTitle = String.format("(%d/%d)", titleInventory.currentEncumbrance, titleInventory.maxEncumbrance);
+			float bottom = dimensions.topY - WINDOW_TITLE_HEIGHT;
+			_drawLabel(labelRight + WINDOW_INVENTORY_OFFSET, bottom, bottom + WINDOW_INVENTORY_HEIGHT, extraTitle.toUpperCase());
+		}
 		
 		// We want to draw these in a grid, in rows.  Leave space for the right margin since we count the left margin in the element sizing.
 		float xSpace = dimensions.rightX - dimensions.leftX - dimensions.margin;
