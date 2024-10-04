@@ -178,6 +178,15 @@ public class TextureAtlas
 		gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, GL20.GL_RGBA, width, height, 0, GL20.GL_RGBA, GL20.GL_UNSIGNED_BYTE, textureBufferData);
 		gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_WRAP_S, GL20.GL_CLAMP_TO_EDGE);
 		gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_WRAP_T, GL20.GL_CLAMP_TO_EDGE);
+		
+		// We want to configure the mipmap usage so it will work for a texture atlas:
+		// -do some blending between mipmaps at min zoom to keep the detail in things like stone brick
+		// -only pick the nearest pixel as max zoom to avoid blending in other tiles
+		// For texture atlas usage, it seems like GL_NEAREST* should be ok while GL_LINEAR* could allow textures to bleed between tiles.
+		// In the future, we may want to manually compute the mipmap levels but that is probably not necessary in that
+		// the texture atlas and all tiles within it are powers of 2.
+		gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_MIN_FILTER, GL20.GL_NEAREST_MIPMAP_LINEAR);
+		gl.glTexParameteri(GL20.GL_TEXTURE_2D, GL20.GL_TEXTURE_MAG_FILTER, GL20.GL_NEAREST);
 		gl.glGenerateMipmap(GL20.GL_TEXTURE_2D);
 		return texture;
 	}
