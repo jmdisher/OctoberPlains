@@ -36,8 +36,10 @@ public class AudioManager
 		Sound breakBlock = Gdx.audio.newSound(Gdx.files.internal(audioFileNames.get(Cue.BREAK_BLOCK)));
 		Sound placeBlock = Gdx.audio.newSound(Gdx.files.internal(audioFileNames.get(Cue.PLACE_BLOCK)));
 		Sound cowIdle = Gdx.audio.newSound(Gdx.files.internal(audioFileNames.get(Cue.COW_IDLE)));
+		Sound cowInjury = Gdx.audio.newSound(Gdx.files.internal(audioFileNames.get(Cue.COW_INJURY)));
 		Sound cowDeath = Gdx.audio.newSound(Gdx.files.internal(audioFileNames.get(Cue.COW_DEATH)));
 		Sound orcIdle = Gdx.audio.newSound(Gdx.files.internal(audioFileNames.get(Cue.ORC_IDLE)));
+		Sound orcInjury = Gdx.audio.newSound(Gdx.files.internal(audioFileNames.get(Cue.ORC_INJURY)));
 		Sound orcDeath = Gdx.audio.newSound(Gdx.files.internal(audioFileNames.get(Cue.ORC_DEATH)));
 		return new AudioManager(environment
 				, walk
@@ -45,8 +47,10 @@ public class AudioManager
 				, breakBlock
 				, placeBlock
 				, cowIdle
+				, cowInjury
 				, cowDeath
 				, orcIdle
+				, orcInjury
 				, orcDeath
 		);
 	}
@@ -58,8 +62,10 @@ public class AudioManager
 	private final Sound _breakBlock;
 	private final Sound _placeBlock;
 	private final Sound _cowIdle;
+	private final Sound _cowInjury;
 	private final Sound _cowDeath;
 	private final Sound _orcIdle;
+	private final Sound _orcInjury;
 	private final Sound _orcDeath;
 	private final long _walkingId;
 
@@ -75,8 +81,10 @@ public class AudioManager
 			, Sound breakBlock
 			, Sound placeBlock
 			, Sound cowIdle
+			, Sound cowInjury
 			, Sound cowDeath
 			, Sound orcIdle
+			, Sound orcInjury
 			, Sound orcDeath
 	)
 	{
@@ -87,8 +95,10 @@ public class AudioManager
 		_breakBlock = breakBlock;
 		_placeBlock = placeBlock;
 		_cowIdle = cowIdle;
+		_cowInjury = cowInjury;
 		_cowDeath = cowDeath;
 		_orcIdle = orcIdle;
+		_orcInjury = orcInjury;
 		_orcDeath = orcDeath;
 		
 		_otherEntities = new HashMap<>();
@@ -116,7 +126,35 @@ public class AudioManager
 
 	public void setOtherEntity(PartialEntity otherEntity)
 	{
-		_otherEntities.put(otherEntity.id(), otherEntity);
+		PartialEntity previous = _otherEntities.put(otherEntity.id(), otherEntity);
+		
+		// See if they were already here, in case we need to play a sound.
+		if (null != previous)
+		{
+			// See if the health dropped, meaning we need to play the injury sound.
+			if (otherEntity.health() < previous.health())
+			{
+				// Check if they are close enough to hear them.
+				AbsoluteLocation entityLocation = _projectedEntity.location().getBlockLocation();
+				AbsoluteLocation otherLocation = otherEntity.location().getBlockLocation();
+				int distanceSquared = _squaredDistance(entityLocation, otherLocation);
+				if (distanceSquared <= AUDIO_RANGE_SQUARED)
+				{
+					// Play the sound.
+					switch(otherEntity.type())
+					{
+					case ORC:
+						_playSound(_orcInjury, entityLocation, otherLocation, distanceSquared);
+						break;
+					case COW:
+						_playSound(_cowInjury, entityLocation, otherLocation, distanceSquared);
+						break;
+						default:
+							// We only care abut orcs and cows.
+					}
+				}
+			}
+		}
 	}
 
 	public void removeOtherEntity(int entityId)
@@ -279,8 +317,10 @@ public class AudioManager
 		BREAK_BLOCK,
 		PLACE_BLOCK,
 		COW_IDLE,
+		COW_INJURY,
 		COW_DEATH,
 		ORC_IDLE,
+		ORC_INJURY,
 		ORC_DEATH,
 	};
 }

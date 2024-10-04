@@ -84,7 +84,9 @@ public class OctoberPlains extends ApplicationAdapter
 					, AudioManager.Cue.PLACE_BLOCK, "place_block.ogg"
 					, AudioManager.Cue.COW_IDLE, "cow_idle.ogg"
 					, AudioManager.Cue.COW_DEATH, "cow_death.ogg"
+					, AudioManager.Cue.COW_INJURY, "cow_injury.ogg"
 					, AudioManager.Cue.ORC_IDLE, "orc_idle.ogg"
+					, AudioManager.Cue.ORC_INJURY, "orc_injury.ogg"
 					, AudioManager.Cue.ORC_DEATH, "orc_death.ogg"
 			));
 		}
