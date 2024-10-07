@@ -286,8 +286,9 @@ public class ClientLogic
 	 * Running an action is a generic "right-click on block" situation, assuming it wasn't a block with an inventory.
 	 * 
 	 * @param logicalLocation The logical location in the world where the user clicked.
+	 * @param isJustClicked True if the click just happened (false if it is held down).
 	 */
-	public void runAction(EntityLocation logicalLocation)
+	public void runRightClickAction(EntityLocation logicalLocation, boolean isJustClicked)
 	{
 		// We need to check our selected item and see what "action" is associated with it.
 		int selectedKey = _thisEntity.hotbarItems()[_thisEntity.hotbarIndex()];
@@ -297,12 +298,12 @@ public class ClientLogic
 		
 		// First, see if the target block has a general logic state we can change.
 		IMutationEntity<IMutablePlayerEntity> change;
-		if (EntityChangeSetBlockLogicState.canChangeBlockLogicState(targetBlock))
+		if (isJustClicked && EntityChangeSetBlockLogicState.canChangeBlockLogicState(targetBlock))
 		{
 			boolean existingState = EntityChangeSetBlockLogicState.getCurrentBlockLogicState(targetBlock);
 			change = new EntityChangeSetBlockLogicState(blockLocation, !existingState);
 		}
-		else if (_environment.items.getItemById("op.bed") == targetBlock.item())
+		else if (isJustClicked && _environment.items.getItemById("op.bed") == targetBlock.item())
 		{
 			// This is a bed so we need to take a special action to set spawn and reset the day.
 			change = new EntityChangeSetDayAndSpawn(blockLocation);
@@ -310,29 +311,40 @@ public class ClientLogic
 		else if (Entity.NO_SELECTION != selectedKey)
 		{
 			// Check if a special use exists for this item and block or if we are just placing.
-			Inventory inventory = _getEntityInventory();
-			Items stack = inventory.getStackForKey(selectedKey);
-			NonStackableItem nonStack = inventory.getNonStackableForKey(selectedKey);
-			Item selectedType = (null != stack) ? stack.type() : nonStack.type();
+			change = null;
+			if (isJustClicked)
+			{
+				// All special actions are only taken when we just clicked.
+				Inventory inventory = _getEntityInventory();
+				Items stack = inventory.getStackForKey(selectedKey);
+				NonStackableItem nonStack = inventory.getNonStackableForKey(selectedKey);
+				Item selectedType = (null != stack) ? stack.type() : nonStack.type();
+				
+				// First, can we use this on the block.
+				if (EntityChangeUseSelectedItemOnBlock.canUseOnBlock(selectedType, targetBlock))
+				{
+					change = new EntityChangeUseSelectedItemOnBlock(blockLocation);
+				}
+				// See if this block can just be activated, directly.
+				else if (EntityChangeSetBlockLogicState.canChangeBlockLogicState(targetBlock))
+				{
+					boolean existingState = EntityChangeSetBlockLogicState.getCurrentBlockLogicState(targetBlock);
+					change = new EntityChangeSetBlockLogicState(blockLocation, !existingState);
+				}
+				// Check to see if we can use it, directly.
+				else if (EntityChangeUseSelectedItemOnSelf.canBeUsedOnSelf(selectedType))
+				{
+					change = new EntityChangeUseSelectedItemOnSelf();
+				}
+				else
+				{
+					// Fall-through to try placement.
+					change = null;
+				}
+			}
 			
-			// First, can we use this on the block.
-			if (EntityChangeUseSelectedItemOnBlock.canUseOnBlock(selectedType, targetBlock))
-			{
-				change = new EntityChangeUseSelectedItemOnBlock(blockLocation);
-			}
-			// See if this block can just be activated, directly.
-			else if (EntityChangeSetBlockLogicState.canChangeBlockLogicState(targetBlock))
-			{
-				boolean existingState = EntityChangeSetBlockLogicState.getCurrentBlockLogicState(targetBlock);
-				change = new EntityChangeSetBlockLogicState(blockLocation, !existingState);
-			}
-			// Check to see if we can use it, directly.
-			else if (EntityChangeUseSelectedItemOnSelf.canBeUsedOnSelf(selectedType))
-			{
-				change = new EntityChangeUseSelectedItemOnSelf();
-			}
-			// Finally, default to trying to place it.
-			else
+			// We can place the block if we are right-clicking or holding.
+			if (null == change)
 			{
 				// The mutation will check proximity and collision.
 				// We will need to decide which block the selection is "facing".

@@ -342,24 +342,37 @@ public class OctoberPlains extends ApplicationAdapter
 			}
 			_audioManager.setStanding();
 		}
-		else if (Gdx.input.isButtonJustPressed(1))
+		else if (Gdx.input.isButtonPressed(1))
 		{
-			if (null != windowManagerEvent)
+			// Right mouse button is held down.
+			// Handle the cases which only work on initial press and pass this on to the client manager if we didn't act.
+			boolean isJustPressed = Gdx.input.isButtonJustPressed(1);
+			boolean didTakeAction = false;
+			if (isJustPressed)
 			{
-				windowManagerEvent.rightClick().run();
-			}
-			else if (null != selection)
-			{
-				// If we right-click on a crafting table, open that UI, apply right-click logic to the item, itself.
-				if (!_windowManager.didOpenInventory(selection))
+				if (null != windowManagerEvent)
 				{
-					_client.runAction(logicalLocation);
+					windowManagerEvent.rightClick().run();
+					didTakeAction = true;
+				}
+				else if (null != selection)
+				{
+					// If we right-click on a crafting table, open that UI, apply right-click logic to the item, itself.
+					if (_windowManager.didOpenInventory(selection))
+					{
+						didTakeAction = true;
+					}
+				}
+				else if (null != selectedEntity)
+				{
+					// Use whatever we have selected on this entity.
+					_client.applyToEntity(selectedEntity);
+					didTakeAction = true;
 				}
 			}
-			else if (null != selectedEntity)
+			if (!didTakeAction)
 			{
-				// Use whatever we have selected on this entity.
-				_client.applyToEntity(selectedEntity);
+				_client.runRightClickAction(logicalLocation, isJustPressed);
 			}
 			_audioManager.setStanding();
 		}
