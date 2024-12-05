@@ -21,7 +21,9 @@ import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.EntityLocation;
 import com.jeffdisher.october.types.EntityType;
+import com.jeffdisher.october.types.EventRecord;
 import com.jeffdisher.october.types.PartialEntity;
+import com.jeffdisher.october.utils.Assert;
 
 
 public class OctoberPlains extends ApplicationAdapter
@@ -132,14 +134,12 @@ public class OctoberPlains extends ApplicationAdapter
 					_worldCache.setCuboid(cuboid);
 					// Notify the renderer to redraw this cuboid.
 					_renderer.setOneCuboid(cuboid, heightMap);
-					_audioManager.setCuboid(cuboid, changedBlocks);
 				}
 				, (CuboidAddress address) -> {
 					// Delete thie from our cache.
 					_worldCache.removeCuboid(address);
 					// Notify the renderer to drop this from video memory.
 					_renderer.removeCuboid(address);
-					_audioManager.removeCuboid(address);
 				}
 				, (long gameTick) -> {
 					long ticksPerDay = _serverConfig.ticksPerDay();
@@ -150,6 +150,31 @@ public class OctoberPlains extends ApplicationAdapter
 				}
 				, (ClientLogic.ConfigUpdate config) -> {
 					_serverConfig = config;
+				}
+				, (EventRecord event) -> {
+					// We only use these for audio so crack the type to make the appropriate call.
+					switch (event.type())
+					{
+					case BLOCK_BROKEN:
+						_audioManager.blockBroken(event.location());
+						break;
+					case BLOCK_PLACED:
+						_audioManager.blockPlaced(event.location());
+						break;
+					case ENTITY_HURT:
+						_audioManager.entityHurt(event.location(), event.entityTarget());
+						break;
+					case ENTITY_KILLED:
+						_audioManager.entityKilled(event.location(), event.entityTarget());
+						break;
+					case LIQUID_PLACED:
+					case LIQUID_REMOVED:
+						// Ignore these.
+						break;
+					default:
+						// Undefined.
+						throw Assert.unreachable();
+					}
 				}
 				, _clientName
 				, _serverSocketAddress

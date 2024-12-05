@@ -3,19 +3,14 @@ package com.jeffdisher.october.plains;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.audio.Sound;
 import com.jeffdisher.october.aspects.Environment;
-import com.jeffdisher.october.data.BlockProxy;
-import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.types.AbsoluteLocation;
-import com.jeffdisher.october.types.Block;
-import com.jeffdisher.october.types.BlockAddress;
-import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.PartialEntity;
+import com.jeffdisher.october.utils.Assert;
 
 
 /**
@@ -55,7 +50,6 @@ public class AudioManager
 		);
 	}
 
-	private final Environment _environment;
 	private final Random _random;
 	private final Sound _walk;
 	private final Sound _takeDamage;
@@ -71,9 +65,7 @@ public class AudioManager
 
 	private Entity _projectedEntity;
 	private final Map<Integer, PartialEntity> _otherEntities;
-	private final Map<CuboidAddress, IReadOnlyCuboidData> _cuboids;
 	private boolean _isWalking;
-	private byte _previousHealth;
 
 	private AudioManager(Environment environment
 			, Sound walk
@@ -88,7 +80,6 @@ public class AudioManager
 			, Sound orcDeath
 	)
 	{
-		_environment = environment;
 		_random = new Random();
 		_walk = walk;
 		_takeDamage = takeDamage;
@@ -102,137 +93,27 @@ public class AudioManager
 		_orcDeath = orcDeath;
 		
 		_otherEntities = new HashMap<>();
-		_cuboids = new HashMap<>();
 		
 		// We will start the walking sound as looping and pause it.
 		_walkingId = _walk.loop();
 		_walk.pause(_walkingId);
-		
-		// We start the previous health at 0 so we don't make the damage sound if we first load injured.
-		_previousHealth = 0;
 	}
 
 	public void setThisEntity(Entity authoritativeEntity, Entity projectedEntity)
 	{
-		byte newHealth = authoritativeEntity.health();
-		if (newHealth < _previousHealth)
-		{
-			_takeDamage.play();
-		}
-		_previousHealth = newHealth;
-		
 		_projectedEntity = projectedEntity;
 	}
 
 	public void setOtherEntity(PartialEntity otherEntity)
 	{
-		PartialEntity previous = _otherEntities.put(otherEntity.id(), otherEntity);
-		
-		// See if they were already here, in case we need to play a sound.
-		if (null != previous)
-		{
-			// See if the health dropped, meaning we need to play the injury sound.
-			if (otherEntity.health() < previous.health())
-			{
-				// Check if they are close enough to hear them.
-				AbsoluteLocation entityLocation = _projectedEntity.location().getBlockLocation();
-				AbsoluteLocation otherLocation = otherEntity.location().getBlockLocation();
-				int distanceSquared = _squaredDistance(entityLocation, otherLocation);
-				if (distanceSquared <= AUDIO_RANGE_SQUARED)
-				{
-					// Play the sound.
-					switch(otherEntity.type())
-					{
-					case ORC:
-						_playSound(_orcInjury, entityLocation, otherLocation, distanceSquared);
-						break;
-					case COW:
-						_playSound(_cowInjury, entityLocation, otherLocation, distanceSquared);
-						break;
-						default:
-							// We only care abut orcs and cows.
-					}
-				}
-			}
-		}
+		// This is called whether the entity is new or updated so we can't check if it is already here.
+		_otherEntities.put(otherEntity.id(), otherEntity);
 	}
 
 	public void removeOtherEntity(int entityId)
 	{
 		PartialEntity other  = _otherEntities.remove(entityId);
-		
-		// If they are close by and were removed, we will assume that they died (as opposed to being unloaded).
-		AbsoluteLocation entityLocation = _projectedEntity.location().getBlockLocation();
-		// We only care abut orcs and cows.
-		Sound soundToPlay;
-		switch(other.type())
-		{
-		case ORC:
-			soundToPlay = _orcDeath;
-			break;
-		case COW:
-			soundToPlay = _cowDeath;
-			break;
-			default:
-				soundToPlay = null;
-		}
-		if (null != soundToPlay)
-		{
-			// Check if they are close enough to hear them.
-			AbsoluteLocation otherLocation = other.location().getBlockLocation();
-			int distanceSquared = _squaredDistance(entityLocation, otherLocation);
-			if (distanceSquared <= AUDIO_RANGE_SQUARED)
-			{
-				// Play the sound.
-				_playSound(soundToPlay, entityLocation, otherLocation, distanceSquared);
-			}
-		}
-	}
-
-	public void setCuboid(IReadOnlyCuboidData cuboid, Set<BlockAddress> changedBlocks)
-	{
-		// We want to compare this against the previous cuboid to play and break/place sounds if they are within range.
-		CuboidAddress address = cuboid.getCuboidAddress();
-		if (null != changedBlocks)
-		{
-			// This is a replacement cuboid so compare it to what we had.
-			IReadOnlyCuboidData previous = _cuboids.get(address);
-			AbsoluteLocation base = address.getBase();
-			AbsoluteLocation entityLocation = _projectedEntity.location().getBlockLocation();
-			for (BlockAddress relative : changedBlocks)
-			{
-				AbsoluteLocation absolute = base.getRelative(relative.x(), relative.y(), relative.z());
-				int distanceSquared = _squaredDistance(entityLocation, absolute);
-				if (distanceSquared <= AUDIO_RANGE_SQUARED)
-				{
-					// This block change is close to us so see if we care about it.
-					BlockProxy oldProxy = new BlockProxy(relative, previous);
-					BlockProxy newProxy = new BlockProxy(relative, cuboid);
-					Block oldBlock = oldProxy.getBlock();
-					Block newBlock = newProxy.getBlock();
-					
-					// We will check whether or not the block type can be replaced to determine if something was placed or broken.
-					boolean canOldBeReplaced = _environment.blocks.canBeReplaced(oldBlock);
-					boolean canNewBeReplaced = _environment.blocks.canBeReplaced(newBlock);
-					if (canOldBeReplaced && !canNewBeReplaced)
-					{
-						// Placed a block.
-						_playSound(_placeBlock, entityLocation, absolute, distanceSquared);
-					}
-					else if (!canOldBeReplaced && canNewBeReplaced)
-					{
-						// Break a block.
-						_playSound(_breakBlock, entityLocation, absolute, distanceSquared);
-					}
-				}
-			}
-		}
-		_cuboids.put(address, cuboid);
-	}
-
-	public void removeCuboid(CuboidAddress address)
-	{
-		_cuboids.remove(address);
+		Assert.assertTrue(null != other);
 	}
 
 	public void tickCompleted()
@@ -289,6 +170,45 @@ public class AudioManager
 		}
 	}
 
+	public void blockBroken(AbsoluteLocation location)
+	{
+		_playSoundIfInRange(location, _breakBlock);
+	}
+
+	public void blockPlaced(AbsoluteLocation location)
+	{
+		_playSoundIfInRange(location, _placeBlock);
+	}
+
+	public void entityHurt(AbsoluteLocation location, int entityTargetId)
+	{
+		Sound soundToPlay;
+		if (_projectedEntity.id() == entityTargetId)
+		{
+			soundToPlay = _takeDamage;
+		}
+		else
+		{
+			soundToPlay = _selectSoundForEntity(entityTargetId, _orcInjury, _cowInjury, _takeDamage);
+		}
+		_playSoundIfInRange(location, soundToPlay);
+	}
+
+	public void entityKilled(AbsoluteLocation location, int entityTargetId)
+	{
+		// Entities don't have special death sounds so just play injury.
+		Sound soundToPlay;
+		if (_projectedEntity.id() == entityTargetId)
+		{
+			soundToPlay = _takeDamage;
+		}
+		else
+		{
+			soundToPlay = _selectSoundForEntity(entityTargetId, _orcDeath, _cowDeath, _takeDamage);
+		}
+		_playSoundIfInRange(location, soundToPlay);
+	}
+
 
 	private int _squaredDistance(AbsoluteLocation entityLocation, AbsoluteLocation blockLocation)
 	{
@@ -307,6 +227,37 @@ public class AudioManager
 		float volume = closeness / (AUDIO_RANGE_SQUARED_FLOAT);
 		float pan = (float)(otherLocation.x() - entityLocation.x()) / AUDIO_RANGE_FLOAT;
 		soundToPlay.play(volume, 1.0f, pan);
+	}
+
+	private Sound _selectSoundForEntity(int entityTargetId, Sound orc, Sound cow, Sound player)
+	{
+		Sound soundToPlay;
+		switch(_otherEntities.get(entityTargetId).type())
+		{
+		case ORC:
+			soundToPlay = orc;
+			break;
+		case COW:
+			soundToPlay = cow;
+			break;
+		case PLAYER:
+			soundToPlay = player;
+			break;
+			default:
+				// This would be an unkonwn type.
+				throw Assert.unreachable();
+		}
+		return soundToPlay;
+	}
+
+	private void _playSoundIfInRange(AbsoluteLocation location, Sound soundToPlay)
+	{
+		AbsoluteLocation entityLocation = _projectedEntity.location().getBlockLocation();
+		int distanceSquared = _squaredDistance(entityLocation, location);
+		if (distanceSquared <= AUDIO_RANGE_SQUARED)
+		{
+			_playSound(soundToPlay, entityLocation, location, distanceSquared);
+		}
 	}
 
 

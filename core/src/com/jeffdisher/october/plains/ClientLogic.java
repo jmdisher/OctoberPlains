@@ -87,6 +87,7 @@ public class ClientLogic
 	private final Consumer<CuboidAddress> _removedCuboidConsumer;
 	private final LongConsumer _tickNumberConsumer;
 	private final Consumer<ConfigUpdate> _configConsumer;
+	private final Consumer<EventRecord> _eventConsumer;
 
 	private final ResourceLoader _loader;
 	private final WorldConfig _config;
@@ -109,6 +110,7 @@ public class ClientLogic
 			, Consumer<CuboidAddress> removedCuboidConsumer
 			, LongConsumer tickNumberConsumer
 			, Consumer<ConfigUpdate> configConsumer
+			, Consumer<EventRecord> eventConsumer
 			, String clientName
 			, InetSocketAddress serverAddress
 	)
@@ -121,6 +123,7 @@ public class ClientLogic
 		_removedCuboidConsumer = removedCuboidConsumer;
 		_tickNumberConsumer = tickNumberConsumer;
 		_configConsumer = configConsumer;
+		_eventConsumer = eventConsumer;
 		
 		try
 		{
@@ -683,7 +686,7 @@ public class ClientLogic
 		@Override
 		public void handleEvent(EventRecord event)
 		{
-			// TODO:  Hook this into the audio layer.
+			_eventConsumer.accept(event);
 		}
 		@Override
 		public void configUpdated(int ticksPerDay, int dayStartTick)
