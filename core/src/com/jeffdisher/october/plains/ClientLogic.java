@@ -13,6 +13,7 @@ import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.function.LongConsumer;
 
+import com.jeffdisher.october.aspects.Aspect;
 import com.jeffdisher.october.aspects.AspectRegistry;
 import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.data.BlockProxy;
@@ -55,6 +56,7 @@ import com.jeffdisher.october.types.Entity;
 import com.jeffdisher.october.types.EntityConstants;
 import com.jeffdisher.october.types.EntityLocation;
 import com.jeffdisher.october.types.EntityType;
+import com.jeffdisher.october.types.EventRecord;
 import com.jeffdisher.october.types.FuelState;
 import com.jeffdisher.october.types.IMutablePlayerEntity;
 import com.jeffdisher.october.types.Inventory;
@@ -618,7 +620,11 @@ public class ClientLogic
 			_assignedLocalEntityId = assignedLocalEntityId;
 		}
 		@Override
-		public void cuboidDidChange(IReadOnlyCuboidData cuboid, ColumnHeightMap heightMap, Set<BlockAddress> changedBlocks)
+		public void cuboidDidChange(IReadOnlyCuboidData cuboid
+				, ColumnHeightMap heightMap
+				, Set<BlockAddress> changedBlocks
+				, Set<Aspect<?, ?>> changedAspects
+		)
 		{
 			_cuboids.put(cuboid.getCuboidAddress(), cuboid);
 			Assert.assertTrue(!changedBlocks.isEmpty());
@@ -673,6 +679,11 @@ public class ClientLogic
 		public void tickDidComplete(long tickNumber)
 		{
 			_tickNumberConsumer.accept(tickNumber);
+		}
+		@Override
+		public void handleEvent(EventRecord event)
+		{
+			// TODO:  Hook this into the audio layer.
 		}
 		@Override
 		public void configUpdated(int ticksPerDay, int dayStartTick)

@@ -58,6 +58,6 @@ project(":core") {
 
     dependencies {
         api "com.badlogicgames.gdx:gdx:$gdxVersion"
-        implementation 'com.jeffdisher.october:october-integration:1.1'
+        implementation 'com.jeffdisher.october:october-integration:1.2'
     }
 }
