@@ -9,6 +9,7 @@ import com.badlogic.gdx.audio.Sound;
 import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.Entity;
+import com.jeffdisher.october.types.EntityType;
 import com.jeffdisher.october.types.PartialEntity;
 import com.jeffdisher.october.utils.Assert;
 
@@ -51,6 +52,9 @@ public class AudioManager
 	}
 
 	private final Random _random;
+	private final EntityType _player;
+	private final EntityType _cow;
+	private final EntityType _orc;
 	private final Sound _walk;
 	private final Sound _takeDamage;
 	private final Sound _breakBlock;
@@ -81,6 +85,9 @@ public class AudioManager
 	)
 	{
 		_random = new Random();
+		_player = environment.creatures.PLAYER;
+		_cow = environment.creatures.getTypeById("op.cow");
+		_orc = environment.creatures.getTypeById("op.orc");
 		_walk = walk;
 		_takeDamage = takeDamage;
 		_breakBlock = breakBlock;
@@ -123,17 +130,15 @@ public class AudioManager
 		for (PartialEntity other : _otherEntities.values())
 		{
 			// We only care abut orcs and cows.
-			Sound soundToPlay;
-			switch(other.type())
+			Sound soundToPlay = null;
+			EntityType type = other.type();
+			if (_cow == type)
 			{
-			case ORC:
-				soundToPlay = _orcIdle;
-				break;
-			case COW:
 				soundToPlay = _cowIdle;
-				break;
-				default:
-					soundToPlay = null;
+			}
+			else if (_orc == type)
+			{
+				soundToPlay = _orcIdle;
 			}
 			if (null != soundToPlay)
 			{
@@ -232,20 +237,23 @@ public class AudioManager
 	private Sound _selectSoundForEntity(int entityTargetId, Sound orc, Sound cow, Sound player)
 	{
 		Sound soundToPlay;
-		switch(_otherEntities.get(entityTargetId).type())
+		EntityType type = _otherEntities.get(entityTargetId).type();
+		if (_cow == type)
 		{
-		case ORC:
-			soundToPlay = orc;
-			break;
-		case COW:
 			soundToPlay = cow;
-			break;
-		case PLAYER:
+		}
+		else if (_orc == type)
+		{
+			soundToPlay = orc;
+		}
+		else if (_player == type)
+		{
 			soundToPlay = player;
-			break;
-			default:
-				// This would be an unkonwn type.
-				throw Assert.unreachable();
+		}
+		else
+		{
+			// This would be an unkonwn type.
+			throw Assert.unreachable();
 		}
 		return soundToPlay;
 	}

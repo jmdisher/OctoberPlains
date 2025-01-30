@@ -15,7 +15,6 @@ import com.jeffdisher.october.data.IReadOnlyCuboidData;
 import com.jeffdisher.october.types.AbsoluteLocation;
 import com.jeffdisher.october.types.BlockAddress;
 import com.jeffdisher.october.types.CuboidAddress;
-import com.jeffdisher.october.types.EntityConstants;
 import com.jeffdisher.october.types.EntityLocation;
 import com.jeffdisher.october.types.EntityType;
 import com.jeffdisher.october.types.EntityVolume;
@@ -41,6 +40,7 @@ public class RenderSupport
 	// -vertex shader will move the rendering location by x/y uniform and pass through the texture u/v coordinates attribute
 	// -fragment shader will sample the referenced texture coordinates and apply an alpha value
 	// These shaders will be used for both rendering the layers and also the entities, just using different uniforms.
+	private final Environment _environment;
 	private final GL20 _gl;
 	private final TextureAtlas _textureAtlas;
 	private final LayerManager _layerManager;
@@ -65,6 +65,7 @@ public class RenderSupport
 
 	public RenderSupport(Environment environment, GL20 gl, TextureAtlas textureAtlas)
 	{
+		_environment = environment;
 		_gl = gl;
 		_textureAtlas = textureAtlas;
 		_layerManager = new LayerManager(environment, gl, textureAtlas);
@@ -132,10 +133,14 @@ public class RenderSupport
 		_uColourBias = _gl.glGetUniformLocation(_program, "uColourBias");
 		
 		// Define the entity mesh and texture for each entity type (in the future, we should probably avoid so many small representations).
-		_entityBuffers = new int[EntityType.values().length];
-		for (EntityType type : EntityType.values())
+		_entityBuffers = new int[environment.creatures.ENTITY_BY_NUMBER.length];
+		for (EntityType type : environment.creatures.ENTITY_BY_NUMBER)
 		{
-			_entityBuffers[type.ordinal()] = _defineEntityBuffer(environment, _gl, _textureAtlas, type);
+			// Note that the first entry is null, for historical reasons.
+			if (null != type)
+			{
+				_entityBuffers[type.number()] = _defineEntityBuffer(environment, _gl, _textureAtlas, type);
+			}
 		}
 		
 		// Define the layer mesh.
@@ -251,7 +256,7 @@ public class RenderSupport
 			if (0 == zOffset)
 			{
 				// Draw the entity.
-				_drawEntity(0.0f, 0.0f, EntityConstants.VOLUME_PLAYER.width(), EntityType.PLAYER);
+				_drawEntity(0.0f, 0.0f, _environment.creatures.PLAYER.volume().width(), _environment.creatures.PLAYER);
 			}
 			
 			// See if there are any other entities at this z-level (we should organize this differently, or pre-sort it, in the future).
@@ -265,7 +270,7 @@ public class RenderSupport
 					// Figure out the offset.
 					float xOffset = TILE_EDGE_SIZE * (location.x() - _projectedEntityLocation.x());
 					float yOffset = TILE_EDGE_SIZE * (location.y() - _projectedEntityLocation.y());
-					EntityVolume volume = EntityConstants.getVolume(otherEntity.type());
+					EntityVolume volume = otherEntity.type().volume();
 					float scale = volume.width();
 					
 					// See if this is the entity under the mouse.
@@ -513,7 +518,7 @@ public class RenderSupport
 		_gl.glUniform1i(_uTexture1, 1);
 		_gl.glUniform2f(_uOffset, xOffset, yOffset);
 		_gl.glUniform1f(_uScale, scale);
-		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _entityBuffers[type.ordinal()]);
+		_gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, _entityBuffers[type.number()]);
 		_gl.glEnableVertexAttribArray(0);
 		_gl.glVertexAttribPointer(0, 2, GL20.GL_FLOAT, false, 8 * Float.BYTES, 0);
 		_gl.glEnableVertexAttribArray(1);

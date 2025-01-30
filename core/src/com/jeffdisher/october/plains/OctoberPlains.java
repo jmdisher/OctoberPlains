@@ -2,8 +2,10 @@ package com.jeffdisher.october.plains;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
@@ -64,11 +66,14 @@ public class OctoberPlains extends ApplicationAdapter
 		{
 			// Load the textures.
 			// These are resolved by index so they must be loaded in the same order as the item registry.
-			_textureAtlas = TextureAtlas.loadAtlas(gl, _environment.items.ITEMS_BY_TYPE
-				, Map.of(EntityType.PLAYER, "entity_player.png"
-						, EntityType.COW, "entity_cow.png"
-						, EntityType.ORC, "entity_orc.png"
-				)
+			Map<EntityType, String> entityNameMap = Arrays.stream(_environment.creatures.ENTITY_BY_NUMBER)
+					// Note that the first entry is null, for historical reasons.
+					.filter((EntityType type) -> (null != type))
+					.collect(Collectors.toMap((EntityType type) -> type, (EntityType type) -> "entity_" + type.name().toLowerCase() + ".png"))
+			;
+			
+			_textureAtlas = TextureAtlas.loadAtlas(_environment, gl, _environment.items.ITEMS_BY_TYPE
+				, entityNameMap
 				, Map.of(TextureAtlas.Auxiliary.NONE, "op.air.png"
 						, TextureAtlas.Auxiliary.DEBRIS, "debris.png"
 						, TextureAtlas.Auxiliary.BREAK_LIGHT, "break1.png"

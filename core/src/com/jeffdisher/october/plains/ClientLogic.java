@@ -53,9 +53,8 @@ import com.jeffdisher.october.types.Craft;
 import com.jeffdisher.october.types.CreativeInventory;
 import com.jeffdisher.october.types.CuboidAddress;
 import com.jeffdisher.october.types.Entity;
-import com.jeffdisher.october.types.EntityConstants;
 import com.jeffdisher.october.types.EntityLocation;
-import com.jeffdisher.october.types.EntityType;
+import com.jeffdisher.october.types.EntityVolume;
 import com.jeffdisher.october.types.EventRecord;
 import com.jeffdisher.october.types.FuelState;
 import com.jeffdisher.october.types.IMutablePlayerEntity;
@@ -80,6 +79,7 @@ public class ClientLogic
 	public static final double FACING_THRESHOLD = 0.3f;
 
 	private final Environment _environment;
+	private final EntityVolume _playerVolume;
 	private final BiConsumer<Entity, Entity> _thisEntityConsumer;
 	private final Consumer<PartialEntity> _otherEntityConsumer;
 	private final IntConsumer _unloadEntityConsumer;
@@ -116,6 +116,7 @@ public class ClientLogic
 	)
 	{
 		_environment = environment;
+		_playerVolume = environment.creatures.PLAYER.volume();
 		_thisEntityConsumer = thisEntityConsumer;
 		_otherEntityConsumer = otherEntityConsumer;
 		_unloadEntityConsumer = unloadEntityConsumer;
@@ -241,7 +242,7 @@ public class ClientLogic
 			
 			if (EntityChangeJump.canJump(previousBlockLookUp
 					, location
-					, EntityConstants.getVolume(EntityType.PLAYER)
+					, _playerVolume
 					, vector
 			))
 			{

@@ -17,6 +17,7 @@ import com.jeffdisher.october.types.Craft;
 import com.jeffdisher.october.types.CraftOperation;
 import com.jeffdisher.october.types.CreativeInventory;
 import com.jeffdisher.october.types.Entity;
+import com.jeffdisher.october.types.EntityVolume;
 import com.jeffdisher.october.types.FuelState;
 import com.jeffdisher.october.types.Inventory;
 import com.jeffdisher.october.types.Item;
@@ -45,6 +46,7 @@ public class WindowManager
 	public static final _WindowDimensions WINDOW_BOTTOM = new _WindowDimensions(-0.95f, -0.80f, 0.95f, -0.05f, 0.1f, 0.05f);
 
 	private final Environment _environment;
+	private final EntityVolume _playerVolume;
 	private final GL20 _gl;
 	private final TextureAtlas _atlas;
 	private final Function<AbsoluteLocation, BlockProxy> _blockLoader;
@@ -74,6 +76,7 @@ public class WindowManager
 	public WindowManager(Environment environment, GL20 gl, TextureAtlas atlas, Function<AbsoluteLocation, BlockProxy> blockLoader)
 	{
 		_environment = environment;
+		_playerVolume = environment.creatures.PLAYER.volume();
 		_gl = gl;
 		_atlas = atlas;
 		_blockLoader = blockLoader;
@@ -442,7 +445,7 @@ public class WindowManager
 		}
 		
 		// Now, draw the main inventory.
-		AbsoluteLocation location = (null != _mode.selectedStation) ? _mode.selectedStation : GeometryHelpers.getCentreAtFeet(_entity);
+		AbsoluteLocation location = (null != _mode.selectedStation) ? _mode.selectedStation : GeometryHelpers.getCentreAtFeet(_entity, _playerVolume);
 		ValueRenderer.DrawInventoryItem drawHelper = (Item selectedItem, int count, float left, float bottom, float scale, boolean shouldHighlight, int durability) ->
 		{
 			float progress = NO_PROGRESS;
@@ -465,7 +468,7 @@ public class WindowManager
 
 	private _MouseOver<Integer> _drawBlockInventory(ClientLogic client, Inventory blockInventory, String inventoryName, float glX, float glY)
 	{
-		AbsoluteLocation location = (null != _mode.selectedStation) ? _mode.selectedStation : GeometryHelpers.getCentreAtFeet(_entity);
+		AbsoluteLocation location = (null != _mode.selectedStation) ? _mode.selectedStation : GeometryHelpers.getCentreAtFeet(_entity, _playerVolume);
 		ValueRenderer.DrawInventoryItem drawHelper = (Item selectedItem, int count, float left, float bottom, float scale, boolean shouldHighlight, int durability) ->
 		{
 			float progress = NO_PROGRESS;
@@ -680,7 +683,7 @@ public class WindowManager
 
 	private Inventory _feetBlockInventory()
 	{
-		AbsoluteLocation block = GeometryHelpers.getCentreAtFeet(_entity);
+		AbsoluteLocation block = GeometryHelpers.getCentreAtFeet(_entity, _playerVolume);
 		BlockProxy proxy = _blockLoader.apply(block);
 		// Be wary that this may not yet be loaded.
 		return (null != proxy)

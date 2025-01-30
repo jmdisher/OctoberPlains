@@ -12,6 +12,7 @@ import javax.imageio.ImageIO;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.GL20;
+import com.jeffdisher.october.aspects.Environment;
 import com.jeffdisher.october.types.EntityType;
 import com.jeffdisher.october.types.Item;
 import com.jeffdisher.october.utils.Assert;
@@ -37,7 +38,8 @@ public class TextureAtlas
 		ACTIVE_STATION,
 	};
 
-	public static TextureAtlas loadAtlas(GL20 gl
+	public static TextureAtlas loadAtlas(Environment environment
+			, GL20 gl
 			, Item[] tileItems
 			, Map<EntityType, String> entityNameMap
 			, Map<Auxiliary, String> auxiliaryNameMap
@@ -57,12 +59,16 @@ public class TextureAtlas
 		int tileTexturesPerRow = _texturesPerRow(primaryNames.length);
 		int tileTexture = _createTextureAtlas(gl, primaryNames, missingTextureName, tileTexturesPerRow, eachTextureEdge);
 		
-		String[] entityNames = new String[EntityType.values().length];
-		for (EntityType type : EntityType.values())
+		String[] entityNames = new String[environment.creatures.ENTITY_BY_NUMBER.length];
+		for (EntityType type : environment.creatures.ENTITY_BY_NUMBER)
 		{
-			String typeName = entityNameMap.get(type);
-			// It is possible that we didn't find this if it is new or just an error value so let this fall through.
-			entityNames[type.ordinal()] = typeName;
+			// Note that the first entry is null, for historical reasons.
+			if (null != type)
+			{
+				String typeName = entityNameMap.get(type);
+				// It is possible that we didn't find this if it is new or just an error value so let this fall through.
+				entityNames[type.number()] = typeName;
+			}
 		}
 		int entityTexturesPerRow = _texturesPerRow(entityNames.length);
 		int entityTexture = _createTextureAtlas(gl, entityNames, missingTextureName, entityTexturesPerRow, eachTextureEdge);
@@ -240,7 +246,7 @@ public class TextureAtlas
 	public float[] baseOfEntityTexture(EntityType entityType)
 	{
 		// TODO:  Change this once we have the textures for entity types.
-		int index = entityType.ordinal();
+		int index = entityType.number();
 		int row = index / _entityTexturesPerRow;
 		int column = index % _entityTexturesPerRow;
 		float u = this.entityCoordinateSize * (float)column;
